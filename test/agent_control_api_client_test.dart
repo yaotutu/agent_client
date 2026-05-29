@@ -176,33 +176,10 @@ void main() {
     ]);
   });
 
-  test('explains browser network failures as likely CORS/config issues', () {
-    final dio = Dio(BaseOptions(baseUrl: 'http://192.168.123.116:9800'))
-      ..httpClientAdapter = _ThrowingAdapter(DioExceptionType.connectionError);
-    final api = AgentControlApiClient(dio: dio, isWeb: true);
-
-    expect(
-      api.listAgents,
-      throwsA(
-        isA<AgentControlApiException>()
-            .having(
-              (error) => error.message,
-              'message',
-              contains('http://192.168.123.116:9800 must enable CORS'),
-            )
-            .having(
-              (error) => error.message,
-              'message',
-              contains('Original error: fetch failed'),
-            ),
-      ),
-    );
-  });
-
   test('explains native network failures as unreachable backend', () {
     final dio = Dio(BaseOptions(baseUrl: 'http://192.168.123.116:9800'))
       ..httpClientAdapter = _ThrowingAdapter(DioExceptionType.connectionError);
-    final api = AgentControlApiClient(dio: dio, isWeb: false);
+    final api = AgentControlApiClient(dio: dio);
 
     expect(
       api.listAgents,
@@ -216,7 +193,7 @@ void main() {
             .having(
               (error) => error.message,
               'message',
-              isNot(contains('CORS')),
+              contains('Original error: fetch failed'),
             ),
       ),
     );

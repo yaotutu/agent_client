@@ -41,14 +41,24 @@ distinguish backend identity from display identity without changing UI models.
 
 ## Configuration
 
-Set the backend URL at build/run time:
+By default, the app connects to the bundled Agent Control endpoint configured in
+`lib/core/config/app_config.dart` and uses the bundled API key.
 
 ```sh
-flutter run --dart-define=AGENT_API_BASE_URL=http://127.0.0.1:9800
+flutter run
 ```
 
-If no value is supplied, the app uses the default in
-`lib/core/config/app_config.dart`.
+The same server URL and API key can be changed from the in-app Settings page.
+Override them at launch only when you need a temporary build/run value:
+
+```sh
+flutter run \
+  --dart-define=AGENT_API_BASE_URL=http://127.0.0.1:9800 \
+  --dart-define=AGENT_API_KEY=your-api-key
+```
+
+Authenticated Agent Control endpoints require an API key; `/health` is the only
+unauthenticated endpoint.
 
 ## Development
 

@@ -1,31 +1,33 @@
 import 'package:flutter/material.dart';
 
+import 'app_theme_tokens.dart';
+
 ThemeData buildAppTheme() {
-  const seed = Color(0xFF256D85);
+  const seed = AppThemeTokens.brand;
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(seedColor: seed),
-    scaffoldBackgroundColor: const Color(0xFFF7F8FA),
+    scaffoldBackgroundColor: AppThemeTokens.workspace,
     tabBarTheme: const TabBarThemeData(
       dividerHeight: 0,
-      labelColor: Color(0xFF101828),
-      unselectedLabelColor: Color(0xFF667085),
+      labelColor: AppThemeTokens.text,
+      unselectedLabelColor: AppThemeTokens.mutedText,
       indicatorSize: TabBarIndicatorSize.label,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: AppThemeTokens.panel,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFD0D5DD)),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        borderSide: const BorderSide(color: AppThemeTokens.strongBorder),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFD0D5DD)),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        borderSide: const BorderSide(color: AppThemeTokens.strongBorder),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
         borderSide: const BorderSide(color: seed, width: 1.4),
       ),
     ),

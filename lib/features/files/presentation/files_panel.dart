@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/files/application/agent_files_provider.dart';
 import 'package:agent_client/features/files/data/agent_resources_repository.dart';
 import 'package:agent_client/features/files/domain/agent_file_item.dart';
@@ -46,7 +47,7 @@ class FilesPanel extends HookConsumerWidget {
     }
 
     return ColoredBox(
-      color: const Color(0xFFF7F8FA),
+      color: AppThemeTokens.workspace,
       child: Column(
         children: [
           _FilesToolbar(
@@ -105,8 +106,8 @@ class _FilesToolbar extends StatelessWidget {
     return Container(
       height: 56,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E7EC))),
+        color: AppThemeTokens.panel,
+        border: Border(bottom: BorderSide(color: AppThemeTokens.border)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
@@ -146,7 +147,7 @@ class _EmptyDirectory extends StatelessWidget {
     return const Center(
       child: Text(
         'This folder is empty',
-        style: TextStyle(color: Color(0xFF667085)),
+        style: TextStyle(color: AppThemeTokens.mutedText),
       ),
     );
   }
@@ -174,17 +175,17 @@ class _FileRow extends StatelessWidget {
         : null;
 
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
+      color: AppThemeTokens.panel,
+      borderRadius: BorderRadius.circular(AppThemeTokens.radius),
       child: InkWell(
         key: Key('agent-file-row-${file.path}'),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE4E7EC)),
-            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppThemeTokens.border),
+            borderRadius: BorderRadius.circular(AppThemeTokens.radius),
           ),
           child: Row(
             children: [
@@ -193,12 +194,9 @@ class _FileRow extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   color: const Color(0xFFEAF3F5),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppThemeTokens.radius),
                 ),
-                child: Icon(
-                  _iconFor(file.kind),
-                  color: const Color(0xFF256D85),
-                ),
+                child: Icon(_iconFor(file.kind), color: AppThemeTokens.brand),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -231,7 +229,7 @@ class _FileRow extends StatelessWidget {
                 ),
               ),
               if (isDirectory)
-                const Icon(Icons.chevron_right, color: Color(0xFF667085))
+                const Icon(Icons.chevron_right, color: AppThemeTokens.mutedText)
               else
                 IconButton(
                   key: Key('agent-file-edit-${file.path}'),
@@ -340,8 +338,10 @@ class _FileEditorDialog extends HookConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFE4E7EC)),
-                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppThemeTokens.border),
+                      borderRadius: BorderRadius.circular(
+                        AppThemeTokens.radius,
+                      ),
                     ),
                     child: TextField(
                       key: const Key('agent-file-editor-field'),
@@ -379,7 +379,7 @@ class _FileEditorDialog extends HookConsumerWidget {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Unable to save file: ${saveError.value}',
-                    style: const TextStyle(color: Color(0xFFB42318)),
+                    style: const TextStyle(color: AppThemeTokens.dangerText),
                   ),
                 ),
               ),
@@ -433,7 +433,7 @@ class _FileEditorHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
       child: Row(
         children: [
-          const Icon(Icons.edit_document, color: Color(0xFF256D85)),
+          const Icon(Icons.edit_document, color: AppThemeTokens.brand),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -466,7 +466,7 @@ class _MetaText extends StatelessWidget {
       text,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(color: Color(0xFF667085), fontSize: 13),
+      style: const TextStyle(color: AppThemeTokens.mutedText, fontSize: 13),
     );
   }
 }
@@ -478,7 +478,7 @@ class _MetaDot extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Text(
       '·',
-      style: TextStyle(color: Color(0xFF98A2B3), fontSize: 13),
+      style: TextStyle(color: AppThemeTokens.subtleText, fontSize: 13),
     );
   }
 }

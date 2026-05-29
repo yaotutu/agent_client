@@ -1,3 +1,4 @@
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';
 import 'package:agent_client/features/chat/presentation/widgets/chat_attachment_block.dart';
 import 'package:flutter/material.dart';
@@ -11,8 +12,8 @@ class ChatMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = message.role == ChatRole.user;
-    final color = user ? const Color(0xFF256D85) : Colors.white;
-    final textColor = user ? Colors.white : const Color(0xFF101828);
+    final color = user ? AppThemeTokens.brand : AppThemeTokens.panel;
+    final textColor = user ? Colors.white : AppThemeTokens.text;
     final hasContent = message.content.trim().isNotEmpty;
     final hasAttachments = message.attachments.isNotEmpty;
     final placeholder = _placeholder();
@@ -21,13 +22,13 @@ class ChatMessageBubble extends StatelessWidget {
       alignment: user ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         width: hasAttachments ? double.infinity : null,
-        constraints: const BoxConstraints(maxWidth: 680),
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: const BoxConstraints(maxWidth: 760),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(8),
-          border: user ? null : Border.all(color: const Color(0xFFE4E7EC)),
+          border: user ? null : Border.all(color: AppThemeTokens.border),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -71,7 +72,7 @@ class ChatMessageBubble extends StatelessWidget {
   }
 
   MarkdownStyleSheet _markdownStyleSheet(Color textColor, bool user) {
-    final mutedText = user ? Colors.white70 : const Color(0xFF667085);
+    final mutedText = user ? Colors.white70 : AppThemeTokens.mutedText;
     final codeBackground = user
         ? const Color(0x33256D85)
         : const Color(0xFFF2F4F7);
@@ -96,7 +97,7 @@ class ChatMessageBubble extends StatelessWidget {
       strong: TextStyle(color: textColor, fontWeight: FontWeight.w700),
       em: TextStyle(color: textColor, fontStyle: FontStyle.italic),
       a: TextStyle(
-        color: user ? Colors.white : const Color(0xFF256D85),
+        color: user ? Colors.white : AppThemeTokens.brand,
         decoration: TextDecoration.underline,
       ),
       blockquote: TextStyle(color: mutedText, height: 1.35),
@@ -142,15 +143,19 @@ class _MessagePlaceholder extends StatelessWidget {
             height: 14,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: Color(0xFF256D85),
+              color: AppThemeTokens.brand,
             ),
           )
         else
-          const Icon(Icons.info_outline, size: 16, color: Color(0xFF667085)),
+          const Icon(
+            Icons.info_outline,
+            size: 16,
+            color: AppThemeTokens.mutedText,
+          ),
         const SizedBox(width: 8),
         Text(
           text,
-          style: const TextStyle(color: Color(0xFF667085), fontSize: 13),
+          style: const TextStyle(color: AppThemeTokens.mutedText, fontSize: 13),
         ),
       ],
     );

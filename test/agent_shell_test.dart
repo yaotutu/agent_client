@@ -1,4 +1,5 @@
 import 'package:agent_client/app/agent_client_app.dart';
+import 'package:agent_client/core/config/app_config.dart';
 import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
 import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
 import 'package:agent_client/features/agents/application/agent_controller.dart';
@@ -31,6 +32,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appConfigStoreProvider.overrideWithValue(_MemoryAppConfigStore()),
           agentsProvider.overrideWith((ref) async => _agents),
           agentChatRepositoryProvider.overrideWithValue(
             _FakeAgentChatRepository(),
@@ -78,6 +80,7 @@ void main() {
     await pumpAppAtSize(tester, const Size(390, 844));
 
     expect(find.byKey(const Key('agent-chat-tab')), findsOneWidget);
+    expect(find.byKey(const Key('agent-settings-tab')), findsNothing);
     expect(
       find.descendant(
         of: find.byKey(const Key('current-agent-title')),
@@ -145,7 +148,7 @@ void main() {
     expect(find.byKey(const Key('chat-input-bar')), findsOneWidget);
   });
 
-  testWidgets('phone chat switches conversations from a bottom sheet', (
+  testWidgets('phone chat switches conversations from a dialog', (
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(390, 844));
@@ -155,10 +158,25 @@ void main() {
     expect(find.byKey(const Key('chat-session-switch-button')), findsOneWidget);
     expect(find.text('Backend layout review'), findsNothing);
 
+    final inputBarRect = tester.getRect(
+      find.byKey(const Key('chat-input-bar')),
+    );
+    final switchButtonRect = tester.getRect(
+      find.byKey(const Key('chat-session-switch-button')),
+    );
+    final messageFieldRect = tester.getRect(find.byType(TextField).first);
+    expect(switchButtonRect.left, lessThan(messageFieldRect.left));
+    expect(
+      switchButtonRect.bottom,
+      lessThanOrEqualTo(inputBarRect.bottom + 0.1),
+    );
+
     await tester.tap(find.byKey(const Key('chat-session-switch-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('chat-session-sheet')), findsOneWidget);
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byKey(const Key('chat-session-dialog')), findsOneWidget);
     expect(find.text('Conversations'), findsOneWidget);
     expect(find.text('Backend flaky test'), findsOneWidget);
 
@@ -169,18 +187,20 @@ void main() {
       find.text('The failing test is tied to session restore.'),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('chat-session-sheet')), findsNothing);
+    expect(find.byKey(const Key('chat-session-dialog')), findsNothing);
   });
 
-  testWidgets('phone conversation sheet creates a new session', (tester) async {
+  testWidgets('phone conversation dialog creates a new session', (
+    tester,
+  ) async {
     await pumpAppAtSize(tester, const Size(390, 844));
 
     await tester.tap(find.byKey(const Key('chat-session-switch-button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('chat-session-sheet-new-button')));
+    await tester.tap(find.byKey(const Key('chat-session-dialog-new-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('chat-session-sheet')), findsNothing);
+    expect(find.byKey(const Key('chat-session-dialog')), findsNothing);
     expect(find.text('Start a chat'), findsOneWidget);
   });
 
@@ -263,11 +283,16 @@ void main() {
   ) async {
     await pumpAppAtSize(tester, const Size(1200, 800));
 
-    expect(find.byKey(const Key('chat-session-rail')), findsOneWidget);
-    expect(find.text('Conversations'), findsOneWidget);
-    expect(find.text('Backend layout review'), findsOneWidget);
-    expect(find.text('Backend flaky test'), findsOneWidget);
+    expect(find.byKey(const Key('agent-side-rail')), findsOneWidget);
+    expect(find.byKey(const Key('chat-session-rail')), findsNothing);
+    expect(find.byKey(const Key('chat-session-picker-button')), findsNothing);
+    expect(find.byKey(const Key('chat-session-switch-button')), findsOneWidget);
+    expect(find.text('Backend layout review'), findsNothing);
 
+    await tester.tap(find.byKey(const Key('chat-session-switch-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Conversations'), findsOneWidget);
+    expect(find.text('Backend flaky test'), findsOneWidget);
     await tester.tap(find.byKey(const Key('chat-session-session-flaky-test')));
     await tester.pumpAndSettle();
 
@@ -278,19 +303,20 @@ void main() {
     expect(find.text('Review the mobile chat layout'), findsNothing);
   });
 
-  testWidgets('desktop conversation rail creates a backend session', (
+  testWidgets('desktop conversation dialog creates a backend session', (
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(1200, 800));
 
-    await tester.tap(find.byKey(const Key('chat-session-new-button')));
+    await tester.tap(find.byKey(const Key('chat-session-switch-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('chat-session-dialog-new-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('New chat'), findsOneWidget);
     expect(find.text('Start a chat'), findsOneWidget);
   });
 
-  testWidgets('desktop input switch button opens the session sheet', (
+  testWidgets('desktop conversation switch button opens the session dialog', (
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(1200, 800));
@@ -298,7 +324,9 @@ void main() {
     await tester.tap(find.byKey(const Key('chat-session-switch-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('chat-session-sheet')), findsOneWidget);
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byKey(const Key('chat-session-dialog')), findsOneWidget);
     expect(find.text('Backend layout review'), findsWidgets);
   });
 
@@ -331,16 +359,20 @@ void main() {
     expect(find.textContaining('Unable to load agent'), findsNothing);
   });
 
-  testWidgets('tablet layout removes the agent title above chat', (
+  testWidgets('tablet layout uses compact agent rail and no session rail', (
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(768, 1024));
 
-    expect(find.byKey(const Key('agent-side-rail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-compact-rail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-side-rail')), findsNothing);
     expect(find.byKey(const Key('agent-navigation-button')), findsNothing);
-    expect(find.byKey(const Key('current-agent-title')), findsNothing);
+    expect(find.byKey(const Key('current-agent-title')), findsOneWidget);
     expect(find.text('nanobot'), findsOneWidget);
     expect(find.byKey(const Key('agent-tab-bar')), findsOneWidget);
+    expect(find.byKey(const Key('chat-session-rail')), findsNothing);
+    expect(find.byKey(const Key('chat-session-picker-button')), findsNothing);
+    expect(find.byKey(const Key('chat-session-switch-button')), findsOneWidget);
     expect(find.byKey(const Key('chat-message-list')), findsOneWidget);
   });
 
@@ -381,6 +413,80 @@ void main() {
     expect(find.byKey(const Key('agent-tasks-list')), findsOneWidget);
     expect(find.text('No active task'), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
+  });
+
+  testWidgets('global settings page edits backend URL and API key', (
+    tester,
+  ) async {
+    final store = _MemoryAppConfigStore();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigStoreProvider.overrideWithValue(store),
+          agentsProvider.overrideWith((ref) async => _agents),
+          agentChatRepositoryProvider.overrideWithValue(
+            _FakeAgentChatRepository(),
+          ),
+          chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
+          agentFilesProvider.overrideWith((ref, query) async => _files),
+          agentCommandsProvider.overrideWith((ref, agentId) async => const []),
+        ],
+        child: const AgentClientApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('agent-navigation-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('global-settings-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('agent-tab-bar')), findsNothing);
+    final baseUrlField = tester.widget<TextField>(
+      find.byKey(const Key('app-settings-base-url-field')),
+    );
+    final apiKeyField = tester.widget<TextField>(
+      find.byKey(const Key('app-settings-api-key-field')),
+    );
+    expect(baseUrlField.controller?.text, AppConfig.defaultApiBaseUrl);
+    expect(apiKeyField.controller?.text, AppConfig.defaultApiKey);
+
+    await tester.enterText(
+      find.byKey(const Key('app-settings-base-url-field')),
+      'http://10.0.0.2:9800/',
+    );
+    await tester.enterText(
+      find.byKey(const Key('app-settings-api-key-field')),
+      'edited-key',
+    );
+    await tester.tap(find.byKey(const Key('app-settings-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      store.saved,
+      const AppConfig(apiBaseUrl: 'http://10.0.0.2:9800', apiKey: 'edited-key'),
+    );
+    expect(find.text('Settings saved'), findsOneWidget);
+  });
+
+  testWidgets('desktop settings opens from the global side rail', (
+    tester,
+  ) async {
+    await pumpAppAtSize(tester, const Size(1200, 800));
+
+    expect(find.byKey(const Key('agent-settings-tab')), findsNothing);
+    expect(find.byKey(const Key('global-settings-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('global-settings-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('app-settings-page')), findsOneWidget);
+    expect(find.byKey(const Key('agent-tab-bar')), findsNothing);
   });
 
   testWidgets('files panel opens folders and saves edited files', (
@@ -703,4 +809,16 @@ class _FakeAgentChatRepository implements AgentChatRepository {
 
   @override
   Stream<ChatEvent> sendMessage(SendMessageRequest request) async* {}
+}
+
+class _MemoryAppConfigStore implements AppConfigStore {
+  AppConfig? saved;
+
+  @override
+  Future<AppConfig?> load() async => saved;
+
+  @override
+  Future<void> save(AppConfig config) async {
+    saved = config;
+  }
 }

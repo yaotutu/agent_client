@@ -1,3 +1,4 @@
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/tasks/application/agent_tasks_provider.dart';
 import 'package:agent_client/features/tasks/domain/agent_task_item.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +14,7 @@ class TasksPanel extends ConsumerWidget {
     final tasks = ref.watch(agentTasksProvider(agentId));
 
     return ColoredBox(
-      color: const Color(0xFFF7F8FA),
+      color: AppThemeTokens.workspace,
       child: ListView.separated(
         key: const Key('agent-tasks-list'),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -37,11 +38,11 @@ class _TaskRow extends StatelessWidget {
     final colors = _statusColors(task.status);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE4E7EC)),
-        borderRadius: BorderRadius.circular(8),
+        color: AppThemeTokens.panel,
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,7 +83,10 @@ class _TaskRow extends StatelessWidget {
                   task.detail,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Color(0xFF667085), height: 1.4),
+                  style: const TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -90,13 +94,13 @@ class _TaskRow extends StatelessWidget {
                     const Icon(
                       Icons.schedule_outlined,
                       size: 16,
-                      color: Color(0xFF667085),
+                      color: AppThemeTokens.mutedText,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       task.dueLabel,
                       style: const TextStyle(
-                        color: Color(0xFF667085),
+                        color: AppThemeTokens.mutedText,
                         fontSize: 13,
                       ),
                     ),
@@ -122,20 +126,20 @@ class _TaskRow extends StatelessWidget {
   (Color, Color) _statusColors(AgentTaskStatus status) {
     return switch (status) {
       AgentTaskStatus.todo => (
-        const Color(0xFF667085),
+        AppThemeTokens.mutedText,
         const Color(0xFFF2F4F7),
       ),
       AgentTaskStatus.inProgress => (
-        const Color(0xFF256D85),
-        const Color(0xFFEAF3F5),
+        AppThemeTokens.brand,
+        AppThemeTokens.brandSoft,
       ),
       AgentTaskStatus.blocked => (
-        const Color(0xFFB42318),
-        const Color(0xFFFFF1F3),
+        AppThemeTokens.dangerText,
+        AppThemeTokens.dangerSoft,
       ),
       AgentTaskStatus.done => (
-        const Color(0xFF027A48),
-        const Color(0xFFECFDF3),
+        AppThemeTokens.success,
+        AppThemeTokens.successSoft,
       ),
     };
   }

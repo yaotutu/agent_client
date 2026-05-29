@@ -1,3 +1,4 @@
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/chat/application/chat_controller.dart';
 import 'package:agent_client/features/chat/application/chat_sessions_controller.dart';
 import 'package:agent_client/features/chat/domain/chat_session.dart';
@@ -19,8 +20,8 @@ class ChatSessionRail extends ConsumerWidget {
       key: const Key('chat-session-rail'),
       width: 248,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: Color(0xFFE4E7EC))),
+        color: AppThemeTokens.panel,
+        border: Border(right: BorderSide(color: AppThemeTokens.border)),
       ),
       child: SafeArea(
         top: false,
@@ -120,10 +121,10 @@ class ChatSessionTile extends StatelessWidget {
       color: selected
           ? colorScheme.primary.withValues(alpha: 0.10)
           : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppThemeTokens.radius),
       child: InkWell(
         key: Key('chat-session-${session.id}'),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
@@ -149,7 +150,7 @@ class ChatSessionTile extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF101828),
+                              color: AppThemeTokens.text,
                             ),
                           ),
                         ),
@@ -158,7 +159,7 @@ class ChatSessionTile extends StatelessWidget {
                           session.updatedLabel,
                           style: const TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF667085),
+                            color: AppThemeTokens.mutedText,
                           ),
                         ),
                       ],
@@ -173,7 +174,7 @@ class ChatSessionTile extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 12,
                         height: 1.25,
-                        color: Color(0xFF667085),
+                        color: AppThemeTokens.mutedText,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -181,7 +182,7 @@ class ChatSessionTile extends StatelessWidget {
                       '${session.messageCount} messages',
                       style: const TextStyle(
                         fontSize: 11,
-                        color: Color(0xFF98A2B3),
+                        color: AppThemeTokens.subtleText,
                       ),
                     ),
                   ],

@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/chat/application/chat_controller.dart';
 import 'package:agent_client/features/chat/application/chat_sessions_controller.dart';
 import 'package:agent_client/features/chat/domain/chat_session.dart';
@@ -15,16 +18,16 @@ class ChatSessionPickerBar extends ConsumerWidget {
     final session = _selectedSession(ref, agentId);
 
     return Material(
-      color: Colors.white,
+      color: AppThemeTokens.panel,
       child: InkWell(
         key: const Key('chat-session-picker-button'),
-        onTap: () => showChatSessionSheet(context, agentId),
+        onTap: () => showChatSessionDialog(context, agentId),
         child: Container(
-          height: 48,
+          constraints: const BoxConstraints(minHeight: 48),
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFE4E7EC))),
+            border: Border(bottom: BorderSide(color: AppThemeTokens.border)),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           child: Row(
             children: [
               ChatSessionStatusDot(
@@ -32,19 +35,39 @@ class ChatSessionPickerBar extends ConsumerWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  session?.title ?? 'Current chat',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF101828),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      session?.title ?? 'Current chat',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppThemeTokens.text,
+                      ),
+                    ),
+                    if (session case final selected?)
+                      Text(
+                        '${selected.messageCount} messages',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppThemeTokens.mutedText,
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.keyboard_arrow_down, size: 22),
+              const Icon(
+                Icons.keyboard_arrow_down,
+                size: 22,
+                color: AppThemeTokens.mutedText,
+              ),
             ],
           ),
         ),
@@ -69,18 +92,15 @@ ChatSessionSummary? _selectedSession(WidgetRef ref, String agentId) {
   return null;
 }
 
-void showChatSessionSheet(BuildContext context, String agentId) {
-  showModalBottomSheet<void>(
+void showChatSessionDialog(BuildContext context, String agentId) {
+  showDialog<void>(
     context: context,
-    showDragHandle: true,
-    useSafeArea: true,
-    constraints: const BoxConstraints(maxWidth: 560),
-    builder: (context) => _ChatSessionSheet(agentId: agentId),
+    builder: (context) => _ChatSessionDialog(agentId: agentId),
   );
 }
 
-class _ChatSessionSheet extends ConsumerWidget {
-  const _ChatSessionSheet({required this.agentId});
+class _ChatSessionDialog extends ConsumerWidget {
+  const _ChatSessionDialog({required this.agentId});
 
   final String agentId;
 
@@ -89,17 +109,25 @@ class _ChatSessionSheet extends ConsumerWidget {
     final sessions = ref.watch(chatSessionsProvider(agentId));
     final chatState = ref.watch(chatControllerProvider(agentId));
     final selectedSessionId = chatState.sessionId ?? sessions.selectedSessionId;
+    final size = MediaQuery.sizeOf(context);
+    final dialogWidth = math.min(size.width - 32, 560.0);
+    final dialogHeight = math.min(math.max(size.height - 96, 320.0), 560.0);
 
-    return SafeArea(
-      top: false,
+    return Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+      ),
       child: SizedBox(
-        key: const Key('chat-session-sheet'),
-        height: 520,
+        key: const Key('chat-session-dialog'),
+        width: dialogWidth,
+        height: dialogHeight,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 4, 10, 10),
+              padding: const EdgeInsets.fromLTRB(18, 12, 8, 10),
               child: Row(
                 children: [
                   const Expanded(
@@ -108,12 +136,12 @@ class _ChatSessionSheet extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF101828),
+                        color: AppThemeTokens.text,
                       ),
                     ),
                   ),
                   IconButton(
-                    key: const Key('chat-session-sheet-new-button'),
+                    key: const Key('chat-session-dialog-new-button'),
                     tooltip: 'New session',
                     onPressed: chatState.isStreaming
                         ? null
@@ -127,9 +155,15 @@ class _ChatSessionSheet extends ConsumerWidget {
                           },
                     icon: const Icon(Icons.add_comment_outlined),
                   ),
+                  IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
                 ],
               ),
             ),
+            const Divider(height: 1),
             Expanded(
               child: sessions.sessions.isEmpty
                   ? const _EmptySessions()

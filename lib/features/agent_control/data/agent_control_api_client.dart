@@ -4,7 +4,6 @@ import 'package:agent_client/core/network/dio_provider.dart';
 import 'package:agent_client/features/agent_control/data/agent_control_sse_parser.dart';
 import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 final agentControlApiClientProvider = Provider<AgentControlApi>((ref) {
@@ -108,11 +107,9 @@ abstract interface class AgentControlApi {
 }
 
 class AgentControlApiClient implements AgentControlApi {
-  AgentControlApiClient({required this.dio, bool? isWeb})
-    : isWeb = isWeb ?? kIsWeb;
+  AgentControlApiClient({required this.dio});
 
   final Dio dio;
-  final bool isWeb;
 
   @override
   Future<AgentListResponse> listAgents() {
@@ -438,14 +435,6 @@ class AgentControlApiClient implements AgentControlApi {
         (error.type == DioExceptionType.connectionError ||
             error.type == DioExceptionType.unknown)) {
       final originalError = error.message ?? error.error;
-      if (isWeb) {
-        return AgentControlApiException(
-          message:
-              'Network request failed. Flutter Web sends requests through '
-              'the browser, so ${dio.options.baseUrl} must enable CORS for '
-              'this page. Original error: $originalError',
-        );
-      }
       return AgentControlApiException(
         message:
             'Network request failed. Check that ${dio.options.baseUrl} is '

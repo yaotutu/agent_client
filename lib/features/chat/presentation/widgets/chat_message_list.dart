@@ -1,3 +1,4 @@
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';
 import 'package:agent_client/features/chat/presentation/widgets/chat_message_bubble.dart';
 import 'package:flutter/material.dart';
@@ -63,13 +64,16 @@ class _ChatMessageListState extends State<ChatMessageList> {
 
     if (widget.messages.isEmpty && !showActivity) {
       return const Center(
-        child: Text('Start a chat', style: TextStyle(color: Color(0xFF667085))),
+        child: Text(
+          'Start a chat',
+          style: TextStyle(color: AppThemeTokens.mutedText),
+        ),
       );
     }
 
     return ListView.builder(
       controller: _controller,
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       itemCount: widget.messages.length + (showActivity ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == widget.messages.length) {
@@ -206,13 +210,13 @@ class ChatLiveActivity extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Container(
         key: const Key('chat-live-activity'),
-        constraints: const BoxConstraints(maxWidth: 680),
-        margin: const EdgeInsets.only(bottom: 10),
+        constraints: const BoxConstraints(maxWidth: 760),
+        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFFFF),
-          border: Border.all(color: const Color(0xFFD0D5DD)),
-          borderRadius: BorderRadius.circular(8),
+          color: AppThemeTokens.panel,
+          border: Border.all(color: AppThemeTokens.strongBorder),
+          borderRadius: BorderRadius.circular(AppThemeTokens.radius),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -246,7 +250,7 @@ class _ActivityRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: const Color(0xFF256D85)),
+        Icon(icon, size: 16, color: AppThemeTokens.brand),
         const SizedBox(width: 8),
         Text(
           label,
@@ -263,7 +267,7 @@ class _ActivityRow extends StatelessWidget {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFF667085),
+              color: AppThemeTokens.mutedText,
               fontSize: 13,
               height: 1.3,
             ),

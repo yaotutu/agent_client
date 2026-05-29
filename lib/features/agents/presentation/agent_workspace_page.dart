@@ -1,3 +1,4 @@
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/agents/application/agent_controller.dart';
 import 'package:agent_client/features/agents/domain/agent.dart';
 import 'package:agent_client/features/agents/presentation/agent_navigation_panel.dart';
@@ -9,7 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-const _tabletMinWidth = 600.0;
+const _mediumMinWidth = 600.0;
+const _wideMinWidth = 840.0;
 
 class AgentWorkspacePage extends HookConsumerWidget {
   const AgentWorkspacePage({super.key});
@@ -36,27 +38,31 @@ class _WorkspaceScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final usesSideRail = constraints.maxWidth >= _tabletMinWidth;
+        final width = constraints.maxWidth;
+        final isCompact = width < _mediumMinWidth;
+        final isWide = width >= _wideMinWidth;
 
         return Scaffold(
-          drawer: usesSideRail
-              ? null
-              : const Drawer(
+          drawer: isCompact
+              ? const Drawer(
                   child: AgentNavigationPanel(
                     closeAfterSelection: true,
                     showTitle: true,
                   ),
-                ),
+                )
+              : null,
           body: SafeArea(
             bottom: false,
             child: Row(
               children: [
-                if (usesSideRail) const AgentSideRail(),
+                if (!isCompact)
+                  isWide ? const AgentSideRail() : const AgentCompactRail(),
                 Expanded(
                   child: _AgentTabs(
                     agentId: agent.id,
                     agentTitle: _agentTitle(agent),
-                    showPhoneHeader: !usesSideRail,
+                    showHeader: !isWide,
+                    showMenuButton: isCompact,
                   ),
                 ),
               ],
@@ -72,12 +78,14 @@ class _AgentTabs extends HookConsumerWidget {
   const _AgentTabs({
     required this.agentId,
     required this.agentTitle,
-    required this.showPhoneHeader,
+    required this.showHeader,
+    required this.showMenuButton,
   });
 
   final String agentId;
   final String agentTitle;
-  final bool showPhoneHeader;
+  final bool showHeader;
+  final bool showMenuButton;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -85,9 +93,10 @@ class _AgentTabs extends HookConsumerWidget {
 
     return Column(
       children: [
-        if (showPhoneHeader) _AgentHeader(title: agentTitle),
+        if (showHeader)
+          _AgentHeader(title: agentTitle, showMenuButton: showMenuButton),
         Material(
-          color: Colors.white,
+          color: AppThemeTokens.panel,
           child: TabBar(
             key: const Key('agent-tab-bar'),
             controller: tabController,
@@ -114,31 +123,35 @@ class _AgentTabs extends HookConsumerWidget {
 }
 
 class _AgentHeader extends StatelessWidget {
-  const _AgentHeader({required this.title});
+  const _AgentHeader({required this.title, required this.showMenuButton});
 
   final String title;
+  final bool showMenuButton;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 56,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E7EC))),
+        color: AppThemeTokens.panel,
+        border: Border(bottom: BorderSide(color: AppThemeTokens.border)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          Builder(
-            builder: (context) {
-              return IconButton(
-                key: const Key('agent-navigation-button'),
-                tooltip: 'Agents',
-                icon: const Icon(Icons.menu),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              );
-            },
-          ),
+          if (showMenuButton)
+            Builder(
+              builder: (context) {
+                return IconButton(
+                  key: const Key('agent-navigation-button'),
+                  tooltip: 'Agents',
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                );
+              },
+            )
+          else
+            const SizedBox(width: 8),
           Expanded(
             child: KeyedSubtree(
               key: const Key('current-agent-title'),

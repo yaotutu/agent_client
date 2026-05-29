@@ -1,3 +1,4 @@
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/settings/domain/agent_command.dart';
 import 'package:flutter/material.dart';
 
@@ -37,10 +38,10 @@ class ChatInputBar extends StatelessWidget {
       top: false,
       child: Container(
         key: const Key('chat-input-bar'),
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFE4E7EC))),
+          color: AppThemeTokens.panel,
+          border: Border(top: BorderSide(color: AppThemeTokens.border)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -65,7 +66,7 @@ class ChatInputBar extends StatelessWidget {
                   onPressed: isStreaming ? null : onSwitchSession,
                   icon: const Icon(Icons.forum_outlined),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: controller,
@@ -76,6 +77,10 @@ class ChatInputBar extends StatelessWidget {
                     decoration: const InputDecoration(
                       hintText: 'Message',
                       isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                     ),
                   ),
                 ),

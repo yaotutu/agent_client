@@ -14,7 +14,7 @@ Use the adaptive layout direction from option B, with one extra constraint from 
   - Top app header shows menu, current agent name, and stable actions.
   - Agent navigation stays in the drawer.
   - Chat, Files, and Tasks remain in tabs.
-  - Chat session switching uses a bottom sheet.
+  - Chat session switching uses a dialog.
 
 - Medium screens from `600px` to `839px`: two columns with a compact Agent rail.
   - Left column is a narrow agent rail, around `72-88px`.
@@ -24,11 +24,11 @@ Use the adaptive layout direction from option B, with one extra constraint from 
 - Wide screens from `840px` upward: two columns with a full Agent panel.
   - Left column uses a readable Agent navigation panel, around `260-300px`.
   - Right column remains a single workspace surface.
-  - Chat sessions are selected from a compact bar or sheet, not a permanent column.
+  - Chat sessions are opened from a composer button and selected in a dialog, not a permanent column.
 
 ## Chat Experience
 
-- Add a compact conversation selector near the top of the Chat panel.
+- Add a conversation switch button at the lower-left of the Chat composer.
 - Remove the need for a permanent `ChatSessionRail`.
 - Keep the composer fixed at the bottom of the Chat panel.
 - Use wider assistant bubbles and stable max width so large screens feel spacious but lines remain readable.

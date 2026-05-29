@@ -1,16 +1,52 @@
+import 'package:agent_client/core/config/app_config_model.dart';
+import 'package:agent_client/core/config/app_config_store_contract.dart';
+import 'package:agent_client/core/config/app_config_store_io.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-class AppConfig {
-  const AppConfig({required this.apiBaseUrl});
+export 'package:agent_client/core/config/app_config_model.dart';
+export 'package:agent_client/core/config/app_config_store_contract.dart';
 
-  final String apiBaseUrl;
-}
+final initialAppConfigProvider = Provider<AppConfig>((ref) {
+  return AppConfig.defaults;
+});
+
+final appConfigStoreProvider = Provider<AppConfigStore>((ref) {
+  return FileAppConfigStore();
+});
+
+final appConfigControllerProvider =
+    NotifierProvider<AppConfigController, AppConfig>(AppConfigController.new);
 
 final appConfigProvider = Provider<AppConfig>((ref) {
-  return const AppConfig(
-    apiBaseUrl: String.fromEnvironment(
-      'AGENT_API_BASE_URL',
-      defaultValue: 'http://192.168.123.116:9800',
-    ),
-  );
+  return ref.watch(appConfigControllerProvider);
 });
+
+class AppConfigController extends Notifier<AppConfig> {
+  @override
+  AppConfig build() {
+    return ref.watch(initialAppConfigProvider);
+  }
+
+  Future<void> save({
+    required String apiBaseUrl,
+    required String apiKey,
+  }) async {
+    final config = AppConfig(
+      apiBaseUrl: AppConfig.normalizeBaseUrl(apiBaseUrl),
+      apiKey: apiKey.trim(),
+    );
+    await ref.read(appConfigStoreProvider).save(config);
+    state = config;
+  }
+
+  Future<void> resetToDefaults() {
+    return save(
+      apiBaseUrl: AppConfig.defaultApiBaseUrl,
+      apiKey: AppConfig.defaultApiKey,
+    );
+  }
+}
+
+AppConfigStore createDefaultAppConfigStore() {
+  return FileAppConfigStore();
+}

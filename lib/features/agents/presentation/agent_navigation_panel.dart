@@ -1,5 +1,6 @@
 import 'package:agent_client/features/agents/application/agent_controller.dart';
 import 'package:agent_client/features/agents/domain/agent.dart';
+import 'package:agent_client/features/settings/presentation/app_settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -12,6 +13,13 @@ class AgentNavigationPanel extends ConsumerWidget {
 
   final bool closeAfterSelection;
   final bool showTitle;
+
+  static void openCreateAgentDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => const _CreateAgentDialog(),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -43,7 +51,7 @@ class AgentNavigationPanel extends ConsumerWidget {
                   tooltip: 'Create agent',
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.add, size: 20),
-                  onPressed: () => _showCreateAgentDialog(context),
+                  onPressed: () => openCreateAgentDialog(context),
                 ),
               ],
             ),
@@ -146,15 +154,20 @@ class AgentNavigationPanel extends ConsumerWidget {
               ),
             ),
           ),
+          const Divider(height: 1),
+          ListTile(
+            key: const Key('global-settings-button'),
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text('Settings'),
+            onTap: () {
+              if (closeAfterSelection) {
+                Navigator.of(context).pop();
+              }
+              openAppSettingsPage(context);
+            },
+          ),
         ],
       ),
-    );
-  }
-
-  void _showCreateAgentDialog(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => const _CreateAgentDialog(),
     );
   }
 }

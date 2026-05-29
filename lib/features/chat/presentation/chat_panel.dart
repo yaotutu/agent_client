@@ -1,9 +1,9 @@
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/chat/application/chat_controller.dart';
 import 'package:agent_client/features/chat/application/chat_sessions_controller.dart';
 import 'package:agent_client/features/chat/presentation/widgets/chat_input_bar.dart';
 import 'package:agent_client/features/chat/presentation/widgets/chat_message_list.dart';
 import 'package:agent_client/features/chat/presentation/widgets/chat_session_picker.dart';
-import 'package:agent_client/features/chat/presentation/widgets/chat_session_rail.dart';
 import 'package:agent_client/features/chat/presentation/widgets/inline_chat_error.dart';
 import 'package:agent_client/features/settings/data/agent_settings_repository.dart';
 import 'package:agent_client/features/settings/domain/agent_command.dart';
@@ -15,7 +15,6 @@ class ChatPanel extends HookConsumerWidget {
   const ChatPanel({super.key, required this.agentId});
 
   final String agentId;
-  static const _sessionRailMinWidth = 500.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,7 +53,7 @@ class ChatPanel extends HookConsumerWidget {
 
     Widget chatColumn() {
       return ColoredBox(
-        color: const Color(0xFFF7F8FA),
+        color: AppThemeTokens.workspace,
         child: Column(
           children: [
             Expanded(
@@ -80,26 +79,13 @@ class ChatPanel extends HookConsumerWidget {
               onStop: () => ref
                   .read(chatControllerProvider(agentId).notifier)
                   .cancelActiveResponse(),
-              onSwitchSession: () => showChatSessionSheet(context, agentId),
+              onSwitchSession: () => showChatSessionDialog(context, agentId),
             ),
           ],
         ),
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < _sessionRailMinWidth) {
-          return chatColumn();
-        }
-
-        return Row(
-          children: [
-            ChatSessionRail(agentId: agentId),
-            Expanded(child: chatColumn()),
-          ],
-        );
-      },
-    );
+    return chatColumn();
   }
 }
