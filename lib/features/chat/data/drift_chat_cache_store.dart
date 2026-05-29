@@ -9,6 +9,18 @@ class DriftChatCacheStore implements ChatCacheStore {
   final AppDatabase _database;
 
   @override
+  Future<void> clearAgent(String agentId) {
+    return _database.transaction(() async {
+      await (_database.delete(
+        _database.cachedMessages,
+      )..where((table) => table.agentId.equals(agentId))).go();
+      await (_database.delete(
+        _database.cachedConversations,
+      )..where((table) => table.agentId.equals(agentId))).go();
+    });
+  }
+
+  @override
   Future<void> clearSession({
     required String agentId,
     required String sessionId,

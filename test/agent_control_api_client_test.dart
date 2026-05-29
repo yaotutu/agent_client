@@ -15,6 +15,7 @@ void main() {
         'data': [
           {
             'name': 'coder',
+            'description': '代码审查助手',
             'wsPort': 8760,
             'gatewayPort': 18760,
             'workspaceDir': '/workspace',
@@ -27,6 +28,7 @@ void main() {
       },
       'POST /agents': {
         'name': 'reviewer',
+        'description': 'Review code changes',
         'wsPort': 8762,
         'gatewayPort': 18762,
         'configPath': '/agents/reviewer/config.json',
@@ -37,6 +39,7 @@ void main() {
       },
       'GET /agents/coder': {
         'name': 'coder',
+        'description': '代码审查助手',
         'protocol': 'agent-control/v1',
         'capabilities': ['sessions'],
         'wsPort': 8760,
@@ -138,8 +141,11 @@ void main() {
     final deletedAgent = await api.deleteAgent('coder');
 
     expect(agents.data.single.name, 'coder');
+    expect(agents.data.single.description, '代码审查助手');
     expect(createdAgent.name, 'reviewer');
+    expect(createdAgent.description, 'Review code changes');
     expect(createdAgent.status, 'stopped');
+    expect(card.description, '代码审查助手');
     expect(card.workspace, '/workspace');
     expect(session.sessionId, 'session-1');
     expect(session.title, 'New chat');

@@ -6,6 +6,7 @@ class Agent {
   const Agent({
     required this.id,
     required this.name,
+    this.description,
     this.backendId = defaultAgentBackendId,
     String? backendAgentId,
     this.avatarUrl,
@@ -17,6 +18,7 @@ class Agent {
 
   final String id;
   final String name;
+  final String? description;
   final String backendId;
   final String backendAgentId;
   final String? avatarUrl;

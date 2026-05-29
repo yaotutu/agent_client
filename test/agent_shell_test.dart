@@ -81,7 +81,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('current-agent-title')),
-        matching: find.text('nanobot'),
+        matching: find.text('代码审查助手'),
       ),
       findsOneWidget,
     );
@@ -113,7 +113,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('current-agent-title')),
-        matching: find.text('nanobot'),
+        matching: find.text('代码审查助手'),
       ),
       findsOneWidget,
     );
@@ -412,15 +412,17 @@ const _agents = [
   Agent(
     id: 'nanobot',
     name: 'nanobot',
+    description: '代码审查助手',
     model: 'MiniMax-M2.7-highspeed',
     provider: 'minimax',
     workspace: '/workspace',
   ),
 ];
 
-AgentSummary _agentSummary(String name) {
+AgentSummary _agentSummary(String name, {String? description}) {
   return AgentSummary(
     name: name,
+    description: description ?? (name == 'nanobot' ? '代码审查助手' : null),
     wsPort: 8760,
     gatewayPort: 18760,
     workspaceDir: '/workspace/$name',
@@ -451,7 +453,7 @@ class _FakeAgentControlApi extends Fake implements AgentControlApi {
   }) async {
     createdName = name;
     createdDescription = description;
-    _agents.add(_agentSummary(name));
+    _agents.add(_agentSummary(name, description: description));
     return CreateAgentResponse(
       name: name,
       wsPort: 8761,

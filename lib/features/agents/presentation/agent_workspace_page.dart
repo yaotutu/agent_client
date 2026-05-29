@@ -55,7 +55,7 @@ class _WorkspaceScaffold extends StatelessWidget {
                 Expanded(
                   child: _AgentTabs(
                     agentId: agent.id,
-                    agentName: agent.name,
+                    agentTitle: _agentTitle(agent),
                     showPhoneHeader: !usesSideRail,
                   ),
                 ),
@@ -71,12 +71,12 @@ class _WorkspaceScaffold extends StatelessWidget {
 class _AgentTabs extends HookConsumerWidget {
   const _AgentTabs({
     required this.agentId,
-    required this.agentName,
+    required this.agentTitle,
     required this.showPhoneHeader,
   });
 
   final String agentId;
-  final String agentName;
+  final String agentTitle;
   final bool showPhoneHeader;
 
   @override
@@ -85,7 +85,7 @@ class _AgentTabs extends HookConsumerWidget {
 
     return Column(
       children: [
-        if (showPhoneHeader) _AgentHeader(agentName: agentName),
+        if (showPhoneHeader) _AgentHeader(title: agentTitle),
         Material(
           color: Colors.white,
           child: TabBar(
@@ -114,9 +114,9 @@ class _AgentTabs extends HookConsumerWidget {
 }
 
 class _AgentHeader extends StatelessWidget {
-  const _AgentHeader({required this.agentName});
+  const _AgentHeader({required this.title});
 
-  final String agentName;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +143,7 @@ class _AgentHeader extends StatelessWidget {
             child: KeyedSubtree(
               key: const Key('current-agent-title'),
               child: Text(
-                agentName,
+                title,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 18,
@@ -156,4 +156,12 @@ class _AgentHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+String _agentTitle(Agent agent) {
+  final description = agent.description?.trim();
+  if (description != null && description.isNotEmpty) {
+    return description;
+  }
+  return agent.name;
 }

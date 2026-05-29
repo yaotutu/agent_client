@@ -3,6 +3,8 @@ import 'package:agent_client/features/chat/domain/chat_message.dart';
 abstract interface class ChatCacheStore {
   Future<void> saveMessage(ChatMessage message);
 
+  Future<void> clearAgent(String agentId);
+
   Future<void> clearSession({
     required String agentId,
     required String sessionId,
@@ -22,6 +24,11 @@ abstract interface class ChatCacheStore {
 
 class InMemoryChatCacheStore implements ChatCacheStore {
   final Map<String, List<ChatMessage>> _messagesByAgent = {};
+
+  @override
+  Future<void> clearAgent(String agentId) async {
+    _messagesByAgent.remove(agentId);
+  }
 
   @override
   Future<void> clearSession({

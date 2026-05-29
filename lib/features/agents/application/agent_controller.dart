@@ -1,5 +1,8 @@
 import 'package:agent_client/features/agents/data/agent_registry_repository.dart';
 import 'package:agent_client/features/agents/domain/agent.dart';
+import 'package:agent_client/features/chat/application/chat_controller.dart';
+import 'package:agent_client/features/chat/application/chat_sessions_controller.dart';
+import 'package:agent_client/features/chat/data/chat_cache_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 final agentsProvider = FutureProvider<List<Agent>>((ref) async {
@@ -54,15 +57,21 @@ class CurrentAgentController extends Notifier<String> {
     final currentAgentId = await _effectiveCurrentAgentId();
     await ref.read(agentRegistryRepositoryProvider).deleteAgent(agentId);
 
-    ref.invalidate(agentsProvider);
-    final remainingAgents = await ref.read(agentsProvider.future).catchError((
-      _,
-    ) {
-      return <Agent>[];
-    });
+    try {
+      await ref.read(chatCacheStoreProvider).clearAgent(agentId);
+    } finally {
+      ref.invalidate(chatControllerProvider(agentId));
+      ref.invalidate(chatSessionsProvider(agentId));
+      ref.invalidate(agentsProvider);
+      final remainingAgents = await ref.read(agentsProvider.future).catchError((
+        _,
+      ) {
+        return <Agent>[];
+      });
 
-    if (currentAgentId == agentId) {
-      state = remainingAgents.isEmpty ? '' : remainingAgents.first.id;
+      if (currentAgentId == agentId) {
+        state = remainingAgents.isEmpty ? '' : remainingAgents.first.id;
+      }
     }
   }
 

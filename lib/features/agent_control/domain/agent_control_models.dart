@@ -56,6 +56,7 @@ class AgentCard {
     required this.capabilities,
     required this.state,
     required this.workspace,
+    this.description,
     this.wsPort,
     this.gatewayPort,
     this.model,
@@ -64,6 +65,7 @@ class AgentCard {
 
   final String name;
   final String protocol;
+  final String? description;
   final List<String> capabilities;
   final AgentCardState state;
   final int? wsPort;
@@ -75,6 +77,7 @@ class AgentCard {
   factory AgentCard.fromJson(Map<String, Object?> json) {
     return AgentCard(
       name: json['name']?.toString() ?? 'agent',
+      description: json['description']?.toString(),
       protocol: json['protocol']?.toString() ?? '',
       capabilities: _stringList(json['capabilities']),
       state: AgentCardState.fromJson(_map(json['state'])),
@@ -142,11 +145,13 @@ class AgentSummary {
     required this.workspaceDir,
     required this.status,
     required this.health,
+    this.description,
     this.model,
     this.provider,
   });
 
   final String name;
+  final String? description;
   final int? wsPort;
   final int? gatewayPort;
   final String workspaceDir;
@@ -158,6 +163,7 @@ class AgentSummary {
   factory AgentSummary.fromJson(Map<String, Object?> json) {
     return AgentSummary(
       name: json['name']?.toString() ?? '',
+      description: json['description']?.toString(),
       wsPort: _int(json['wsPort']),
       gatewayPort: _int(json['gatewayPort']),
       workspaceDir: json['workspaceDir']?.toString() ?? '',
@@ -177,11 +183,13 @@ class CreateAgentResponse {
     required this.configPath,
     required this.workspaceDir,
     required this.status,
+    this.description,
     this.model,
     this.provider,
   });
 
   final String name;
+  final String? description;
   final int? wsPort;
   final int? gatewayPort;
   final String configPath;
@@ -193,6 +201,7 @@ class CreateAgentResponse {
   factory CreateAgentResponse.fromJson(Map<String, Object?> json) {
     return CreateAgentResponse(
       name: json['name']?.toString() ?? '',
+      description: json['description']?.toString(),
       wsPort: _int(json['wsPort']),
       gatewayPort: _int(json['gatewayPort']),
       configPath: json['configPath']?.toString() ?? '',

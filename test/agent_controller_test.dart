@@ -1,6 +1,12 @@
 import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
 import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
 import 'package:agent_client/features/agents/application/agent_controller.dart';
+import 'package:agent_client/features/chat/application/chat_controller.dart';
+import 'package:agent_client/features/chat/application/chat_sessions_controller.dart';
+import 'package:agent_client/features/chat/data/chat_cache_provider.dart';
+import 'package:agent_client/features/chat/data/chat_cache_store.dart';
+import 'package:agent_client/features/chat/domain/chat_message.dart';
+import 'package:agent_client/features/chat/domain/chat_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -8,9 +14,14 @@ void main() {
   test(
     'createAgent creates through backend, refreshes list, and selects it',
     () async {
-      final api = _FakeAgentControlApi([_agentSummary('nanobot')]);
+      final api = _FakeAgentControlApi([
+        _agentSummary('nanobot', description: '代码审查助手'),
+      ]);
       final container = ProviderContainer(
-        overrides: [agentControlApiClientProvider.overrideWithValue(api)],
+        overrides: [
+          agentControlApiClientProvider.overrideWithValue(api),
+          chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
+        ],
       );
       addTearDown(container.dispose);
 
@@ -27,6 +38,14 @@ void main() {
       expect(api.createdName, 'reviewer');
       expect(api.createdDescription, '代码审查助手');
       expect(agents.map((agent) => agent.id), contains('reviewer'));
+      expect(
+        agents.singleWhere((agent) => agent.id == 'nanobot').description,
+        '代码审查助手',
+      );
+      expect(
+        agents.singleWhere((agent) => agent.id == 'reviewer').description,
+        '代码审查助手',
+      );
       expect(container.read(currentAgentIdProvider), 'reviewer');
     },
   );
@@ -39,7 +58,10 @@ void main() {
         _agentSummary('reviewer'),
       ]);
       final container = ProviderContainer(
-        overrides: [agentControlApiClientProvider.overrideWithValue(api)],
+        overrides: [
+          agentControlApiClientProvider.overrideWithValue(api),
+          chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
+        ],
       );
       addTearDown(container.dispose);
 
@@ -56,11 +78,91 @@ void main() {
       expect(container.read(currentAgentIdProvider), 'nanobot');
     },
   );
+
+  test(
+    'deleteAgent clears local chat cache and chat state for deleted agent',
+    () async {
+      final api = _FakeAgentControlApi([
+        _agentSummary('nanobot'),
+        _agentSummary('reviewer'),
+      ]);
+      final cache = InMemoryChatCacheStore();
+      final container = ProviderContainer(
+        overrides: [
+          agentControlApiClientProvider.overrideWithValue(api),
+          chatCacheStoreProvider.overrideWithValue(cache),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await cache.saveMessage(
+        ChatMessage(
+          id: 'reviewer-message',
+          agentId: 'reviewer',
+          conversationId: 'reviewer-session',
+          role: ChatRole.assistant,
+          content: 'Old reviewer chat',
+          status: ChatMessageStatus.completed,
+          createdAt: DateTime(2026, 5, 28),
+        ),
+      );
+      await cache.saveMessage(
+        ChatMessage(
+          id: 'nanobot-message',
+          agentId: 'nanobot',
+          conversationId: 'nanobot-session',
+          role: ChatRole.assistant,
+          content: 'Keep nanobot chat',
+          status: ChatMessageStatus.completed,
+          createdAt: DateTime(2026, 5, 28, 1),
+        ),
+      );
+      await container
+          .read(chatControllerProvider('reviewer').notifier)
+          .loadRecentMessages();
+      container
+          .read(chatSessionsProvider('reviewer').notifier)
+          .insertSession(
+            const ChatSessionSummary(
+              id: 'reviewer-session',
+              title: 'Old reviewer chat',
+              preview: 'Old reviewer chat',
+              messageCount: 1,
+            ),
+          );
+
+      expect(
+        container.read(chatControllerProvider('reviewer')).messages.single.id,
+        'reviewer-message',
+      );
+      expect(
+        container.read(chatSessionsProvider('reviewer')).sessions.single.id,
+        'reviewer-session',
+      );
+
+      await container
+          .read(currentAgentIdProvider.notifier)
+          .deleteAgent('reviewer');
+
+      expect(api.deletedName, 'reviewer');
+      expect(await cache.loadLatestMessages('reviewer'), isEmpty);
+      expect(await cache.loadLatestMessages('nanobot'), isNotEmpty);
+      expect(
+        container.read(chatControllerProvider('reviewer')).messages,
+        isEmpty,
+      );
+      expect(
+        container.read(chatSessionsProvider('reviewer')).sessions,
+        isEmpty,
+      );
+    },
+  );
 }
 
-AgentSummary _agentSummary(String name) {
+AgentSummary _agentSummary(String name, {String? description}) {
   return AgentSummary(
     name: name,
+    description: description,
     wsPort: 8760,
     gatewayPort: 18760,
     workspaceDir: '/workspace/$name',
@@ -91,7 +193,7 @@ class _FakeAgentControlApi extends Fake implements AgentControlApi {
   }) async {
     createdName = name;
     createdDescription = description;
-    _agents.add(_agentSummary(name));
+    _agents.add(_agentSummary(name, description: description));
     return CreateAgentResponse(
       name: name,
       wsPort: 8761,

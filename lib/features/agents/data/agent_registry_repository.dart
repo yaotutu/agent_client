@@ -42,6 +42,7 @@ class AgentControlAgentRegistryRepository implements AgentRegistryRepository {
     return Agent(
       id: created.name,
       name: created.name,
+      description: created.description ?? description,
       backendId: agentControlBackendId,
       backendAgentId: created.name,
       status: _statusFor(created.status),
@@ -60,6 +61,7 @@ class AgentControlAgentRegistryRepository implements AgentRegistryRepository {
     return Agent(
       id: summary.name,
       name: summary.name,
+      description: summary.description,
       backendId: agentControlBackendId,
       backendAgentId: summary.name,
       status: _statusFor(summary.status),
