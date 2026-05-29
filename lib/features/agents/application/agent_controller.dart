@@ -1,11 +1,9 @@
-import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
-import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
+import 'package:agent_client/features/agents/data/agent_registry_repository.dart';
 import 'package:agent_client/features/agents/domain/agent.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 final agentsProvider = FutureProvider<List<Agent>>((ref) async {
-  final response = await ref.watch(agentControlApiClientProvider).listAgents();
-  return response.data.map(_toAgent).toList();
+  return ref.watch(agentRegistryRepositoryProvider).listAgents();
 });
 
 final currentAgentIdProvider = NotifierProvider<CurrentAgentController, String>(
@@ -39,7 +37,7 @@ class CurrentAgentController extends Notifier<String> {
     final trimmedName = name.trim();
     final trimmedDescription = description?.trim();
     final created = await ref
-        .read(agentControlApiClientProvider)
+        .read(agentRegistryRepositoryProvider)
         .createAgent(
           name: trimmedName,
           description: trimmedDescription == null || trimmedDescription.isEmpty
@@ -47,14 +45,14 @@ class CurrentAgentController extends Notifier<String> {
               : trimmedDescription,
         );
 
-    state = created.name;
+    state = created.id;
     ref.invalidate(agentsProvider);
     await ref.read(agentsProvider.future);
   }
 
   Future<void> deleteAgent(String agentId) async {
     final currentAgentId = await _effectiveCurrentAgentId();
-    await ref.read(agentControlApiClientProvider).deleteAgent(agentId);
+    await ref.read(agentRegistryRepositoryProvider).deleteAgent(agentId);
 
     ref.invalidate(agentsProvider);
     final remainingAgents = await ref.read(agentsProvider.future).catchError((
@@ -86,19 +84,5 @@ Agent fallbackAgent([String? selectedId]) {
     name: id == 'agent' ? 'Agent' : id,
     status: AgentStatus.offline,
     model: 'Backend offline',
-  );
-}
-
-Agent _toAgent(AgentSummary summary) {
-  return Agent(
-    id: summary.name,
-    name: summary.name,
-    status: switch (summary.status) {
-      'running' => AgentStatus.online,
-      _ => AgentStatus.offline,
-    },
-    model: summary.model,
-    provider: summary.provider,
-    workspace: summary.workspaceDir,
   );
 }

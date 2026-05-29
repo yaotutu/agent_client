@@ -1,9 +1,6 @@
-import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
-import 'package:agent_client/features/chat/data/agent_control_chat_repository.dart';
 import 'package:agent_client/features/chat/domain/chat_event.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';
 import 'package:agent_client/features/chat/domain/chat_session.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 abstract interface class AgentChatRepository {
   Future<String> ensureSessionId(String agentId);
@@ -38,9 +35,3 @@ class SendMessageRequest {
   final String assistantMessageId;
   final String input;
 }
-
-final agentChatRepositoryProvider = Provider<AgentChatRepository>((ref) {
-  return AgentControlChatRepository(
-    api: ref.watch(agentControlApiClientProvider),
-  );
-});

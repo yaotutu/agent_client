@@ -15,6 +15,7 @@ class ChatMessageBubble extends StatelessWidget {
     final textColor = user ? Colors.white : const Color(0xFF101828);
     final hasContent = message.content.trim().isNotEmpty;
     final hasAttachments = message.attachments.isNotEmpty;
+    final placeholder = _placeholder();
 
     return Align(
       alignment: user ? Alignment.centerRight : Alignment.centerLeft,
@@ -32,6 +33,8 @@ class ChatMessageBubble extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (!hasContent && !hasAttachments && placeholder != null)
+              _MessagePlaceholder(text: placeholder.$1, busy: placeholder.$2),
             if (hasContent)
               SelectionArea(
                 child: MarkdownBody(
@@ -53,6 +56,18 @@ class ChatMessageBubble extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  (String, bool)? _placeholder() {
+    if (message.role != ChatRole.assistant || message.content.isNotEmpty) {
+      return null;
+    }
+    return switch (message.status) {
+      ChatMessageStatus.streaming => ('Waiting for response', true),
+      ChatMessageStatus.failed => ('Response failed', false),
+      ChatMessageStatus.stopped => ('Response stopped', false),
+      _ => null,
+    };
   }
 
   MarkdownStyleSheet _markdownStyleSheet(Color textColor, bool user) {
@@ -106,6 +121,38 @@ class ChatMessageBubble extends StatelessWidget {
       ),
       blockSpacing: 8,
       listIndent: 20,
+    );
+  }
+}
+
+class _MessagePlaceholder extends StatelessWidget {
+  const _MessagePlaceholder({required this.text, required this.busy});
+
+  final String text;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (busy)
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFF256D85),
+            ),
+          )
+        else
+          const Icon(Icons.info_outline, size: 16, color: Color(0xFF667085)),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: const TextStyle(color: Color(0xFF667085), fontSize: 13),
+        ),
+      ],
     );
   }
 }

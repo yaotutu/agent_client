@@ -72,4 +72,21 @@ data: [DONE]
     expect(events[1].message, 'boom');
     expect(events[2].type, AgentControlStreamEventType.doneMarker);
   });
+
+  test('turns malformed and non-object SSE data into unknown events', () {
+    final parser = AgentControlSseParser();
+
+    final events = parser.parseChunk('''
+data: not-json
+
+data: ["not", "an", "object"]
+
+''');
+
+    expect(events.map((event) => event.type), [
+      AgentControlStreamEventType.unknown,
+      AgentControlStreamEventType.unknown,
+    ]);
+    expect(events.first.raw['data'], 'not-json');
+  });
 }

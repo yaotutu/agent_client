@@ -1,7 +1,8 @@
 import 'package:agent_client/features/chat/application/chat_state.dart';
 import 'package:agent_client/features/chat/application/chat_sessions_controller.dart';
 import 'package:agent_client/features/chat/data/agent_chat_repository.dart';
-import 'package:agent_client/features/chat/data/chat_cache_store.dart';
+import 'package:agent_client/features/chat/data/agent_chat_repository_provider.dart';
+import 'package:agent_client/features/chat/data/chat_cache_provider.dart';
 import 'package:agent_client/features/chat/domain/chat_event.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';
 import 'package:agent_client/features/chat/domain/chat_session.dart';
@@ -27,7 +28,7 @@ class ChatController extends Notifier<ChatState> {
     try {
       final messages = await ref
           .read(chatCacheStoreProvider)
-          .loadRecentMessages(agentId);
+          .loadLatestMessages(agentId);
       if (messages.isNotEmpty) {
         state = state.copyWith(
           sessionId: messages.last.conversationId,
@@ -65,6 +66,11 @@ class ChatController extends Notifier<ChatState> {
           .read(agentChatRepositoryProvider)
           .loadRecentMessages(agentId, sessionId: sessionId);
       if (repositoryMessages.isEmpty) {
+        if (sessionId != null) {
+          await ref
+              .read(chatCacheStoreProvider)
+              .clearSession(agentId: agentId, sessionId: sessionId);
+        }
         state = state.copyWith(
           sessionId: sessionId,
           messages: const [],
@@ -113,6 +119,8 @@ class ChatController extends Notifier<ChatState> {
         clearReasoning: true,
         clearProgress: true,
         clearToolHint: true,
+        clearGoalStatus: true,
+        clearGoalState: true,
       );
       await ref.read(chatCacheStoreProvider).saveMessage(userMessage);
 
@@ -129,7 +137,7 @@ class ChatController extends Notifier<ChatState> {
       }
 
       if (state.isStreaming) {
-        _completeAssistantMessage('assistant');
+        _completeAssistantMessage(assistantMessageId);
       }
     } catch (error) {
       _failAssistantMessage(error.toString());
@@ -153,7 +161,16 @@ class ChatController extends Notifier<ChatState> {
       }
       return message;
     }).toList();
-    state = state.copyWith(messages: messages, isStreaming: false);
+    state = state.copyWith(
+      messages: messages,
+      isStreaming: false,
+      clearReasoning: true,
+      clearProgress: true,
+      clearToolHint: true,
+      clearGoalStatus: true,
+      clearGoalState: true,
+    );
+    await _persistMessages();
   }
 
   Future<void> startNewSession() async {
@@ -166,23 +183,10 @@ class ChatController extends Notifier<ChatState> {
           .read(agentChatRepositoryProvider)
           .startNewSession(agentId);
       ref.read(chatSessionsProvider(agentId).notifier).insertSession(session);
-      await ref.read(chatCacheStoreProvider).clearMessages(agentId);
       state = ChatState(agentId: agentId, sessionId: session.id);
     } catch (error) {
       state = state.copyWith(errorMessage: error.toString());
     }
-  }
-
-  Future<void> startLocalSessionPreview() async {
-    if (state.isStreaming) {
-      return;
-    }
-
-    final sessionId = 'local-${DateTime.now().microsecondsSinceEpoch}';
-    ref
-        .read(chatSessionsProvider(agentId).notifier)
-        .insertNewSession(sessionId);
-    state = ChatState(agentId: agentId, sessionId: sessionId);
   }
 
   Future<void> openSessionPreview(ChatSessionSummary session) async {
@@ -193,13 +197,9 @@ class ChatController extends Notifier<ChatState> {
     ref.read(chatSessionsProvider(agentId).notifier).selectSession(session.id);
     final cachedMessages = await ref
         .read(chatCacheStoreProvider)
-        .loadRecentMessages(agentId);
-    final scopedCache = [
-      for (final message in cachedMessages)
-        if (message.conversationId == session.id) message,
-    ];
-    final messages = scopedCache.isNotEmpty
-        ? scopedCache
+        .loadMessages(agentId: agentId, sessionId: session.id);
+    final messages = cachedMessages.isNotEmpty
+        ? cachedMessages
         : await _messagesForSession(session.id);
 
     state = ChatState(
@@ -237,10 +237,11 @@ class ChatController extends Notifier<ChatState> {
         _completeAssistantMessage(event.messageId);
       case ChatEventType.error:
         _failAssistantMessage(event.errorMessage ?? 'Response failed');
-      case ChatEventType.toolEvent:
-        _applyToolEvent(event.payload);
-      case ChatEventType.taskEvent:
-        _applyTaskEvent(event.payload);
+      case ChatEventType.activity:
+        final activity = event.activity;
+        if (activity != null) {
+          _applyActivity(activity);
+        }
     }
   }
 
@@ -290,14 +291,21 @@ class ChatController extends Notifier<ChatState> {
             message,
       ],
       isStreaming: false,
+      clearReasoning: true,
+      clearProgress: true,
+      clearToolHint: true,
+      clearGoalStatus: true,
+      clearGoalState: true,
     );
   }
 
   void _failAssistantMessage(String errorMessage) {
-    final hasAssistant = state.messages.any(
-      (message) => message.role == ChatRole.assistant,
+    final hasStreamingAssistant = state.messages.any(
+      (message) =>
+          message.role == ChatRole.assistant &&
+          message.status == ChatMessageStatus.streaming,
     );
-    final messages = hasAssistant
+    final messages = hasStreamingAssistant
         ? [
             for (final message in state.messages)
               if (message.role == ChatRole.assistant &&
@@ -323,30 +331,32 @@ class ChatController extends Notifier<ChatState> {
       messages: messages,
       isStreaming: false,
       errorMessage: errorMessage,
+      clearReasoning: true,
+      clearProgress: true,
+      clearToolHint: true,
+      clearGoalStatus: true,
+      clearGoalState: true,
     );
   }
 
-  void _applyToolEvent(Map<String, Object?> payload) {
-    if (payload['kind'] == 'tool_hint') {
-      state = state.copyWith(toolHintText: payload['text']?.toString());
-    }
-  }
-
-  void _applyTaskEvent(Map<String, Object?> payload) {
-    switch (payload['kind']) {
-      case 'reasoning':
-        state = state.copyWith(reasoningText: payload['text']?.toString());
-      case 'reasoning_done':
+  void _applyActivity(ChatActivity activity) {
+    switch (activity.type) {
+      case ChatActivityType.reasoning:
+        state = state.copyWith(
+          reasoningText: '${state.reasoningText ?? ''}${activity.text ?? ''}',
+        );
+      case ChatActivityType.reasoningDone:
         state = state.copyWith(clearReasoning: true);
-      case 'progress':
-        state = state.copyWith(progressText: payload['text']?.toString());
-      case 'goal_status':
-        state = state.copyWith(goalStatus: payload['state']?.toString());
-      case 'goal_state':
-        final goalState = payload['goalState'];
-        if (goalState is Map<String, Object?>) {
-          state = state.copyWith(goalState: goalState);
-        }
+      case ChatActivityType.progress:
+        state = state.copyWith(progressText: activity.text);
+      case ChatActivityType.toolHint:
+        state = state.copyWith(toolHintText: activity.text);
+      case ChatActivityType.goalStatus:
+        state = state.copyWith(goalStatus: activity.state);
+      case ChatActivityType.goalState:
+        state = state.copyWith(goalState: activity.goalState);
+      case ChatActivityType.streamEnd:
+        break;
     }
   }
 

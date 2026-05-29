@@ -44,6 +44,7 @@ class ChatState {
     bool clearReasoning = false,
     bool clearProgress = false,
     bool clearToolHint = false,
+    bool clearGoalStatus = false,
     bool clearGoalState = false,
   }) {
     return ChatState(
@@ -57,7 +58,7 @@ class ChatState {
           : reasoningText ?? this.reasoningText,
       progressText: clearProgress ? null : progressText ?? this.progressText,
       toolHintText: clearToolHint ? null : toolHintText ?? this.toolHintText,
-      goalStatus: goalStatus ?? this.goalStatus,
+      goalStatus: clearGoalStatus ? null : goalStatus ?? this.goalStatus,
       goalState: clearGoalState ? null : goalState ?? this.goalState,
     );
   }

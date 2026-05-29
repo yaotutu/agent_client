@@ -1,51 +1,102 @@
 import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
 import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
+import 'package:agent_client/features/settings/domain/agent_command.dart';
+import 'package:agent_client/features/settings/domain/agent_settings.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 final agentSettingsRepositoryProvider = Provider<AgentSettingsRepository>((
   ref,
 ) {
-  return AgentSettingsRepository(ref.watch(agentControlApiClientProvider));
+  return AgentControlSettingsRepository(
+    ref.watch(agentControlApiClientProvider),
+  );
 });
 
-final agentCommandsProvider = FutureProvider.family<List<AgentCommand>, String>(
-  (ref, agentName) async {
-    final response = await ref
-        .watch(agentSettingsRepositoryProvider)
-        .commands(agentName);
-    return response.data;
-  },
-);
+final agentCommandsProvider =
+    FutureProvider.family<List<AgentCommandItem>, String>((ref, agentName) {
+      return ref.watch(agentSettingsRepositoryProvider).commands(agentName);
+    });
 
-final agentSettingsProvider = FutureProvider.family<AgentSettings, String>((
-  ref,
-  agentName,
-) {
-  return ref.watch(agentSettingsRepositoryProvider).settings(agentName);
-});
+final agentSettingsProvider =
+    FutureProvider.family<AgentSettingsSnapshot, String>((ref, agentName) {
+      return ref.watch(agentSettingsRepositoryProvider).settings(agentName);
+    });
 
-class AgentSettingsRepository {
-  const AgentSettingsRepository(this._api);
+abstract interface class AgentSettingsRepository {
+  Future<List<AgentCommandItem>> commands(String agentName);
 
-  final AgentControlApi _api;
+  Future<AgentSettingsSnapshot> settings(String agentName);
 
-  Future<AgentCommandListResponse> commands(String agentName) {
-    return _api.listCommands(agentName);
-  }
-
-  Future<AgentSettings> settings(String agentName) {
-    return _api.getSettings(agentName);
-  }
-
-  Future<AgentSettings> update({
+  Future<AgentSettingsSnapshot> update({
     required String agentName,
     String? model,
     String? provider,
-  }) {
-    return _api.updateSettings(
+  });
+}
+
+class AgentControlSettingsRepository implements AgentSettingsRepository {
+  const AgentControlSettingsRepository(this._api);
+
+  final AgentControlApi _api;
+
+  @override
+  Future<List<AgentCommandItem>> commands(String agentName) async {
+    final response = await _api.listCommands(agentName);
+    return response.data.map(_toCommandItem).toList();
+  }
+
+  @override
+  Future<AgentSettingsSnapshot> settings(String agentName) async {
+    final settings = await _api.getSettings(agentName);
+    return _toSettingsSnapshot(settings);
+  }
+
+  @override
+  Future<AgentSettingsSnapshot> update({
+    required String agentName,
+    String? model,
+    String? provider,
+  }) async {
+    final settings = await _api.updateSettings(
       agentName: agentName,
       model: model,
       provider: provider,
+    );
+    return _toSettingsSnapshot(settings);
+  }
+
+  AgentCommandItem _toCommandItem(AgentCommand command) {
+    return AgentCommandItem(
+      command: command.command,
+      title: command.title,
+      description: command.description,
+      icon: command.icon,
+      argHint: command.argHint,
+    );
+  }
+
+  AgentSettingsSnapshot _toSettingsSnapshot(AgentSettings settings) {
+    return AgentSettingsSnapshot(
+      model: settings.agent.model,
+      provider: settings.agent.provider,
+      resolvedProvider: settings.agent.resolvedProvider,
+      hasApiKey: settings.agent.hasApiKey,
+      providers: settings.providers.map(_toProviderSettingsItem).toList(),
+      requiresRestart: settings.requiresRestart,
+    );
+  }
+
+  AgentProviderSettingsItem _toProviderSettingsItem(
+    AgentProviderSettings provider,
+  ) {
+    return AgentProviderSettingsItem(
+      name: provider.name,
+      label: provider.label,
+      configured: provider.configured,
+      models: provider.models,
+      apiKeyHint: provider.apiKeyHint,
+      apiBase: provider.apiBase,
+      defaultApiBase: provider.defaultApiBase,
     );
   }
 }

@@ -1,4 +1,3 @@
-import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
 import 'package:agent_client/features/chat/application/chat_controller.dart';
 import 'package:agent_client/features/chat/application/chat_sessions_controller.dart';
 import 'package:agent_client/features/chat/presentation/widgets/chat_input_bar.dart';
@@ -7,6 +6,7 @@ import 'package:agent_client/features/chat/presentation/widgets/chat_session_pic
 import 'package:agent_client/features/chat/presentation/widgets/chat_session_rail.dart';
 import 'package:agent_client/features/chat/presentation/widgets/inline_chat_error.dart';
 import 'package:agent_client/features/settings/data/agent_settings_repository.dart';
+import 'package:agent_client/features/settings/domain/agent_command.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -20,11 +20,11 @@ class ChatPanel extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(chatControllerProvider(agentId));
-    final List<AgentCommand> commands = switch (ref.watch(
+    final List<AgentCommandItem> commands = switch (ref.watch(
       agentCommandsProvider(agentId),
     )) {
       AsyncData(:final value) => value,
-      _ => const <AgentCommand>[],
+      _ => const <AgentCommandItem>[],
     };
     final textController = useTextEditingController();
     final focusNode = useFocusNode();
@@ -61,6 +61,11 @@ class ChatPanel extends HookConsumerWidget {
               child: ChatMessageList(
                 key: const Key('chat-message-list'),
                 messages: state.messages,
+                isStreaming: state.isStreaming,
+                reasoningText: state.reasoningText,
+                progressText: state.progressText,
+                toolHintText: state.toolHintText,
+                goalStatus: state.goalStatus,
               ),
             ),
             if (state.errorMessage case final error?)

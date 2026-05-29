@@ -31,9 +31,20 @@ class AgentControlSseParser {
       return AgentControlStreamEvent.doneMarker();
     }
 
-    final decoded = jsonDecode(data);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(data);
+    } on FormatException {
+      return AgentControlStreamEvent(
+        type: AgentControlStreamEventType.unknown,
+        raw: {'data': data},
+      );
+    }
     if (decoded is! Map<String, Object?>) {
-      return null;
+      return AgentControlStreamEvent(
+        type: AgentControlStreamEventType.unknown,
+        raw: {'data': decoded},
+      );
     }
     return AgentControlStreamEvent.fromJson(decoded);
   }

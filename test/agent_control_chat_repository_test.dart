@@ -46,6 +46,20 @@ void main() {
     expect(api.createdSessionAgentName, 'test');
   });
 
+  test('treats ok health as ready without starting the agent', () async {
+    final api = _FakeAgentControlApi(
+      card: _card(name: 'test', defaultSessionId: null, health: 'ok'),
+      createdSessionId: 'session-created',
+    );
+    final repository = AgentControlChatRepository(api: api);
+
+    final sessionId = await repository.ensureSessionId('test');
+
+    expect(sessionId, 'session-created');
+    expect(api.startedAgentNames, isEmpty);
+    expect(api.createSessionCount, 1);
+  });
+
   test(
     'reuses named-agent default session without creating a new one',
     () async {
@@ -169,8 +183,11 @@ void main() {
         events[1],
         const ChatEvent.textDelta(messageId: 'assistant-1', delta: 'Hel'),
       );
-      expect(events[2].type, ChatEventType.taskEvent);
-      expect(events[2].payload['kind'], 'progress');
+      expect(events[2].type, ChatEventType.activity);
+      expect(
+        events[2].activity,
+        const ChatActivity.progress('Running command'),
+      );
       expect(
         events[3],
         const ChatEvent.textDelta(messageId: 'assistant-1', delta: 'lo'),

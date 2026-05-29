@@ -1,4 +1,4 @@
-import 'package:agent_client/features/chat/data/agent_chat_repository.dart';
+import 'package:agent_client/features/chat/data/agent_chat_repository_provider.dart';
 import 'package:agent_client/features/chat/domain/chat_session.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -63,18 +63,6 @@ class ChatSessionsController extends Notifier<ChatSessionsState> {
         for (final existing in state.sessions)
           if (existing.id != session.id) existing,
       ],
-    );
-  }
-
-  void insertNewSession(String sessionId) {
-    insertSession(
-      ChatSessionSummary(
-        id: sessionId,
-        title: 'New chat',
-        preview: '',
-        updatedLabel: 'Now',
-        messageCount: 0,
-      ),
     );
   }
 

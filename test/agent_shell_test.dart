@@ -4,6 +4,8 @@ import 'package:agent_client/features/agent_control/domain/agent_control_models.
 import 'package:agent_client/features/agents/application/agent_controller.dart';
 import 'package:agent_client/features/agents/domain/agent.dart';
 import 'package:agent_client/features/chat/data/agent_chat_repository.dart';
+import 'package:agent_client/features/chat/data/agent_chat_repository_provider.dart';
+import 'package:agent_client/features/chat/data/chat_cache_provider.dart';
 import 'package:agent_client/features/chat/data/chat_cache_store.dart';
 import 'package:agent_client/features/chat/domain/chat_attachment.dart';
 import 'package:agent_client/features/chat/domain/chat_event.dart';
@@ -11,6 +13,7 @@ import 'package:agent_client/features/chat/domain/chat_message.dart';
 import 'package:agent_client/features/chat/domain/chat_session.dart';
 import 'package:agent_client/features/files/application/agent_files_provider.dart';
 import 'package:agent_client/features/files/data/agent_resources_repository.dart';
+import 'package:agent_client/features/files/domain/agent_file_content.dart';
 import 'package:agent_client/features/files/domain/agent_file_item.dart';
 import 'package:agent_client/features/files/presentation/files_panel.dart';
 import 'package:agent_client/features/settings/data/agent_settings_repository.dart';
@@ -250,7 +253,7 @@ void main() {
     expect(find.text('Review the mobile chat layout'), findsNothing);
   });
 
-  testWidgets('desktop conversation rail inserts a new local session', (
+  testWidgets('desktop conversation rail creates a backend session', (
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(1200, 800));
@@ -469,10 +472,13 @@ class _FakeAgentControlApi extends Fake implements AgentControlApi {
   }
 }
 
-class _FakeResourcesRepository extends AgentResourcesRepository {
-  _FakeResourcesRepository() : super(_FakeAgentControlApi(<AgentSummary>[]));
-
+class _FakeResourcesRepository implements AgentResourcesRepository {
   final savedContentByPath = <String, String>{};
+
+  @override
+  Future<List<AgentFileItem>> listWorkspaceRoot(String agentName) {
+    return listWorkspaceDirectory(agentName);
+  }
 
   @override
   Future<List<AgentFileItem>> listWorkspaceDirectory(
@@ -512,13 +518,12 @@ class _FakeResourcesRepository extends AgentResourcesRepository {
   }
 
   @override
-  Future<ResourceFile> readFile({
+  Future<AgentFileContent> readFile({
     required String agentName,
     required String path,
   }) async {
     final content = savedContentByPath[path] ?? '# Todo\n- write tests\n';
-    return ResourceFile(
-      object: 'resources.file',
+    return AgentFileContent(
       path: path,
       size: content.length,
       mtimeMs: 1,
@@ -527,18 +532,21 @@ class _FakeResourcesRepository extends AgentResourcesRepository {
   }
 
   @override
-  Future<ResourceFileWriteResult> writeFile({
+  Future<AgentFileWriteResult> writeFile({
     required String agentName,
     required String path,
     required String content,
   }) async {
     savedContentByPath[path] = content;
-    return ResourceFileWriteResult(
-      object: 'resources.file',
-      path: path,
-      size: content.length,
-      mtimeMs: 2,
-    );
+    return AgentFileWriteResult(path: path, size: content.length, mtimeMs: 2);
+  }
+
+  @override
+  Future<List<AgentFileItem>> search({
+    required String agentName,
+    required String query,
+  }) async {
+    return const [];
   }
 }
 
@@ -563,7 +571,6 @@ class _FakeAgentChatRepository implements AgentChatRepository {
       id: 'session-new',
       title: 'New chat',
       preview: '',
-      updatedLabel: 'Now',
       messageCount: 0,
     );
   }
@@ -575,14 +582,12 @@ class _FakeAgentChatRepository implements AgentChatRepository {
         id: 'session-1',
         title: 'Backend layout review',
         preview: 'I found three UI priorities.',
-        updatedLabel: '09:01',
         messageCount: 2,
       ),
       ChatSessionSummary(
         id: 'session-flaky-test',
         title: 'Backend flaky test',
         preview: 'Session restore looks suspicious.',
-        updatedLabel: 'Yesterday',
         messageCount: 4,
         status: ChatSessionStatus.running,
       ),
@@ -590,7 +595,6 @@ class _FakeAgentChatRepository implements AgentChatRepository {
         id: 'session-api3',
         title: 'API3 migration',
         preview: 'Align sessions, attach, and SSE.',
-        updatedLabel: 'Mon',
         messageCount: 6,
       ),
     ];

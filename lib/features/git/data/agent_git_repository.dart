@@ -1,28 +1,60 @@
 import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
 import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
+import 'package:agent_client/features/git/domain/agent_git_status.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 final agentGitRepositoryProvider = Provider<AgentGitRepository>((ref) {
-  return AgentGitRepository(ref.watch(agentControlApiClientProvider));
+  return AgentControlGitRepository(ref.watch(agentControlApiClientProvider));
 });
 
-final agentGitStatusProvider = FutureProvider.family<GitStatus, String>((
+final agentGitStatusProvider = FutureProvider.family<AgentGitStatus, String>((
   ref,
   agentName,
 ) {
   return ref.watch(agentGitRepositoryProvider).status(agentName);
 });
 
-class AgentGitRepository {
-  const AgentGitRepository(this._api);
+abstract interface class AgentGitRepository {
+  Future<AgentGitStatus> status(String agentName);
+
+  Future<AgentGitDiff> diff({required String agentName, String path = '.'});
+}
+
+class AgentControlGitRepository implements AgentGitRepository {
+  const AgentControlGitRepository(this._api);
 
   final AgentControlApi _api;
 
-  Future<GitStatus> status(String agentName) {
-    return _api.getGitStatus(agentName);
+  @override
+  Future<AgentGitStatus> status(String agentName) async {
+    final status = await _api.getGitStatus(agentName);
+    return AgentGitStatus(
+      isRepo: status.isRepo,
+      branch: status.branch,
+      upstream: status.upstream,
+      ahead: status.ahead,
+      behind: status.behind,
+      clean: status.clean,
+      items: status.data.map(_toStatusItem).toList(),
+    );
   }
 
-  Future<GitDiff> diff({required String agentName, String path = '.'}) {
-    return _api.getGitDiff(agentName: agentName, path: path);
+  @override
+  Future<AgentGitDiff> diff({
+    required String agentName,
+    String path = '.',
+  }) async {
+    final diff = await _api.getGitDiff(agentName: agentName, path: path);
+    return AgentGitDiff(isRepo: diff.isRepo, path: diff.path, diff: diff.diff);
+  }
+
+  AgentGitStatusItem _toStatusItem(GitStatusItem item) {
+    return AgentGitStatusItem(
+      path: item.path,
+      status: item.status,
+      from: item.from,
+      index: item.index,
+      worktree: item.worktree,
+    );
   }
 }

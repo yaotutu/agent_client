@@ -1,4 +1,4 @@
-import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
+import 'package:agent_client/features/settings/domain/agent_command.dart';
 import 'package:flutter/material.dart';
 
 class ChatInputBar extends StatelessWidget {
@@ -18,7 +18,7 @@ class ChatInputBar extends StatelessWidget {
   final FocusNode focusNode;
   final bool canSend;
   final bool isStreaming;
-  final List<AgentCommand> commands;
+  final List<AgentCommandItem> commands;
   final VoidCallback onSend;
   final VoidCallback onStop;
   final VoidCallback onSwitchSession;
@@ -31,7 +31,7 @@ class ChatInputBar extends StatelessWidget {
               .where((command) => command.command.startsWith(input))
               .take(6)
               .toList()
-        : const <AgentCommand>[];
+        : const <AgentCommandItem>[];
 
     return SafeArea(
       top: false,
@@ -101,8 +101,8 @@ class ChatInputBar extends StatelessWidget {
 class _CommandSuggestions extends StatelessWidget {
   const _CommandSuggestions({required this.commands, required this.onSelected});
 
-  final List<AgentCommand> commands;
-  final ValueChanged<AgentCommand> onSelected;
+  final List<AgentCommandItem> commands;
+  final ValueChanged<AgentCommandItem> onSelected;
 
   @override
   Widget build(BuildContext context) {

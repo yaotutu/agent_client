@@ -1,0 +1,156 @@
+import 'package:agent_client/features/chat/domain/chat_message.dart';
+import 'package:agent_client/features/chat/presentation/widgets/chat_message_list.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets('scrolls to latest messages on initial layout', (tester) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 220,
+            child: ChatMessageList(
+              messages: _manyMessages(24),
+              scrollController: controller,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(controller.offset, controller.position.maxScrollExtent);
+  });
+
+  testWidgets('keeps following latest message when a new turn is appended', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    final messages = _manyMessages(24);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 220,
+            child: ChatMessageList(
+              messages: messages,
+              scrollController: controller,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(controller.offset, controller.position.maxScrollExtent);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 220,
+            child: ChatMessageList(
+              messages: [
+                ...messages,
+                ChatMessage(
+                  id: 'user-new',
+                  agentId: 'agent-control',
+                  conversationId: 'session-1',
+                  role: ChatRole.user,
+                  content: 'New request',
+                  status: ChatMessageStatus.completed,
+                  createdAt: DateTime(2026, 5, 29, 1),
+                ),
+              ],
+              scrollController: controller,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(controller.offset, controller.position.maxScrollExtent);
+  });
+
+  testWidgets('renders streaming activity from SSE state', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageList(
+            messages: [
+              ChatMessage(
+                id: 'user-1',
+                agentId: 'agent-control',
+                conversationId: 'session-1',
+                role: ChatRole.user,
+                content: 'Review this',
+                status: ChatMessageStatus.completed,
+                createdAt: DateTime(2026, 5, 29),
+              ),
+              ChatMessage(
+                id: 'assistant-1',
+                agentId: 'agent-control',
+                conversationId: 'session-1',
+                role: ChatRole.assistant,
+                content: '',
+                status: ChatMessageStatus.streaming,
+                createdAt: DateTime(2026, 5, 29, 0, 1),
+              ),
+            ],
+            isStreaming: true,
+            goalStatus: 'running',
+            reasoningText: 'Checking the state machine.',
+            progressText: 'Searching files.',
+            toolHintText: 'running rg',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Waiting for response'), findsOneWidget);
+    expect(find.byKey(const Key('chat-live-activity')), findsOneWidget);
+    expect(find.text('Processing'), findsOneWidget);
+    expect(find.text('running'), findsOneWidget);
+    expect(find.text('Thinking'), findsOneWidget);
+    expect(find.text('Checking the state machine.'), findsOneWidget);
+    expect(find.text('Progress'), findsOneWidget);
+    expect(find.text('Searching files.'), findsOneWidget);
+    expect(find.text('Tool'), findsOneWidget);
+    expect(find.text('running rg'), findsOneWidget);
+  });
+
+  testWidgets('keeps empty state when there is no active turn', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: ChatMessageList(messages: [])),
+      ),
+    );
+
+    expect(find.text('Start a chat'), findsOneWidget);
+    expect(find.byKey(const Key('chat-live-activity')), findsNothing);
+  });
+}
+
+List<ChatMessage> _manyMessages(int count) {
+  return [
+    for (var index = 0; index < count; index += 1)
+      ChatMessage(
+        id: 'message-$index',
+        agentId: 'agent-control',
+        conversationId: 'session-1',
+        role: index.isEven ? ChatRole.user : ChatRole.assistant,
+        content: 'Message $index\nwith enough text to create scroll height.',
+        status: ChatMessageStatus.completed,
+        createdAt: DateTime(2026, 5, 29, 0, index),
+      ),
+  ];
+}

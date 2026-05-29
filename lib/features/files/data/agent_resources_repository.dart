@@ -1,23 +1,53 @@
 import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
 import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
+import 'package:agent_client/features/files/domain/agent_file_content.dart';
 import 'package:agent_client/features/files/domain/agent_file_item.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 final agentResourcesRepositoryProvider = Provider<AgentResourcesRepository>((
   ref,
 ) {
-  return AgentResourcesRepository(ref.watch(agentControlApiClientProvider));
+  return AgentControlResourcesRepository(
+    ref.watch(agentControlApiClientProvider),
+  );
 });
 
-class AgentResourcesRepository {
-  const AgentResourcesRepository(this._api);
+abstract interface class AgentResourcesRepository {
+  Future<List<AgentFileItem>> listWorkspaceRoot(String agentName);
+
+  Future<List<AgentFileItem>> listWorkspaceDirectory(
+    String agentName, {
+    String path = '.',
+  });
+
+  Future<AgentFileContent> readFile({
+    required String agentName,
+    required String path,
+  });
+
+  Future<AgentFileWriteResult> writeFile({
+    required String agentName,
+    required String path,
+    required String content,
+  });
+
+  Future<List<AgentFileItem>> search({
+    required String agentName,
+    required String query,
+  });
+}
+
+class AgentControlResourcesRepository implements AgentResourcesRepository {
+  const AgentControlResourcesRepository(this._api);
 
   final AgentControlApi _api;
 
-  Future<List<AgentFileItem>> listWorkspaceRoot(String agentName) async {
+  @override
+  Future<List<AgentFileItem>> listWorkspaceRoot(String agentName) {
     return listWorkspaceDirectory(agentName);
   }
 
+  @override
   Future<List<AgentFileItem>> listWorkspaceDirectory(
     String agentName, {
     String path = '.',
@@ -26,25 +56,39 @@ class AgentResourcesRepository {
     return tree.children.map(_toFileItem).toList();
   }
 
-  Future<ResourceFile> readFile({
+  @override
+  Future<AgentFileContent> readFile({
     required String agentName,
     required String path,
-  }) {
-    return _api.getResourceFile(agentName: agentName, path: path);
+  }) async {
+    final file = await _api.getResourceFile(agentName: agentName, path: path);
+    return AgentFileContent(
+      path: file.path,
+      size: file.size,
+      mtimeMs: file.mtimeMs,
+      content: file.content,
+    );
   }
 
-  Future<ResourceFileWriteResult> writeFile({
+  @override
+  Future<AgentFileWriteResult> writeFile({
     required String agentName,
     required String path,
     required String content,
-  }) {
-    return _api.putResourceFile(
+  }) async {
+    final result = await _api.putResourceFile(
       agentName: agentName,
       path: path,
       content: content,
     );
+    return AgentFileWriteResult(
+      path: result.path,
+      size: result.size,
+      mtimeMs: result.mtimeMs,
+    );
   }
 
+  @override
   Future<List<AgentFileItem>> search({
     required String agentName,
     required String query,

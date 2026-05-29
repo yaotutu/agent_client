@@ -1,5 +1,5 @@
-import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
 import 'package:agent_client/features/files/data/agent_resources_repository.dart';
+import 'package:agent_client/features/files/domain/agent_file_content.dart';
 import 'package:agent_client/features/files/domain/agent_file_item.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -13,11 +13,9 @@ final agentFilesProvider =
           .listWorkspaceDirectory(query.agentId, path: query.path);
     });
 
-final agentFileProvider = FutureProvider.family<ResourceFile, AgentFileQuery>((
-  ref,
-  query,
-) {
-  return ref
-      .watch(agentResourcesRepositoryProvider)
-      .readFile(agentName: query.agentId, path: query.path);
-});
+final agentFileProvider =
+    FutureProvider.family<AgentFileContent, AgentFileQuery>((ref, query) {
+      return ref
+          .watch(agentResourcesRepositoryProvider)
+          .readFile(agentName: query.agentId, path: query.path);
+    });
