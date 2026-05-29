@@ -6,8 +6,8 @@ void main() {
     final message =
         (ChatMessage.new as dynamic)(
               id: 'legacy-message',
-              agentId: 'agent-general',
-              conversationId: 'conversation-agent-general',
+              agentId: 'agent-control',
+              conversationId: 'session-1',
               role: ChatRole.assistant,
               content: 'Legacy hot reload state',
               status: ChatMessageStatus.completed,

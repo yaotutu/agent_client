@@ -15,6 +15,13 @@ class DriftChatCacheStore implements ChatCacheStore {
   final AppDatabase _database;
 
   @override
+  Future<void> clearMessages(String agentId) {
+    return (_database.delete(
+      _database.cachedMessages,
+    )..where((table) => table.agentId.equals(agentId))).go();
+  }
+
+  @override
   Future<void> saveMessage(ChatMessage message) {
     return _database
         .into(_database.cachedMessages)

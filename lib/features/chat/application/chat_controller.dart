@@ -1,8 +1,10 @@
 import 'package:agent_client/features/chat/application/chat_state.dart';
+import 'package:agent_client/features/chat/application/chat_sessions_controller.dart';
 import 'package:agent_client/features/chat/data/agent_chat_repository.dart';
 import 'package:agent_client/features/chat/data/chat_cache_store.dart';
 import 'package:agent_client/features/chat/domain/chat_event.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';
+import 'package:agent_client/features/chat/domain/chat_session.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 final chatControllerProvider =
@@ -22,21 +24,33 @@ class ChatController extends Notifier<ChatState> {
     if (state.messages.isNotEmpty) {
       return;
     }
-    final messages = await ref
-        .read(chatCacheStoreProvider)
-        .loadRecentMessages(agentId);
-    if (messages.isNotEmpty) {
-      state = state.copyWith(messages: messages);
-      return;
-    }
+    try {
+      final messages = await ref
+          .read(chatCacheStoreProvider)
+          .loadRecentMessages(agentId);
+      if (messages.isNotEmpty) {
+        state = state.copyWith(
+          sessionId: messages.last.conversationId,
+          messages: messages,
+          clearError: true,
+        );
+        return;
+      }
 
-    final repositoryMessages = await ref
-        .read(agentChatRepositoryProvider)
-        .loadRecentMessages(agentId);
-    state = state.copyWith(messages: repositoryMessages);
-    final cache = ref.read(chatCacheStoreProvider);
-    for (final message in repositoryMessages) {
-      await cache.saveMessage(message);
+      final repositoryMessages = await ref
+          .read(agentChatRepositoryProvider)
+          .loadRecentMessages(agentId);
+      state = state.copyWith(
+        sessionId: _sessionIdFrom(repositoryMessages),
+        messages: repositoryMessages,
+        clearError: true,
+      );
+      final cache = ref.read(chatCacheStoreProvider);
+      for (final message in repositoryMessages) {
+        await cache.saveMessage(message);
+      }
+    } catch (error) {
+      state = state.copyWith(errorMessage: error.toString());
     }
   }
 
@@ -45,18 +59,31 @@ class ChatController extends Notifier<ChatState> {
       return;
     }
 
-    final repositoryMessages = await ref
-        .read(agentChatRepositoryProvider)
-        .loadRecentMessages(agentId);
-    if (repositoryMessages.isEmpty) {
-      await loadRecentMessages();
-      return;
-    }
+    try {
+      final sessionId = state.sessionId;
+      final repositoryMessages = await ref
+          .read(agentChatRepositoryProvider)
+          .loadRecentMessages(agentId, sessionId: sessionId);
+      if (repositoryMessages.isEmpty) {
+        state = state.copyWith(
+          sessionId: sessionId,
+          messages: const [],
+          clearError: true,
+        );
+        return;
+      }
 
-    state = state.copyWith(messages: repositoryMessages, clearError: true);
-    final cache = ref.read(chatCacheStoreProvider);
-    for (final message in repositoryMessages) {
-      await cache.saveMessage(message);
+      state = state.copyWith(
+        sessionId: _sessionIdFrom(repositoryMessages) ?? sessionId,
+        messages: repositoryMessages,
+        clearError: true,
+      );
+      final cache = ref.read(chatCacheStoreProvider);
+      for (final message in repositoryMessages) {
+        await cache.saveMessage(message);
+      }
+    } catch (error) {
+      state = state.copyWith(errorMessage: error.toString());
     }
   }
 
@@ -66,31 +93,36 @@ class ChatController extends Notifier<ChatState> {
       return;
     }
 
-    final userMessage = ChatMessage(
-      id: _newMessageId('user'),
-      agentId: agentId,
-      conversationId: state.conversationId,
-      role: ChatRole.user,
-      content: trimmed,
-      status: ChatMessageStatus.completed,
-      createdAt: DateTime.now(),
-    );
-
-    state = state.copyWith(
-      messages: [...state.messages, userMessage],
-      isStreaming: true,
-      clearError: true,
-    );
-    await ref.read(chatCacheStoreProvider).saveMessage(userMessage);
-
-    final request = SendMessageRequest(
-      agentId: agentId,
-      conversationId: state.conversationId,
-      input: trimmed,
-      history: state.messages,
-    );
-
     try {
+      final sessionId = await _ensureSessionId();
+      final userMessage = ChatMessage(
+        id: _newMessageId('user'),
+        agentId: agentId,
+        conversationId: sessionId,
+        role: ChatRole.user,
+        content: trimmed,
+        status: ChatMessageStatus.completed,
+        createdAt: DateTime.now(),
+      );
+      final assistantMessageId = _newMessageId('assistant');
+
+      state = state.copyWith(
+        messages: [...state.messages, userMessage],
+        isStreaming: true,
+        clearError: true,
+        clearReasoning: true,
+        clearProgress: true,
+        clearToolHint: true,
+      );
+      await ref.read(chatCacheStoreProvider).saveMessage(userMessage);
+
+      final request = SendMessageRequest(
+        agentId: agentId,
+        sessionId: sessionId,
+        assistantMessageId: assistantMessageId,
+        input: trimmed,
+      );
+
       await for (final event
           in ref.read(agentChatRepositoryProvider).sendMessage(request)) {
         _applyEvent(event);
@@ -107,9 +139,13 @@ class ChatController extends Notifier<ChatState> {
   }
 
   Future<void> cancelActiveResponse() async {
+    final sessionId = state.sessionId;
+    if (sessionId == null) {
+      return;
+    }
     await ref
         .read(agentChatRepositoryProvider)
-        .cancelActiveResponse(state.conversationId);
+        .cancelActiveResponse(agentId: agentId, sessionId: sessionId);
     final messages = state.messages.map((message) {
       if (message.role == ChatRole.assistant &&
           message.status == ChatMessageStatus.streaming) {
@@ -118,6 +154,77 @@ class ChatController extends Notifier<ChatState> {
       return message;
     }).toList();
     state = state.copyWith(messages: messages, isStreaming: false);
+  }
+
+  Future<void> startNewSession() async {
+    if (state.isStreaming) {
+      return;
+    }
+
+    try {
+      final session = await ref
+          .read(agentChatRepositoryProvider)
+          .startNewSession(agentId);
+      ref.read(chatSessionsProvider(agentId).notifier).insertSession(session);
+      await ref.read(chatCacheStoreProvider).clearMessages(agentId);
+      state = ChatState(agentId: agentId, sessionId: session.id);
+    } catch (error) {
+      state = state.copyWith(errorMessage: error.toString());
+    }
+  }
+
+  Future<void> startLocalSessionPreview() async {
+    if (state.isStreaming) {
+      return;
+    }
+
+    final sessionId = 'local-${DateTime.now().microsecondsSinceEpoch}';
+    ref
+        .read(chatSessionsProvider(agentId).notifier)
+        .insertNewSession(sessionId);
+    state = ChatState(agentId: agentId, sessionId: sessionId);
+  }
+
+  Future<void> openSessionPreview(ChatSessionSummary session) async {
+    if (state.isStreaming) {
+      return;
+    }
+
+    ref.read(chatSessionsProvider(agentId).notifier).selectSession(session.id);
+    final cachedMessages = await ref
+        .read(chatCacheStoreProvider)
+        .loadRecentMessages(agentId);
+    final scopedCache = [
+      for (final message in cachedMessages)
+        if (message.conversationId == session.id) message,
+    ];
+    final messages = scopedCache.isNotEmpty
+        ? scopedCache
+        : await _messagesForSession(session.id);
+
+    state = ChatState(
+      agentId: agentId,
+      sessionId: session.id,
+      messages: messages,
+    );
+  }
+
+  Future<List<ChatMessage>> _messagesForSession(String sessionId) async {
+    try {
+      final repositoryMessages = await ref
+          .read(agentChatRepositoryProvider)
+          .loadRecentMessages(agentId, sessionId: sessionId);
+      if (repositoryMessages.isNotEmpty) {
+        final cache = ref.read(chatCacheStoreProvider);
+        for (final message in repositoryMessages) {
+          await cache.saveMessage(message);
+        }
+        return repositoryMessages;
+      }
+    } catch (_) {
+      return const [];
+    }
+    return const [];
   }
 
   void _applyEvent(ChatEvent event) {
@@ -131,8 +238,9 @@ class ChatController extends Notifier<ChatState> {
       case ChatEventType.error:
         _failAssistantMessage(event.errorMessage ?? 'Response failed');
       case ChatEventType.toolEvent:
+        _applyToolEvent(event.payload);
       case ChatEventType.taskEvent:
-        _ensureAssistantMessage(event.messageId);
+        _applyTaskEvent(event.payload);
     }
   }
 
@@ -144,7 +252,7 @@ class ChatController extends Notifier<ChatState> {
     final message = ChatMessage(
       id: messageId,
       agentId: agentId,
-      conversationId: state.conversationId,
+      conversationId: state.sessionId ?? '',
       role: ChatRole.assistant,
       content: '',
       status: ChatMessageStatus.streaming,
@@ -203,7 +311,7 @@ class ChatController extends Notifier<ChatState> {
             ChatMessage(
               id: _newMessageId('assistant'),
               agentId: agentId,
-              conversationId: state.conversationId,
+              conversationId: state.sessionId ?? '',
               role: ChatRole.assistant,
               content: errorMessage,
               status: ChatMessageStatus.failed,
@@ -218,6 +326,30 @@ class ChatController extends Notifier<ChatState> {
     );
   }
 
+  void _applyToolEvent(Map<String, Object?> payload) {
+    if (payload['kind'] == 'tool_hint') {
+      state = state.copyWith(toolHintText: payload['text']?.toString());
+    }
+  }
+
+  void _applyTaskEvent(Map<String, Object?> payload) {
+    switch (payload['kind']) {
+      case 'reasoning':
+        state = state.copyWith(reasoningText: payload['text']?.toString());
+      case 'reasoning_done':
+        state = state.copyWith(clearReasoning: true);
+      case 'progress':
+        state = state.copyWith(progressText: payload['text']?.toString());
+      case 'goal_status':
+        state = state.copyWith(goalStatus: payload['state']?.toString());
+      case 'goal_state':
+        final goalState = payload['goalState'];
+        if (goalState is Map<String, Object?>) {
+          state = state.copyWith(goalState: goalState);
+        }
+    }
+  }
+
   Future<void> _persistMessages() async {
     final cache = ref.read(chatCacheStoreProvider);
     for (final message in state.messages) {
@@ -227,5 +359,24 @@ class ChatController extends Notifier<ChatState> {
 
   String _newMessageId(String prefix) {
     return '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  Future<String> _ensureSessionId() async {
+    if (state.sessionId case final sessionId?) {
+      return sessionId;
+    }
+    final sessionId = await ref
+        .read(agentChatRepositoryProvider)
+        .ensureSessionId(agentId);
+    state = state.copyWith(sessionId: sessionId, clearError: true);
+    return sessionId;
+  }
+
+  String? _sessionIdFrom(List<ChatMessage> messages) {
+    if (messages.isEmpty) {
+      return null;
+    }
+    final sessionId = messages.last.conversationId;
+    return sessionId.isEmpty ? null : sessionId;
   }
 }

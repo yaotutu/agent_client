@@ -4,6 +4,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 abstract interface class ChatCacheStore {
   Future<void> saveMessage(ChatMessage message);
 
+  Future<void> clearMessages(String agentId);
+
   Future<List<ChatMessage>> loadRecentMessages(
     String agentId, {
     int limit = 50,
@@ -16,6 +18,11 @@ final chatCacheStoreProvider = Provider<ChatCacheStore>((ref) {
 
 class InMemoryChatCacheStore implements ChatCacheStore {
   final Map<String, List<ChatMessage>> _messagesByAgent = {};
+
+  @override
+  Future<void> clearMessages(String agentId) async {
+    _messagesByAgent.remove(agentId);
+  }
 
   @override
   Future<List<ChatMessage>> loadRecentMessages(

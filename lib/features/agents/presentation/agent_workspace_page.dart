@@ -1,4 +1,5 @@
 import 'package:agent_client/features/agents/application/agent_controller.dart';
+import 'package:agent_client/features/agents/domain/agent.dart';
 import 'package:agent_client/features/agents/presentation/agent_navigation_panel.dart';
 import 'package:agent_client/features/agents/presentation/agent_side_rail.dart';
 import 'package:agent_client/features/chat/presentation/chat_panel.dart';
@@ -16,7 +17,23 @@ class AgentWorkspacePage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final agent = ref.watch(currentAgentProvider);
+    final currentAgentId = ref.watch(currentAgentIdProvider);
 
+    return agent.when(
+      data: (agent) => _WorkspaceScaffold(agent: agent),
+      loading: () => _WorkspaceScaffold(agent: fallbackAgent(currentAgentId)),
+      error: (_, _) => _WorkspaceScaffold(agent: fallbackAgent(currentAgentId)),
+    );
+  }
+}
+
+class _WorkspaceScaffold extends StatelessWidget {
+  const _WorkspaceScaffold({required this.agent});
+
+  final Agent agent;
+
+  @override
+  Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final usesSideRail = constraints.maxWidth >= _tabletMinWidth;
