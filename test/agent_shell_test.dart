@@ -20,6 +20,13 @@ void main() {
     await pumpAppAtSize(tester, const Size(390, 844));
 
     expect(find.byKey(const Key('agent-chat-tab')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('current-agent-title')),
+        matching: find.text('General Agent'),
+      ),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('chat-message-list')), findsOneWidget);
     expect(find.text('Review the mobile chat layout'), findsOneWidget);
     expect(find.textContaining('I found three UI priorities'), findsOneWidget);
@@ -63,6 +70,7 @@ void main() {
 
     expect(find.byKey(const Key('agent-side-rail')), findsOneWidget);
     expect(find.byKey(const Key('agent-navigation-button')), findsNothing);
+    expect(find.text('Agent Navigator'), findsNothing);
     expect(find.byKey(const Key('chat-input-bar')), findsOneWidget);
 
     final inputRect = tester.getRect(find.byKey(const Key('chat-input-bar')));
@@ -72,9 +80,10 @@ void main() {
   testWidgets('tablet layout removes the agent title above chat', (
     tester,
   ) async {
-    await pumpAppAtSize(tester, const Size(1024, 768));
+    await pumpAppAtSize(tester, const Size(768, 1024));
 
     expect(find.byKey(const Key('agent-side-rail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-navigation-button')), findsNothing);
     expect(find.byKey(const Key('current-agent-title')), findsNothing);
     expect(find.text('General Agent'), findsOneWidget);
     expect(find.byKey(const Key('agent-tab-bar')), findsOneWidget);

@@ -3,9 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class AgentNavigationPanel extends ConsumerWidget {
-  const AgentNavigationPanel({super.key, this.closeAfterSelection = false});
+  const AgentNavigationPanel({
+    super.key,
+    this.closeAfterSelection = false,
+    this.showTitle = false,
+  });
 
   final bool closeAfterSelection;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -16,14 +21,16 @@ class AgentNavigationPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 10),
-            child: Text(
-              'Agent Navigator',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          if (showTitle) ...[
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 10),
+              child: Text(
+                'Agent Navigator',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
             ),
-          ),
-          const Divider(height: 1),
+            const Divider(height: 1),
+          ],
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.all(12),

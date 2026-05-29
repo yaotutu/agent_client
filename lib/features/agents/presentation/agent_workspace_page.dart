@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-const _desktopMinWidth = 900.0;
+const _tabletMinWidth = 600.0;
 
 class AgentWorkspacePage extends HookConsumerWidget {
   const AgentWorkspacePage({super.key});
@@ -19,24 +19,27 @@ class AgentWorkspacePage extends HookConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final desktop = constraints.maxWidth >= _desktopMinWidth;
+        final usesSideRail = constraints.maxWidth >= _tabletMinWidth;
 
         return Scaffold(
-          drawer: desktop
+          drawer: usesSideRail
               ? null
               : const Drawer(
-                  child: AgentNavigationPanel(closeAfterSelection: true),
+                  child: AgentNavigationPanel(
+                    closeAfterSelection: true,
+                    showTitle: true,
+                  ),
                 ),
           body: SafeArea(
             bottom: false,
             child: Row(
               children: [
-                if (desktop) const AgentSideRail(),
+                if (usesSideRail) const AgentSideRail(),
                 Expanded(
                   child: _AgentTabs(
                     agentId: agent.id,
                     agentName: agent.name,
-                    showDrawerButton: !desktop,
+                    showPhoneHeader: !usesSideRail,
                   ),
                 ),
               ],
@@ -52,12 +55,12 @@ class _AgentTabs extends HookConsumerWidget {
   const _AgentTabs({
     required this.agentId,
     required this.agentName,
-    required this.showDrawerButton,
+    required this.showPhoneHeader,
   });
 
   final String agentId;
   final String agentName;
-  final bool showDrawerButton;
+  final bool showPhoneHeader;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,11 +68,7 @@ class _AgentTabs extends HookConsumerWidget {
 
     return Column(
       children: [
-        if (showDrawerButton)
-          _AgentHeader(
-            agentName: agentName,
-            showDrawerButton: showDrawerButton,
-          ),
+        if (showPhoneHeader) _AgentHeader(agentName: agentName),
         Material(
           color: Colors.white,
           child: TabBar(
@@ -98,10 +97,9 @@ class _AgentTabs extends HookConsumerWidget {
 }
 
 class _AgentHeader extends StatelessWidget {
-  const _AgentHeader({required this.agentName, required this.showDrawerButton});
+  const _AgentHeader({required this.agentName});
 
   final String agentName;
-  final bool showDrawerButton;
 
   @override
   Widget build(BuildContext context) {
@@ -114,17 +112,16 @@ class _AgentHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          if (showDrawerButton)
-            Builder(
-              builder: (context) {
-                return IconButton(
-                  key: const Key('agent-navigation-button'),
-                  tooltip: 'Agents',
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                );
-              },
-            ),
+          Builder(
+            builder: (context) {
+              return IconButton(
+                key: const Key('agent-navigation-button'),
+                tooltip: 'Agents',
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              );
+            },
+          ),
           Expanded(
             child: KeyedSubtree(
               key: const Key('current-agent-title'),
