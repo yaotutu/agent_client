@@ -144,7 +144,9 @@ class _AgentHeader extends StatelessWidget {
               key: const Key('current-agent-title'),
               child: Text(
                 title,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                softWrap: false,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -159,9 +161,5 @@ class _AgentHeader extends StatelessWidget {
 }
 
 String _agentTitle(Agent agent) {
-  final description = agent.description?.trim();
-  if (description != null && description.isNotEmpty) {
-    return description;
-  }
   return agent.name;
 }

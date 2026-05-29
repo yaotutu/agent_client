@@ -92,8 +92,12 @@ class AgentNavigationPanel extends ConsumerWidget {
                         radius: 16,
                         child: Text(agent.name.characters.first),
                       ),
-                      title: Text(agent.name),
-                      subtitle: agent.model == null ? null : Text(agent.model!),
+                      title: Text(
+                        agent.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                      ),
                       trailing: _AgentTileActions(
                         agent: agent,
                         selected: selected,

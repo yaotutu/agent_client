@@ -81,10 +81,19 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('current-agent-title')),
-        matching: find.text('代码审查助手'),
+        matching: find.text('nanobot'),
       ),
       findsOneWidget,
     );
+    final currentAgentTitle = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const Key('current-agent-title')),
+        matching: find.text('nanobot'),
+      ),
+    );
+    expect(currentAgentTitle.maxLines, 1);
+    expect(currentAgentTitle.overflow, TextOverflow.ellipsis);
+    expect(currentAgentTitle.softWrap, isFalse);
     expect(find.byKey(const Key('chat-message-list')), findsOneWidget);
     expect(find.text('Review the mobile chat layout'), findsOneWidget);
     expect(find.textContaining('I found three UI priorities'), findsOneWidget);
@@ -109,11 +118,27 @@ void main() {
 
     expect(find.text('Agent Navigator'), findsOneWidget);
     expect(find.text('nanobot'), findsWidgets);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('agent-tile-nanobot')),
+        matching: find.text('MiniMax-M2.7-highspeed'),
+      ),
+      findsNothing,
+    );
+    final agentTileTitle = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const Key('agent-tile-nanobot')),
+        matching: find.text('nanobot'),
+      ),
+    );
+    expect(agentTileTitle.maxLines, 1);
+    expect(agentTileTitle.overflow, TextOverflow.ellipsis);
+    expect(agentTileTitle.softWrap, isFalse);
 
     expect(
       find.descendant(
         of: find.byKey(const Key('current-agent-title')),
-        matching: find.text('代码审查助手'),
+        matching: find.text('nanobot'),
       ),
       findsOneWidget,
     );
