@@ -26,4 +26,19 @@ class Agent {
   final String? model;
   final String? provider;
   final String? workspace;
+
+  Agent copyWith({String? avatarUrl}) {
+    return Agent(
+      id: id,
+      name: name,
+      description: description,
+      backendId: backendId,
+      backendAgentId: backendAgentId,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      status: status,
+      model: model,
+      provider: provider,
+      workspace: workspace,
+    );
+  }
 }

@@ -1,6 +1,7 @@
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/agents/application/agent_controller.dart';
 import 'package:agent_client/features/agents/domain/agent.dart';
+import 'package:agent_client/features/agents/presentation/agent_avatar_view.dart';
 import 'package:agent_client/features/agents/presentation/agent_navigation_panel.dart';
 import 'package:agent_client/features/settings/presentation/app_settings_page.dart';
 import 'package:flutter/material.dart';
@@ -138,15 +139,10 @@ class _CompactAgentList extends StatelessWidget {
               child: SizedBox(
                 height: 52,
                 child: Center(
-                  child: CircleAvatar(
+                  child: AgentAvatarView(
+                    agent: agent,
+                    selected: selected,
                     radius: 18,
-                    backgroundColor: selected
-                        ? AppThemeTokens.brand
-                        : AppThemeTokens.brandSoft,
-                    foregroundColor: selected
-                        ? Colors.white
-                        : AppThemeTokens.brand,
-                    child: Text(agent.name.characters.first),
                   ),
                 ),
               ),

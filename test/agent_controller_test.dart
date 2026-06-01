@@ -1,6 +1,9 @@
 import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
 import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
 import 'package:agent_client/features/agents/application/agent_controller.dart';
+import 'package:agent_client/features/agents/data/agent_avatar_store.dart';
+import 'package:agent_client/features/agents/domain/agent.dart';
+import 'package:agent_client/features/agents/domain/agent_avatar.dart';
 import 'package:agent_client/features/chat/application/chat_controller.dart';
 import 'package:agent_client/features/chat/application/chat_sessions_controller.dart';
 import 'package:agent_client/features/chat/data/chat_cache_provider.dart';
@@ -20,6 +23,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           agentControlApiClientProvider.overrideWithValue(api),
+          agentAvatarStoreProvider.overrideWithValue(_FakeAgentAvatarStore()),
           chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
         ],
       );
@@ -51,6 +55,43 @@ void main() {
   );
 
   test(
+    'createAgent stores the selected avatar and merges it into refreshed agents',
+    () async {
+      final api = _FakeAgentControlApi([
+        _agentSummary('nanobot', description: '代码审查助手'),
+      ]);
+      final avatarStore = _FakeAgentAvatarStore();
+      final container = ProviderContainer(
+        overrides: [
+          agentControlApiClientProvider.overrideWithValue(api),
+          agentAvatarStoreProvider.overrideWithValue(avatarStore),
+          chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final avatar = AgentAvatarOptions.defaults.first.assetPath;
+      await container
+          .read(currentAgentIdProvider.notifier)
+          .createAgent(
+            name: 'reviewer',
+            description: '代码审查助手',
+            avatarUrl: avatar,
+          );
+
+      final agents = await container.read(agentsProvider.future);
+      expect(api.createdName, 'reviewer');
+      expect(api.createdDescription, '代码审查助手');
+      expect(avatarStore.avatarFor('reviewer'), avatar);
+      expect(
+        agents.singleWhere((agent) => agent.id == 'reviewer').avatarUrl,
+        avatar,
+      );
+      expect(container.read(currentAgentIdProvider), 'reviewer');
+    },
+  );
+
+  test(
     'deleteAgent deletes through backend and selects the first remaining agent',
     () async {
       final api = _FakeAgentControlApi([
@@ -60,6 +101,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           agentControlApiClientProvider.overrideWithValue(api),
+          agentAvatarStoreProvider.overrideWithValue(_FakeAgentAvatarStore()),
           chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
         ],
       );
@@ -90,6 +132,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           agentControlApiClientProvider.overrideWithValue(api),
+          agentAvatarStoreProvider.overrideWithValue(_FakeAgentAvatarStore()),
           chatCacheStoreProvider.overrideWithValue(cache),
         ],
       );
@@ -211,5 +254,31 @@ class _FakeAgentControlApi extends Fake implements AgentControlApi {
     deletedName = agentName;
     _agents.removeWhere((agent) => agent.name == agentName);
     return DeleteAgentResponse(deleted: true, name: agentName);
+  }
+}
+
+class _FakeAgentAvatarStore implements AgentAvatarStore {
+  final _avatars = <String, String>{};
+
+  String? avatarFor(String agentId) => _avatars[agentId];
+
+  @override
+  Future<Map<String, String>> loadAvatarUrls() async {
+    return Map.of(_avatars);
+  }
+
+  @override
+  Future<void> saveAvatar({
+    required String agentId,
+    required String agentName,
+    required String avatarUrl,
+    required AgentStatus status,
+  }) async {
+    _avatars[agentId] = avatarUrl;
+  }
+
+  @override
+  Future<void> deleteAvatar(String agentId) async {
+    _avatars.remove(agentId);
   }
 }

@@ -41,6 +41,13 @@ class _ConversationListPane extends ConsumerWidget {
                     ),
                   ),
                 ),
+                IconButton(
+                  key: const Key('agent-conversation-create-button'),
+                  tooltip: 'Create agent',
+                  onPressed: () =>
+                      AgentNavigationPanel.openCreateAgentDialog(context),
+                  icon: const Icon(Icons.add, size: 22),
+                ),
                 if (showSettingsButton)
                   IconButton(
                     key: const Key('global-settings-button'),
@@ -303,7 +310,7 @@ class _AgentConversationTile extends ConsumerWidget {
         onTap: onTap,
         child: Row(
           children: [
-            _AgentAvatar(agent: agent, selected: selected),
+            AgentAvatarView(agent: agent, selected: selected),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -390,56 +397,6 @@ class _ConversationSurface extends StatelessWidget {
           child: child,
         ),
       ),
-    );
-  }
-}
-
-class _AgentAvatar extends StatelessWidget {
-  const _AgentAvatar({
-    required this.agent,
-    required this.selected,
-    this.radius = 24,
-  });
-
-  final Agent agent;
-  final bool selected;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = switch (agent.status) {
-      AgentStatus.online => AppThemeTokens.success,
-      AgentStatus.busy => const Color(0xFFF79009),
-      AgentStatus.offline => AppThemeTokens.subtleText,
-    };
-
-    final statusSize = radius <= 20 ? 10.0 : 13.0;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        CircleAvatar(
-          radius: radius,
-          backgroundColor: selected
-              ? AppThemeTokens.brand
-              : AppThemeTokens.brandSoft,
-          foregroundColor: selected ? Colors.white : AppThemeTokens.brand,
-          child: Text(_initialFor(agent.name)),
-        ),
-        Positioned(
-          right: 0,
-          bottom: 0,
-          child: Container(
-            width: statusSize,
-            height: statusSize,
-            decoration: BoxDecoration(
-              color: statusColor,
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFF8FBFE), width: 2),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -664,14 +621,6 @@ String _agentFallbackSubtitle(Agent agent) {
     return agent.workspace!.trim();
   }
   return 'Ready to chat';
-}
-
-String _initialFor(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) {
-    return '?';
-  }
-  return trimmed.characters.first.toUpperCase();
 }
 
 String _compactTime(DateTime? value) {

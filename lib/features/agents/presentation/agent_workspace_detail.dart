@@ -72,7 +72,7 @@ class _ChatDetailHeader extends StatelessWidget {
               onPressed: onBack,
               icon: const Icon(Icons.arrow_back),
             ),
-          _AgentAvatar(agent: agent, selected: true, radius: 19),
+          AgentAvatarView(agent: agent, selected: true, radius: 19),
           const SizedBox(width: 12),
           Expanded(
             child: KeyedSubtree(

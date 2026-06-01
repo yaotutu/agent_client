@@ -3,7 +3,9 @@ import 'package:agent_client/core/config/app_config.dart';
 import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
 import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
 import 'package:agent_client/features/agents/application/agent_controller.dart';
+import 'package:agent_client/features/agents/data/agent_avatar_store.dart';
 import 'package:agent_client/features/agents/domain/agent.dart';
+import 'package:agent_client/features/agents/domain/agent_avatar.dart';
 import 'package:agent_client/features/chat/data/agent_chat_repository.dart';
 import 'package:agent_client/features/chat/data/agent_chat_repository_provider.dart';
 import 'package:agent_client/features/chat/data/chat_cache_provider.dart';
@@ -51,8 +53,10 @@ void main() {
   Future<void> pumpAppWithAgentApi(
     WidgetTester tester,
     Size size,
-    _FakeAgentControlApi api,
-  ) async {
+    _FakeAgentControlApi api, {
+    _FakeAgentAvatarStore? avatarStore,
+  }) async {
+    final effectiveAvatarStore = avatarStore ?? _FakeAgentAvatarStore();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -62,6 +66,7 @@ void main() {
       ProviderScope(
         overrides: [
           agentControlApiClientProvider.overrideWithValue(api),
+          agentAvatarStoreProvider.overrideWithValue(effectiveAvatarStore),
           agentChatRepositoryProvider.overrideWithValue(
             _FakeAgentChatRepository(),
           ),
@@ -447,6 +452,43 @@ void main() {
     );
   });
 
+  testWidgets('create agent dialog saves the selected default avatar', (
+    tester,
+  ) async {
+    final api = _FakeAgentControlApi([_agentSummary('nanobot')]);
+    final avatarStore = _FakeAgentAvatarStore();
+    await pumpAppWithAgentApi(
+      tester,
+      const Size(1200, 800),
+      api,
+      avatarStore: avatarStore,
+    );
+
+    await tester.tap(find.byKey(const Key('agent-conversation-create-button')));
+    await tester.pumpAndSettle();
+
+    final avatar = AgentAvatarOptions.defaults[2];
+    await tester.tap(find.byKey(Key('agent-avatar-option-${avatar.id}')));
+    await tester.enterText(
+      find.byKey(const Key('agent-create-name-field')),
+      'researcher',
+    );
+    await tester.enterText(
+      find.byKey(const Key('agent-create-description-field')),
+      '调研助手',
+    );
+    await tester.tap(find.byKey(const Key('agent-create-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(api.createdName, 'researcher');
+    expect(api.createdDescription, '调研助手');
+    expect(avatarStore.avatarFor('researcher'), avatar.assetPath);
+    expect(
+      find.byKey(const Key('agent-avatar-image-researcher')),
+      findsWidgets,
+    );
+  });
+
   testWidgets('desktop chat shows mock conversations and switches sessions', (
     tester,
   ) async {
@@ -779,6 +821,32 @@ class _FakeAgentControlApi extends Fake implements AgentControlApi {
     deletedName = agentName;
     _agents.removeWhere((agent) => agent.name == agentName);
     return DeleteAgentResponse(deleted: true, name: agentName);
+  }
+}
+
+class _FakeAgentAvatarStore implements AgentAvatarStore {
+  final _avatars = <String, String>{};
+
+  String? avatarFor(String agentId) => _avatars[agentId];
+
+  @override
+  Future<Map<String, String>> loadAvatarUrls() async {
+    return Map.of(_avatars);
+  }
+
+  @override
+  Future<void> saveAvatar({
+    required String agentId,
+    required String agentName,
+    required String avatarUrl,
+    required AgentStatus status,
+  }) async {
+    _avatars[agentId] = avatarUrl;
+  }
+
+  @override
+  Future<void> deleteAvatar(String agentId) async {
+    _avatars.remove(agentId);
   }
 }
 

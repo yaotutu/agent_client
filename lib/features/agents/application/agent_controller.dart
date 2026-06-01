@@ -36,7 +36,11 @@ class CurrentAgentController extends Notifier<String> {
     state = agentId;
   }
 
-  Future<void> createAgent({required String name, String? description}) async {
+  Future<void> createAgent({
+    required String name,
+    String? description,
+    String? avatarUrl,
+  }) async {
     final trimmedName = name.trim();
     final trimmedDescription = description?.trim();
     final created = await ref
@@ -46,6 +50,7 @@ class CurrentAgentController extends Notifier<String> {
           description: trimmedDescription == null || trimmedDescription.isEmpty
               ? null
               : trimmedDescription,
+          avatarUrl: avatarUrl,
         );
 
     state = created.id;
