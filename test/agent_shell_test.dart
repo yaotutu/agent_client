@@ -19,6 +19,7 @@ import 'package:agent_client/features/files/domain/agent_file_item.dart';
 import 'package:agent_client/features/files/presentation/files_panel.dart';
 import 'package:agent_client/features/settings/data/agent_settings_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -74,12 +75,102 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('phone layout prioritizes chat and keeps input at the bottom', (
+  Future<void> openMobileAgentChat(WidgetTester tester) async {
+    await tester.tap(find.byKey(const Key('agent-conversation-agent-nanobot')));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('desktop layout uses an IM shell with conversation list', (
+    tester,
+  ) async {
+    await pumpAppAtSize(tester, const Size(1200, 800));
+
+    expect(find.byKey(const Key('agent-im-shell')), findsOneWidget);
+    expect(find.byKey(const Key('agent-app-rail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-conversation-list')), findsOneWidget);
+    expect(
+      find.byKey(const Key('agent-conversation-everyone')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('agent-conversation-agent-nanobot')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('agent-chat-detail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-tab-bar')), findsNothing);
+    expect(find.byKey(const Key('agent-side-rail')), findsNothing);
+    expect(find.byKey(const Key('agent-create-button')), findsNothing);
+    expect(find.text('Compose'), findsNothing);
+    expect(find.byKey(const Key('chat-message-list')), findsOneWidget);
+    expect(find.byKey(const Key('agent-detail-files-button')), findsOneWidget);
+    expect(find.byKey(const Key('agent-detail-tasks-button')), findsOneWidget);
+  });
+
+  testWidgets('phone layout starts at the conversation list and opens chat', (
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(390, 844));
 
-    expect(find.byKey(const Key('agent-chat-tab')), findsOneWidget);
+    expect(
+      find.byKey(const Key('agent-mobile-conversation-list')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('agent-conversation-agent-nanobot')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('chat-message-list')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('agent-conversation-agent-nanobot')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('agent-chat-detail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-chat-back-button')), findsOneWidget);
+    expect(find.byKey(const Key('chat-message-list')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('agent-chat-back-button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('agent-mobile-conversation-list')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('chat-message-list')), findsNothing);
+  });
+
+  testWidgets(
+    'phone conversation list keeps safe area while styling status bar',
+    (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 44);
+      addTearDown(tester.view.resetPadding);
+
+      await pumpAppAtSize(tester, const Size(390, 844));
+
+      final listRect = tester.getRect(
+        find.byKey(const Key('agent-conversation-list')),
+      );
+      final rootScaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+      final overlayStyle = tester
+          .widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
+            find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+          )
+          .first
+          .value;
+
+      expect(listRect.top, moreOrLessEquals(44, epsilon: 1));
+      expect(rootScaffold.backgroundColor, const Color(0xFFF8FBFE));
+      expect(overlayStyle.statusBarColor, const Color(0xFFF8FBFE));
+      expect(overlayStyle.statusBarIconBrightness, Brightness.dark);
+    },
+  );
+
+  testWidgets('phone layout prioritizes chat and keeps input at the bottom', (
+    tester,
+  ) async {
+    await pumpAppAtSize(tester, const Size(390, 844));
+    await openMobileAgentChat(tester);
+
+    expect(find.byKey(const Key('agent-chat-detail')), findsOneWidget);
     expect(find.byKey(const Key('agent-settings-tab')), findsNothing);
     expect(
       find.descendant(
@@ -98,6 +189,19 @@ void main() {
     expect(currentAgentTitle.overflow, TextOverflow.ellipsis);
     expect(currentAgentTitle.softWrap, isFalse);
     expect(find.byKey(const Key('chat-message-list')), findsOneWidget);
+    expect(find.textContaining('MiniMax-M2.7-highspeed'), findsNothing);
+    final headerAvatarRect = tester.getRect(
+      find.descendant(
+        of: find.byKey(const Key('agent-chat-detail')),
+        matching: find.byType(CircleAvatar),
+      ),
+    );
+    expect(headerAvatarRect.top, greaterThanOrEqualTo(8));
+    expect(headerAvatarRect.bottom, lessThanOrEqualTo(48));
+    expect(
+      tester.getTopLeft(find.byKey(const Key('chat-message-list'))).dy,
+      lessThanOrEqualTo(60),
+    );
     expect(find.text('Review the mobile chat layout'), findsOneWidget);
     expect(find.textContaining('I found three UI priorities'), findsOneWidget);
     expect(find.byKey(const Key('chat-input-bar')), findsOneWidget);
@@ -107,19 +211,88 @@ void main() {
     expect(inputRect.bottom, moreOrLessEquals(844, epsilon: 1));
     expect(inputRect.height, greaterThan(48));
 
-    final tabRect = tester.getRect(find.byKey(const Key('agent-tab-bar')));
-    expect(tabRect.top, lessThan(inputRect.top));
+    final detailRect = tester.getRect(
+      find.byKey(const Key('agent-chat-detail')),
+    );
+    expect(detailRect.top, lessThan(inputRect.top));
   });
 
-  testWidgets('phone layout opens backend agent from a left drawer', (
+  testWidgets('phone chat keeps safe area while styling the status bar', (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(top: 44);
+    addTearDown(tester.view.resetPadding);
+
+    await pumpAppAtSize(tester, const Size(390, 844));
+    await openMobileAgentChat(tester);
+
+    final detailRect = tester.getRect(
+      find.byKey(const Key('agent-chat-detail')),
+    );
+    final headerRect = tester.getRect(
+      find.byKey(const Key('agent-chat-header')),
+    );
+    final headerAvatarRect = tester.getRect(
+      find.descendant(
+        of: find.byKey(const Key('agent-chat-detail')),
+        matching: find.byType(CircleAvatar),
+      ),
+    );
+    final mobileScaffold = tester
+        .widgetList<Scaffold>(find.byType(Scaffold))
+        .last;
+    final overlayStyle = tester
+        .widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
+          find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+        )
+        .last
+        .value;
+
+    expect(detailRect.top, moreOrLessEquals(44, epsilon: 1));
+    expect(headerRect.top, moreOrLessEquals(44, epsilon: 1));
+    expect(headerRect.height, moreOrLessEquals(56, epsilon: 1));
+    expect(headerAvatarRect.top, greaterThanOrEqualTo(52));
+    expect(mobileScaffold.backgroundColor, const Color(0xFFFBFDFF));
+    expect(overlayStyle.statusBarColor, const Color(0xFFFBFDFF));
+    expect(overlayStyle.statusBarIconBrightness, Brightness.dark);
+  });
+
+  testWidgets('phone keyboard inset moves input without resizing chat detail', (
+    tester,
+  ) async {
+    await pumpAppAtSize(tester, const Size(390, 844));
+    await openMobileAgentChat(tester);
+
+    final detailBefore = tester.getRect(
+      find.byKey(const Key('agent-chat-detail')),
+    );
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+
+    final detailAfter = tester.getRect(
+      find.byKey(const Key('agent-chat-detail')),
+    );
+    final inputAfter = tester.getRect(find.byKey(const Key('chat-input-bar')));
+
+    expect(
+      detailAfter.height,
+      moreOrLessEquals(detailBefore.height, epsilon: 1),
+    );
+    expect(inputAfter.bottom, lessThan(detailBefore.bottom - 260));
+  });
+
+  testWidgets('phone conversation list opens a backend agent chat', (
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(390, 844));
 
-    await tester.tap(find.byKey(const Key('agent-navigation-button')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Agent Navigator'), findsOneWidget);
+    expect(
+      find.byKey(const Key('agent-mobile-conversation-list')),
+      findsOneWidget,
+    );
     expect(find.text('nanobot'), findsWidgets);
     expect(
       find.descendant(
@@ -138,6 +311,9 @@ void main() {
     expect(agentTileTitle.overflow, TextOverflow.ellipsis);
     expect(agentTileTitle.softWrap, isFalse);
 
+    await tester.tap(find.byKey(const Key('agent-conversation-agent-nanobot')));
+    await tester.pumpAndSettle();
+
     expect(
       find.descendant(
         of: find.byKey(const Key('current-agent-title')),
@@ -152,6 +328,7 @@ void main() {
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(390, 844));
+    await openMobileAgentChat(tester);
 
     expect(find.byKey(const Key('chat-session-rail')), findsNothing);
     expect(find.byKey(const Key('chat-session-picker-button')), findsNothing);
@@ -177,7 +354,7 @@ void main() {
     expect(find.byType(Dialog), findsOneWidget);
     expect(find.byType(BottomSheet), findsNothing);
     expect(find.byKey(const Key('chat-session-dialog')), findsOneWidget);
-    expect(find.text('Conversations'), findsOneWidget);
+    expect(find.text('Conversations'), findsWidgets);
     expect(find.text('Backend flaky test'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('chat-session-session-flaky-test')));
@@ -194,6 +371,7 @@ void main() {
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(390, 844));
+    await openMobileAgentChat(tester);
 
     await tester.tap(find.byKey(const Key('chat-session-switch-button')));
     await tester.pumpAndSettle();
@@ -204,12 +382,13 @@ void main() {
     expect(find.text('Start a chat'), findsOneWidget);
   });
 
-  testWidgets('desktop layout uses side rail while keeping chat input bottom', (
+  testWidgets('desktop layout keeps chat input bottom in the IM shell', (
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(1200, 800));
 
-    expect(find.byKey(const Key('agent-side-rail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-app-rail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-conversation-list')), findsOneWidget);
     expect(find.byKey(const Key('agent-navigation-button')), findsNothing);
     expect(find.text('Agent Navigator'), findsNothing);
     expect(find.byKey(const Key('chat-input-bar')), findsOneWidget);
@@ -218,34 +397,24 @@ void main() {
     expect(inputRect.bottom, moreOrLessEquals(800, epsilon: 1));
   });
 
-  testWidgets('desktop agent navigator creates an agent and selects it', (
+  testWidgets('wide fullscreen constrains and centers the chat surface', (
     tester,
   ) async {
-    final api = _FakeAgentControlApi([_agentSummary('nanobot')]);
-    await pumpAppWithAgentApi(tester, const Size(1200, 800), api);
+    await pumpAppAtSize(tester, const Size(1728, 1117));
 
-    await tester.tap(find.byKey(const Key('agent-create-button')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('agent-create-name-field')),
-      'reviewer',
+    final workspaceRect = tester.getRect(
+      find.byKey(const Key('agent-chat-detail')),
     );
-    await tester.enterText(
-      find.byKey(const Key('agent-create-description-field')),
-      '代码审查助手',
+    final frameRect = tester.getRect(
+      find.byKey(const Key('agent-chat-detail-frame')),
     );
-    await tester.tap(find.byKey(const Key('agent-create-submit-button')));
-    await tester.pumpAndSettle();
 
-    expect(api.createdName, 'reviewer');
-    expect(api.createdDescription, '代码审查助手');
-    expect(find.byKey(const Key('agent-tile-reviewer')), findsOneWidget);
+    expect(frameRect.width, lessThanOrEqualTo(1120));
+    expect(frameRect.left, greaterThan(workspaceRect.left));
+    expect(frameRect.right, lessThan(workspaceRect.right));
     expect(
-      find.descendant(
-        of: find.byKey(const Key('agent-tile-reviewer')),
-        matching: find.byIcon(Icons.check),
-      ),
-      findsOneWidget,
+      frameRect.center.dx,
+      moreOrLessEquals(workspaceRect.center.dx, epsilon: 1),
     );
   });
 
@@ -272,7 +441,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('agent-tile-nanobot')),
-        matching: find.byIcon(Icons.check),
+        matching: find.byIcon(Icons.check_circle),
       ),
       findsOneWidget,
     );
@@ -283,7 +452,8 @@ void main() {
   ) async {
     await pumpAppAtSize(tester, const Size(1200, 800));
 
-    expect(find.byKey(const Key('agent-side-rail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-app-rail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-conversation-list')), findsOneWidget);
     expect(find.byKey(const Key('chat-session-rail')), findsNothing);
     expect(find.byKey(const Key('chat-session-picker-button')), findsNothing);
     expect(find.byKey(const Key('chat-session-switch-button')), findsOneWidget);
@@ -291,7 +461,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('chat-session-switch-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Conversations'), findsOneWidget);
+    expect(find.text('Conversations'), findsWidgets);
     expect(find.text('Backend flaky test'), findsOneWidget);
     await tester.tap(find.byKey(const Key('chat-session-session-flaky-test')));
     await tester.pumpAndSettle();
@@ -352,10 +522,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('agent-tab-bar')), findsOneWidget);
+    expect(find.byKey(const Key('agent-im-shell')), findsOneWidget);
+    expect(find.byKey(const Key('agent-conversation-list')), findsOneWidget);
     expect(find.byKey(const Key('chat-message-list')), findsOneWidget);
     expect(find.byKey(const Key('chat-input-bar')), findsOneWidget);
-    expect(find.text('Backend offline'), findsOneWidget);
+    expect(find.text('Backend offline'), findsNothing);
     expect(find.textContaining('Unable to load agent'), findsNothing);
   });
 
@@ -364,12 +535,15 @@ void main() {
   ) async {
     await pumpAppAtSize(tester, const Size(768, 1024));
 
-    expect(find.byKey(const Key('agent-compact-rail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-im-shell')), findsOneWidget);
+    expect(find.byKey(const Key('agent-app-rail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-conversation-list')), findsOneWidget);
+    expect(find.byKey(const Key('agent-compact-rail')), findsNothing);
     expect(find.byKey(const Key('agent-side-rail')), findsNothing);
     expect(find.byKey(const Key('agent-navigation-button')), findsNothing);
     expect(find.byKey(const Key('current-agent-title')), findsOneWidget);
-    expect(find.text('nanobot'), findsOneWidget);
-    expect(find.byKey(const Key('agent-tab-bar')), findsOneWidget);
+    expect(find.text('nanobot'), findsWidgets);
+    expect(find.byKey(const Key('agent-tab-bar')), findsNothing);
     expect(find.byKey(const Key('chat-session-rail')), findsNothing);
     expect(find.byKey(const Key('chat-session-picker-button')), findsNothing);
     expect(find.byKey(const Key('chat-session-switch-button')), findsOneWidget);
@@ -380,6 +554,7 @@ void main() {
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(390, 844));
+    await openMobileAgentChat(tester);
 
     expect(
       find.byKey(const Key('chat-markdown-mock-assistant-rich-content')),
@@ -395,21 +570,25 @@ void main() {
     expect(find.text('Tablet layout preview'), findsOneWidget);
   });
 
-  testWidgets('agent tabs show workspace files and live task data', (
+  testWidgets('agent detail toolbar opens workspace files and live task data', (
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(1200, 800));
 
-    await tester.tap(find.byKey(const Key('agent-files-tab')));
+    await tester.tap(find.byKey(const Key('agent-detail-files-button')));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('agent-tool-dialog')), findsOneWidget);
     expect(find.byKey(const Key('agent-files-list')), findsOneWidget);
     expect(find.text('AGENTS.md'), findsWidgets);
     expect(find.text('workspace'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('agent-tasks-tab')));
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('agent-detail-tasks-button')));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('agent-tool-dialog')), findsOneWidget);
     expect(find.byKey(const Key('agent-tasks-list')), findsOneWidget);
     expect(find.text('No active task'), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
@@ -441,8 +620,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('agent-navigation-button')));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('global-settings-button')));
     await tester.pumpAndSettle();
 

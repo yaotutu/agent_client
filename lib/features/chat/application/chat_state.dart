@@ -6,6 +6,7 @@ class ChatState {
     this.sessionId,
     this.messages = const [],
     this.isStreaming = false,
+    this.isStopping = false,
     this.errorMessage,
     this.reasoningText,
     this.progressText,
@@ -22,6 +23,7 @@ class ChatState {
   final String? sessionId;
   final List<ChatMessage> messages;
   final bool isStreaming;
+  final bool isStopping;
   final String? errorMessage;
   final String? reasoningText;
   final String? progressText;
@@ -34,6 +36,7 @@ class ChatState {
     String? sessionId,
     List<ChatMessage>? messages,
     bool? isStreaming,
+    bool? isStopping,
     String? errorMessage,
     String? reasoningText,
     String? progressText,
@@ -52,6 +55,7 @@ class ChatState {
       sessionId: sessionId ?? this.sessionId,
       messages: messages ?? this.messages,
       isStreaming: isStreaming ?? this.isStreaming,
+      isStopping: isStopping ?? this.isStopping,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       reasoningText: clearReasoning
           ? null

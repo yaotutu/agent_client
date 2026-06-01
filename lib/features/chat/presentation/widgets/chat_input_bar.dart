@@ -9,6 +9,7 @@ class ChatInputBar extends StatelessWidget {
     required this.focusNode,
     required this.canSend,
     required this.isStreaming,
+    required this.isStopping,
     this.commands = const [],
     required this.onSend,
     required this.onStop,
@@ -19,6 +20,7 @@ class ChatInputBar extends StatelessWidget {
   final FocusNode focusNode;
   final bool canSend;
   final bool isStreaming;
+  final bool isStopping;
   final List<AgentCommandItem> commands;
   final VoidCallback onSend;
   final VoidCallback onStop;
@@ -63,7 +65,7 @@ class ChatInputBar extends StatelessWidget {
                 IconButton(
                   key: const Key('chat-session-switch-button'),
                   tooltip: 'Switch session',
-                  onPressed: isStreaming ? null : onSwitchSession,
+                  onPressed: isStreaming || isStopping ? null : onSwitchSession,
                   icon: const Icon(Icons.forum_outlined),
                 ),
                 const SizedBox(width: 6),
@@ -86,13 +88,25 @@ class ChatInputBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton.filled(
-                  tooltip: isStreaming ? 'Stop' : 'Send',
-                  onPressed: isStreaming
+                  tooltip: isStopping
+                      ? 'Stopping'
+                      : isStreaming
+                      ? 'Stop'
+                      : 'Send',
+                  onPressed: isStopping
+                      ? null
+                      : isStreaming
                       ? onStop
                       : canSend
                       ? onSend
                       : null,
-                  icon: Icon(isStreaming ? Icons.stop : Icons.arrow_upward),
+                  icon: isStopping
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(isStreaming ? Icons.stop : Icons.arrow_upward),
                 ),
               ],
             ),

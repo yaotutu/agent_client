@@ -48,6 +48,16 @@ lib/
 - `chat_event.dart` 使用 typed `ChatActivity`，不要重新引入 loosely typed `Map payload` 作为业务事件。
 - `chat_cache_provider.dart` 的生产默认实现是 Drift；`InMemoryChatCacheStore` 只用于测试和 provider override。
 
+## Chat UI 性能经验
+
+聊天页性能约束记录在 `docs/chat-ui-performance-lessons.md`。改聊天页面前先读这份文档。核心原则：
+
+- 首屏只渲染最近一屏消息，列表用底部锚定，不要正序渲染后再跳到底部。
+- 普通文本消息走轻量 `Text`，不要默认走 Markdown 或 `SelectionArea`。
+- 预加载数据和 provider state，不要预渲染所有聊天窗口 widget。
+- 会话列表不要订阅 `chatControllerProvider(agentId).messages`，预览通过缓存 provider 解耦。
+- 异步加载必须防止旧请求覆盖当前 session。
+
 ## 新增 Backend 的做法
 
 1. 新建 backend 专属 data adapter，例如 `features/<backend_name>/data/...`。

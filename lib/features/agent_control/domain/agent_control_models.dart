@@ -435,6 +435,7 @@ class AgentControlStreamEvent {
     required this.type,
     this.text,
     this.message,
+    this.code,
     this.state,
     this.startedAt,
     this.latencyMs,
@@ -446,6 +447,7 @@ class AgentControlStreamEvent {
   final AgentControlStreamEventType type;
   final String? text;
   final String? message;
+  final String? code;
   final String? state;
   final double? startedAt;
   final int? latencyMs;
@@ -478,6 +480,7 @@ class AgentControlStreamEvent {
       type: type,
       text: json['text']?.toString(),
       message: json['message']?.toString(),
+      code: json['code']?.toString(),
       state: json['state']?.toString(),
       startedAt: _double(json['startedAt']),
       latencyMs: _int(json['latencyMs']),

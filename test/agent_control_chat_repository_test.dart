@@ -121,6 +121,28 @@ void main() {
     expect(sessions.single.status, ChatSessionStatus.idle);
   });
 
+  test('listSessions maps backend stopping session status', () async {
+    final api = _FakeAgentControlApi(
+      card: _card(name: 'coder', defaultSessionId: null),
+      sessions: const [
+        SessionSummary(
+          rawSessionId: 'session-1',
+          createdAt: null,
+          updatedAt: null,
+          title: 'Stopping chat',
+          preview: '',
+          messageCount: 1,
+          status: 'stopping',
+        ),
+      ],
+    );
+    final repository = AgentControlChatRepository(api: api);
+
+    final sessions = await repository.listSessions('coder');
+
+    expect(sessions.single.status, ChatSessionStatus.stopping);
+  });
+
   test('keeps session caches separate per agent name', () async {
     final api = _FakeAgentControlApi(
       card: _card(name: 'coder', defaultSessionId: null),
@@ -199,6 +221,35 @@ void main() {
     },
   );
 
+  test('preserves Agent Control stream error codes', () async {
+    final api = _FakeAgentControlApi(
+      card: _card(name: 'coder', defaultSessionId: 'session-1'),
+      streamEvents: const [
+        AgentControlStreamEvent(
+          type: AgentControlStreamEventType.error,
+          message: 'Session is busy',
+          code: 'SESSION_BUSY',
+        ),
+      ],
+    );
+    final repository = AgentControlChatRepository(api: api);
+
+    final events = await repository
+        .sendMessage(
+          const SendMessageRequest(
+            agentId: 'coder',
+            sessionId: 'session-1',
+            assistantMessageId: 'assistant-1',
+            input: 'Hi',
+          ),
+        )
+        .toList();
+
+    expect(events.last.type, ChatEventType.error);
+    expect(events.last.errorMessage, 'Session is busy');
+    expect(events.last.errorCode, 'SESSION_BUSY');
+  });
+
   test('attaches an existing session before sending a message', () async {
     final api = _FakeAgentControlApi(
       card: _card(name: 'coder', defaultSessionId: null),
@@ -260,6 +311,36 @@ void main() {
     expect(messages.first.conversationId, 'session-1');
     expect(messages.last.role, ChatRole.assistant);
     expect(messages.last.content, '你好！');
+  });
+
+  test('maps only the recent backend history window', () async {
+    final api = _FakeAgentControlApi(
+      card: _card(name: 'coder', defaultSessionId: 'session-1'),
+      messages: SessionMessages(
+        key: 'websocket:session-1',
+        createdAt: null,
+        updatedAt: null,
+        metadata: const {},
+        messages: [
+          for (var index = 0; index < 80; index += 1)
+            SessionMessage(
+              role: index.isEven ? 'user' : 'assistant',
+              content: 'message $index',
+              timestamp: DateTime(2026, 5, 29, 10, index),
+            ),
+        ],
+      ),
+    );
+    final repository = AgentControlChatRepository(api: api);
+
+    final messages = await repository.loadRecentMessages(
+      'coder',
+      sessionId: 'session-1',
+    );
+
+    expect(messages, hasLength(50));
+    expect(messages.first.content, 'message 30');
+    expect(messages.last.content, 'message 79');
   });
 
   test(

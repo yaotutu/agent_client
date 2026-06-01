@@ -92,6 +92,7 @@ class ChatEvent {
     this.delta,
     this.activity,
     this.errorMessage,
+    this.errorCode,
   });
 
   const ChatEvent.messageStarted({required String messageId})
@@ -115,10 +116,12 @@ class ChatEvent {
   const ChatEvent.error({
     required String messageId,
     required String errorMessage,
+    String? code,
   }) : this._(
          type: ChatEventType.error,
          messageId: messageId,
          errorMessage: errorMessage,
+         errorCode: code,
        );
 
   final ChatEventType type;
@@ -126,6 +129,7 @@ class ChatEvent {
   final String? delta;
   final ChatActivity? activity;
   final String? errorMessage;
+  final String? errorCode;
 
   @override
   bool operator ==(Object other) {
@@ -134,12 +138,13 @@ class ChatEvent {
         other.messageId == messageId &&
         other.delta == delta &&
         other.activity == activity &&
-        other.errorMessage == errorMessage;
+        other.errorMessage == errorMessage &&
+        other.errorCode == errorCode;
   }
 
   @override
   int get hashCode =>
-      Object.hash(type, messageId, delta, activity, errorMessage);
+      Object.hash(type, messageId, delta, activity, errorMessage, errorCode);
 
   @override
   String toString() {

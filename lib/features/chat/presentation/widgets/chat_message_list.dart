@@ -35,7 +35,6 @@ class _ChatMessageListState extends State<ChatMessageList> {
   void initState() {
     super.initState();
     _fallbackController = ScrollController();
-    _scheduleScrollToLatest();
   }
 
   @override
@@ -73,10 +72,14 @@ class _ChatMessageListState extends State<ChatMessageList> {
 
     return ListView.builder(
       controller: _controller,
+      reverse: true,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      addAutomaticKeepAlives: false,
+      addSemanticIndexes: false,
       itemCount: widget.messages.length + (showActivity ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index == widget.messages.length) {
+        if (showActivity && index == 0) {
           return ChatLiveActivity(
             reasoningText: widget.reasoningText,
             progressText: widget.progressText,
@@ -84,7 +87,13 @@ class _ChatMessageListState extends State<ChatMessageList> {
             goalStatus: widget.goalStatus,
           );
         }
-        return ChatMessageBubble(message: widget.messages[index]);
+        final messageIndex =
+            widget.messages.length - 1 - (index - (showActivity ? 1 : 0));
+        final message = widget.messages[messageIndex];
+        return RepaintBoundary(
+          key: ValueKey(message.id),
+          child: ChatMessageBubble(message: message),
+        );
       },
     );
   }
@@ -116,7 +125,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     if (!_controller.hasClients) {
       return true;
     }
-    return _controller.position.extentAfter < 96;
+    return _controller.position.pixels < 96;
   }
 
   void _scheduleScrollToLatest() {
@@ -135,7 +144,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     if (!mounted || !_controller.hasClients) {
       return;
     }
-    _controller.jumpTo(_controller.position.maxScrollExtent);
+    _controller.jumpTo(_controller.position.minScrollExtent);
   }
 
   bool _hasActivity(ChatMessageList widget) {

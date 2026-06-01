@@ -143,6 +143,7 @@ class AgentSessionService {
   ChatSessionStatus _sessionStatus(String status) {
     return switch (status) {
       'running' => ChatSessionStatus.running,
+      'stopping' => ChatSessionStatus.stopping,
       'error' => ChatSessionStatus.error,
       _ => ChatSessionStatus.idle,
     };
@@ -154,6 +155,7 @@ class AgentChatHistoryService {
 
   final AgentControlApi api;
   final AgentSessionService sessions;
+  static const _recentMessageWindowSize = 50;
 
   Future<List<ChatMessage>> loadRecentMessages(
     String agentId, {
@@ -173,8 +175,12 @@ class AgentChatHistoryService {
         ? history.sessionId
         : resolvedSessionId;
 
+    final startIndex = history.messages.length > _recentMessageWindowSize
+        ? history.messages.length - _recentMessageWindowSize
+        : 0;
+
     return [
-      for (var index = 0; index < history.messages.length; index += 1)
+      for (var index = startIndex; index < history.messages.length; index += 1)
         _toChatMessage(
           agentId: agentId,
           sessionId: backendSessionId,
@@ -269,6 +275,7 @@ class AgentChatTurnService {
       yield ChatEvent.error(
         messageId: request.assistantMessageId,
         errorMessage: error.message,
+        code: error.code,
       );
     } finally {
       _cancelTokens.remove(_turnKey(request.agentId, request.sessionId));
@@ -324,6 +331,7 @@ class AgentChatTurnService {
       AgentControlStreamEventType.error => ChatEvent.error(
         messageId: assistantMessageId,
         errorMessage: event.message ?? 'Response failed',
+        code: event.code,
       ),
       AgentControlStreamEventType.doneMarker ||
       AgentControlStreamEventType.unknown => null,

@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('scrolls to latest messages on initial layout', (tester) async {
+  testWidgets('anchors initial render at latest messages without a jump', (
+    tester,
+  ) async {
     final controller = ScrollController();
     addTearDown(controller.dispose);
 
@@ -14,17 +16,22 @@ void main() {
           body: SizedBox(
             height: 220,
             child: ChatMessageList(
-              messages: _manyMessages(24),
+              messages: _manyMessages(80),
               scrollController: controller,
             ),
           ),
         ),
       ),
     );
+
+    expect(controller.offset, 0);
+    expect(find.textContaining('Message 79'), findsOneWidget);
+    expect(find.textContaining('Message 0'), findsNothing);
+
     await tester.pump();
     await tester.pump();
 
-    expect(controller.offset, controller.position.maxScrollExtent);
+    expect(controller.offset, 0);
   });
 
   testWidgets('keeps following latest message when a new turn is appended', (
@@ -49,7 +56,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    expect(controller.offset, controller.position.maxScrollExtent);
+    expect(controller.offset, 0);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -78,7 +85,58 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(controller.offset, controller.position.maxScrollExtent);
+    expect(controller.offset, 0);
+  });
+
+  testWidgets('renders plain messages without markdown widgets', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageList(
+            messages: [
+              ChatMessage(
+                id: 'plain-message',
+                agentId: 'agent-control',
+                conversationId: 'session-1',
+                role: ChatRole.assistant,
+                content: 'This is a normal chat message.',
+                status: ChatMessageStatus.completed,
+                createdAt: DateTime(2026, 5, 29),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('This is a normal chat message.'), findsOneWidget);
+    expect(find.byKey(const Key('chat-markdown-plain-message')), findsNothing);
+  });
+
+  testWidgets('keeps markdown renderer for rich messages', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageList(
+            messages: [
+              ChatMessage(
+                id: 'rich-message',
+                agentId: 'agent-control',
+                conversationId: 'session-1',
+                role: ChatRole.assistant,
+                content: 'This has **markdown** content.',
+                status: ChatMessageStatus.completed,
+                createdAt: DateTime(2026, 5, 29),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('chat-markdown-rich-message')), findsOneWidget);
   });
 
   testWidgets('renders streaming activity from SSE state', (tester) async {

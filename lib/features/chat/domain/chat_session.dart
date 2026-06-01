@@ -1,4 +1,4 @@
-enum ChatSessionStatus { idle, running, error }
+enum ChatSessionStatus { idle, running, stopping, error }
 
 class ChatSessionSummary {
   const ChatSessionSummary({

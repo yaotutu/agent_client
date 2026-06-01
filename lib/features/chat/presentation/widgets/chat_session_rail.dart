@@ -205,6 +205,7 @@ class ChatSessionStatusDot extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (status) {
       ChatSessionStatus.running => const Color(0xFF1570EF),
+      ChatSessionStatus.stopping => const Color(0xFFF79009),
       ChatSessionStatus.error => const Color(0xFFD92D20),
       ChatSessionStatus.idle => const Color(0xFF12B76A),
     };

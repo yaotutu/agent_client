@@ -40,7 +40,7 @@ class InMemoryChatCacheStore implements ChatCacheStore {
         for (final message in messages)
           if (message.conversationId != sessionId) message,
       ];
-    });
+    }, ifAbsent: () => []);
   }
 
   @override

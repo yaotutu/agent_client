@@ -17,6 +17,7 @@ class ChatMessageBubble extends StatelessWidget {
     final hasContent = message.content.trim().isNotEmpty;
     final hasAttachments = message.attachments.isNotEmpty;
     final placeholder = _placeholder();
+    final textStyle = TextStyle(color: textColor, height: 1.35, fontSize: 14);
 
     return Align(
       alignment: user ? Alignment.centerRight : Alignment.centerLeft,
@@ -37,14 +38,14 @@ class ChatMessageBubble extends StatelessWidget {
             if (!hasContent && !hasAttachments && placeholder != null)
               _MessagePlaceholder(text: placeholder.$1, busy: placeholder.$2),
             if (hasContent)
-              SelectionArea(
-                child: MarkdownBody(
-                  key: Key('chat-markdown-${message.id}'),
-                  data: message.content,
-                  shrinkWrap: true,
-                  styleSheet: _markdownStyleSheet(textColor, user),
-                ),
-              ),
+              _looksLikeMarkdown(message.content)
+                  ? MarkdownBody(
+                      key: Key('chat-markdown-${message.id}'),
+                      data: message.content,
+                      shrinkWrap: true,
+                      styleSheet: _markdownStyleSheet(textColor, user),
+                    )
+                  : Text(message.content, style: textStyle),
             for (var index = 0; index < message.attachments.length; index++)
               Padding(
                 padding: EdgeInsets.only(top: hasContent || index > 0 ? 10 : 0),
@@ -123,6 +124,24 @@ class ChatMessageBubble extends StatelessWidget {
       blockSpacing: 8,
       listIndent: 20,
     );
+  }
+
+  bool _looksLikeMarkdown(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+    if (trimmed.contains('```') ||
+        trimmed.contains('`') ||
+        trimmed.contains('**') ||
+        trimmed.contains('__') ||
+        trimmed.contains('![') ||
+        RegExp(r'\[[^\]]+\]\([^)]+\)').hasMatch(trimmed)) {
+      return true;
+    }
+    return RegExp(
+      r'(^|\n)\s{0,3}(#{1,6}\s|>\s|[-*+]\s|\d+\.\s)',
+    ).hasMatch(trimmed);
   }
 }
 
