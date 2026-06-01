@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
+import 'package:agent_client/features/agents/domain/agent.dart';
 import 'package:agent_client/features/chat/application/chat_controller.dart';
 import 'package:agent_client/features/chat/application/chat_sessions_controller.dart';
 import 'package:agent_client/features/chat/presentation/widgets/chat_input_bar.dart';
@@ -14,12 +15,13 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class ChatPanel extends HookConsumerWidget {
-  const ChatPanel({super.key, required this.agentId});
+  const ChatPanel({super.key, required this.agent});
 
-  final String agentId;
+  final Agent agent;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final agentId = agent.id;
     final state = ref.watch(chatControllerProvider(agentId));
     final List<AgentCommandItem> commands = switch (ref.watch(
       agentCommandsProvider(agentId),
@@ -79,6 +81,7 @@ class ChatPanel extends HookConsumerWidget {
               Expanded(
                 child: ChatMessageList(
                   key: const Key('chat-message-list'),
+                  assistantAgent: agent,
                   messages: state.messages,
                   isStreaming: state.isStreaming,
                   reasoningText: state.reasoningText,

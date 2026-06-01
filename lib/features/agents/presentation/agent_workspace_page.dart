@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/agents/application/agent_controller.dart';
 import 'package:agent_client/features/agents/domain/agent.dart';
+import 'package:agent_client/features/agents/presentation/agent_avatar_editor_dialog.dart';
 import 'package:agent_client/features/agents/presentation/agent_avatar_view.dart';
 import 'package:agent_client/features/agents/presentation/agent_navigation_panel.dart';
 import 'package:agent_client/features/chat/application/chat_conversation_preview_provider.dart';

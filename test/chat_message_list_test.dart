@@ -1,3 +1,5 @@
+import 'package:agent_client/features/agents/domain/agent.dart';
+import 'package:agent_client/features/agents/domain/agent_avatar.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';
 import 'package:agent_client/features/chat/presentation/widgets/chat_message_list.dart';
 import 'package:flutter/material.dart';
@@ -137,6 +139,40 @@ void main() {
     );
 
     expect(find.byKey(const Key('chat-markdown-rich-message')), findsOneWidget);
+  });
+
+  testWidgets('renders the selected agent avatar for assistant messages', (
+    tester,
+  ) async {
+    const agent = Agent(
+      id: 'nanobot',
+      name: 'nanobot',
+      avatarUrl: 'assets/agent_avatars/planner.png',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageList(
+            assistantAgent: agent,
+            messages: [
+              ChatMessage(
+                id: 'assistant-message',
+                agentId: 'nanobot',
+                conversationId: 'session-1',
+                role: ChatRole.assistant,
+                content: 'Done.',
+                status: ChatMessageStatus.completed,
+                createdAt: DateTime(2026, 5, 29),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('agent-avatar-image-nanobot')), findsOneWidget);
+    expect(AgentAvatarOptions.isDefaultAssetPath(agent.avatarUrl), isTrue);
   });
 
   testWidgets('renders streaming activity from SSE state', (tester) async {

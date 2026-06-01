@@ -1,4 +1,5 @@
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
+import 'package:agent_client/features/agents/domain/agent.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';
 import 'package:agent_client/features/chat/presentation/widgets/chat_message_bubble.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ class ChatMessageList extends StatefulWidget {
   const ChatMessageList({
     super.key,
     required this.messages,
+    this.assistantAgent,
     this.isStreaming = false,
     this.reasoningText,
     this.progressText,
@@ -16,6 +18,7 @@ class ChatMessageList extends StatefulWidget {
   });
 
   final List<ChatMessage> messages;
+  final Agent? assistantAgent;
   final bool isStreaming;
   final String? reasoningText;
   final String? progressText;
@@ -92,7 +95,10 @@ class _ChatMessageListState extends State<ChatMessageList> {
         final message = widget.messages[messageIndex];
         return RepaintBoundary(
           key: ValueKey(message.id),
-          child: ChatMessageBubble(message: message),
+          child: ChatMessageBubble(
+            message: message,
+            assistantAgent: widget.assistantAgent,
+          ),
         );
       },
     );

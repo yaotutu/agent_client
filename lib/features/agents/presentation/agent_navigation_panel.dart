@@ -1,7 +1,7 @@
-import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/agents/application/agent_controller.dart';
 import 'package:agent_client/features/agents/domain/agent.dart';
 import 'package:agent_client/features/agents/domain/agent_avatar.dart';
+import 'package:agent_client/features/agents/presentation/agent_avatar_editor_dialog.dart';
 import 'package:agent_client/features/agents/presentation/agent_avatar_view.dart';
 import 'package:agent_client/features/settings/presentation/app_settings_page.dart';
 import 'package:flutter/material.dart';
@@ -193,11 +193,23 @@ class _AgentTileActions extends ConsumerWidget {
           tooltip: 'Agent actions',
           onSelected: (action) {
             switch (action) {
+              case _AgentAction.avatar:
+                showAgentAvatarEditorDialog(context, ref, agent);
               case _AgentAction.delete:
                 _confirmDeleteAgent(context, ref, agent);
             }
           },
           itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: _AgentAction.avatar,
+              child: Row(
+                children: [
+                  Icon(Icons.account_circle_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Text('Change avatar'),
+                ],
+              ),
+            ),
             PopupMenuItem(
               value: _AgentAction.delete,
               child: Row(
@@ -215,7 +227,7 @@ class _AgentTileActions extends ConsumerWidget {
   }
 }
 
-enum _AgentAction { delete }
+enum _AgentAction { avatar, delete }
 
 class _CreateAgentDialog extends ConsumerStatefulWidget {
   const _CreateAgentDialog();
@@ -262,7 +274,7 @@ class _CreateAgentDialogState extends ConsumerState<_CreateAgentDialog> {
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 12),
-            _AgentAvatarPicker(
+            AgentAvatarPicker(
               selectedAvatar: _selectedAvatar,
               enabled: !_submitting,
               onSelected: (avatar) {
@@ -345,121 +357,6 @@ class _CreateAgentDialogState extends ConsumerState<_CreateAgentDialog> {
       return 'Use 1-64 letters, numbers, "-" or "_"';
     }
     return null;
-  }
-}
-
-class _AgentAvatarPicker extends StatelessWidget {
-  const _AgentAvatarPicker({
-    required this.selectedAvatar,
-    required this.enabled,
-    required this.onSelected,
-  });
-
-  final AgentAvatarOption selectedAvatar;
-  final bool enabled;
-  final ValueChanged<AgentAvatarOption> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 2, bottom: 8),
-            child: Text(
-              'Avatar',
-              style: TextStyle(
-                color: AppThemeTokens.mutedText,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final avatar in AgentAvatarOptions.defaults)
-                _AgentAvatarOptionButton(
-                  avatar: avatar,
-                  selected: avatar.id == selectedAvatar.id,
-                  enabled: enabled,
-                  onSelected: onSelected,
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AgentAvatarOptionButton extends StatelessWidget {
-  const _AgentAvatarOptionButton({
-    required this.avatar,
-    required this.selected,
-    required this.enabled,
-    required this.onSelected,
-  });
-
-  final AgentAvatarOption avatar;
-  final bool selected;
-  final bool enabled;
-  final ValueChanged<AgentAvatarOption> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: avatar.label,
-      child: InkWell(
-        key: Key('agent-avatar-option-${avatar.id}'),
-        borderRadius: BorderRadius.circular(28),
-        onTap: enabled ? () => onSelected(avatar) : null,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          width: 54,
-          height: 54,
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: selected ? AppThemeTokens.brand : AppThemeTokens.border,
-              width: selected ? 3 : 1,
-            ),
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              ClipOval(
-                child: Image.asset(
-                  avatar.assetPath,
-                  width: 48,
-                  height: 48,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              if (selected)
-                const Positioned(
-                  right: -2,
-                  bottom: -2,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppThemeTokens.brand,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.all(2),
-                      child: Icon(Icons.check, color: Colors.white, size: 13),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

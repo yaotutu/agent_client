@@ -489,6 +489,32 @@ void main() {
     );
   });
 
+  testWidgets('agent menu updates the selected avatar for an existing agent', (
+    tester,
+  ) async {
+    final api = _FakeAgentControlApi([_agentSummary('nanobot')]);
+    final avatarStore = _FakeAgentAvatarStore();
+    await pumpAppWithAgentApi(
+      tester,
+      const Size(1200, 800),
+      api,
+      avatarStore: avatarStore,
+    );
+
+    await tester.tap(find.byKey(const Key('agent-menu-nanobot')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Change avatar'));
+    await tester.pumpAndSettle();
+
+    final avatar = AgentAvatarOptions.defaults[4];
+    await tester.tap(find.byKey(Key('agent-avatar-option-${avatar.id}')));
+    await tester.tap(find.byKey(const Key('agent-avatar-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(avatarStore.avatarFor('nanobot'), avatar.assetPath);
+    expect(find.byKey(const Key('agent-avatar-image-nanobot')), findsWidgets);
+  });
+
   testWidgets('desktop chat shows mock conversations and switches sessions', (
     tester,
   ) async {

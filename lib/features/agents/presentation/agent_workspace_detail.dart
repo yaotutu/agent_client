@@ -31,7 +31,7 @@ class _AgentChatDetail extends StatelessWidget {
                     showBackButton: showBackButton,
                     onBack: onBack,
                   ),
-                  Expanded(child: ChatPanel(agentId: agent.id)),
+                  Expanded(child: ChatPanel(agent: agent)),
                 ],
               ),
             ),

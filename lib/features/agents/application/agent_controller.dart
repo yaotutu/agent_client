@@ -58,6 +58,17 @@ class CurrentAgentController extends Notifier<String> {
     await ref.read(agentsProvider.future);
   }
 
+  Future<void> updateAgentAvatar(
+    Agent agent, {
+    required String avatarUrl,
+  }) async {
+    await ref
+        .read(agentRegistryRepositoryProvider)
+        .updateAgentAvatar(agent: agent, avatarUrl: avatarUrl);
+    ref.invalidate(agentsProvider);
+    await ref.read(agentsProvider.future);
+  }
+
   Future<void> deleteAgent(String agentId) async {
     final currentAgentId = await _effectiveCurrentAgentId();
     await ref.read(agentRegistryRepositoryProvider).deleteAgent(agentId);

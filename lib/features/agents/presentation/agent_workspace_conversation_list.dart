@@ -455,11 +455,23 @@ class _AgentTileActions extends ConsumerWidget {
           tooltip: 'Agent actions',
           onSelected: (action) {
             switch (action) {
+              case _AgentMenuAction.avatar:
+                showAgentAvatarEditorDialog(context, ref, agent);
               case _AgentMenuAction.delete:
                 _confirmDeleteAgent(context, ref, agent);
             }
           },
           itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: _AgentMenuAction.avatar,
+              child: Row(
+                children: [
+                  Icon(Icons.account_circle_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Text('Change avatar'),
+                ],
+              ),
+            ),
             PopupMenuItem(
               value: _AgentMenuAction.delete,
               child: Row(
@@ -477,7 +489,7 @@ class _AgentTileActions extends ConsumerWidget {
   }
 }
 
-enum _AgentMenuAction { delete }
+enum _AgentMenuAction { avatar, delete }
 
 class _EmptyAgentList extends StatelessWidget {
   const _EmptyAgentList();

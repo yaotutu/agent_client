@@ -92,6 +92,43 @@ void main() {
   );
 
   test(
+    'updateAgentAvatar stores the new avatar and refreshes agents',
+    () async {
+      final api = _FakeAgentControlApi([
+        _agentSummary('nanobot', description: '代码审查助手'),
+      ]);
+      final avatarStore = _FakeAgentAvatarStore();
+      final container = ProviderContainer(
+        overrides: [
+          agentControlApiClientProvider.overrideWithValue(api),
+          agentAvatarStoreProvider.overrideWithValue(avatarStore),
+          chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(agentsProvider.future);
+      final avatar = AgentAvatarOptions.defaults[3].assetPath;
+
+      await container
+          .read(currentAgentIdProvider.notifier)
+          .updateAgentAvatar(
+            const Agent(
+              id: 'nanobot',
+              name: 'nanobot',
+              description: '代码审查助手',
+              status: AgentStatus.online,
+            ),
+            avatarUrl: avatar,
+          );
+
+      final agents = await container.read(agentsProvider.future);
+      expect(avatarStore.avatarFor('nanobot'), avatar);
+      expect(agents.single.avatarUrl, avatar);
+    },
+  );
+
+  test(
     'deleteAgent deletes through backend and selects the first remaining agent',
     () async {
       final api = _FakeAgentControlApi([

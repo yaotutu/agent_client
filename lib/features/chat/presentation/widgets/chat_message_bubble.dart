@@ -1,13 +1,21 @@
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
+import 'package:agent_client/features/agents/domain/agent.dart';
+import 'package:agent_client/features/agents/domain/agent_avatar.dart';
+import 'package:agent_client/features/agents/presentation/agent_avatar_view.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';
 import 'package:agent_client/features/chat/presentation/widgets/chat_attachment_block.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 class ChatMessageBubble extends StatelessWidget {
-  const ChatMessageBubble({super.key, required this.message});
+  const ChatMessageBubble({
+    super.key,
+    required this.message,
+    this.assistantAgent,
+  });
 
   final ChatMessage message;
+  final Agent? assistantAgent;
 
   @override
   Widget build(BuildContext context) {
@@ -19,43 +27,70 @@ class ChatMessageBubble extends StatelessWidget {
     final placeholder = _placeholder();
     final textStyle = TextStyle(color: textColor, height: 1.35, fontSize: 14);
 
-    return Align(
-      alignment: user ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        width: hasAttachments ? double.infinity : null,
-        constraints: const BoxConstraints(maxWidth: 760),
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(8),
-          border: user ? null : Border.all(color: AppThemeTokens.border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!hasContent && !hasAttachments && placeholder != null)
-              _MessagePlaceholder(text: placeholder.$1, busy: placeholder.$2),
-            if (hasContent)
-              _looksLikeMarkdown(message.content)
-                  ? MarkdownBody(
-                      key: Key('chat-markdown-${message.id}'),
-                      data: message.content,
-                      shrinkWrap: true,
-                      styleSheet: _markdownStyleSheet(textColor, user),
-                    )
-                  : Text(message.content, style: textStyle),
-            for (var index = 0; index < message.attachments.length; index++)
-              Padding(
-                padding: EdgeInsets.only(top: hasContent || index > 0 ? 10 : 0),
-                child: ChatAttachmentBlock(
-                  attachment: message.attachments[index],
-                  user: user,
-                ),
+    final bubble = Container(
+      width: hasAttachments ? double.infinity : null,
+      constraints: const BoxConstraints(maxWidth: 760),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        border: user ? null : Border.all(color: AppThemeTokens.border),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!hasContent && !hasAttachments && placeholder != null)
+            _MessagePlaceholder(text: placeholder.$1, busy: placeholder.$2),
+          if (hasContent)
+            _looksLikeMarkdown(message.content)
+                ? MarkdownBody(
+                    key: Key('chat-markdown-${message.id}'),
+                    data: message.content,
+                    shrinkWrap: true,
+                    styleSheet: _markdownStyleSheet(textColor, user),
+                  )
+                : Text(message.content, style: textStyle),
+          for (var index = 0; index < message.attachments.length; index++)
+            Padding(
+              padding: EdgeInsets.only(top: hasContent || index > 0 ? 10 : 0),
+              child: ChatAttachmentBlock(
+                attachment: message.attachments[index],
+                user: user,
               ),
-          ],
-        ),
+            ),
+        ],
+      ),
+    );
+
+    final showAssistantAvatar =
+        assistantAgent != null &&
+        AgentAvatarOptions.isDefaultAssetPath(assistantAgent!.avatarUrl);
+
+    if (user || !showAssistantAvatar) {
+      return Align(
+        alignment: user ? Alignment.centerRight : Alignment.centerLeft,
+        child: bubble,
+      );
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8, bottom: 12),
+            child: AgentAvatarView(
+              agent: assistantAgent!,
+              radius: 16,
+              showStatus: false,
+            ),
+          ),
+          Flexible(child: bubble),
+        ],
       ),
     );
   }

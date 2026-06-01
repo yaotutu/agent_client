@@ -27,6 +27,11 @@ abstract interface class AgentRegistryRepository {
     String? avatarUrl,
   });
 
+  Future<void> updateAgentAvatar({
+    required Agent agent,
+    required String avatarUrl,
+  });
+
   Future<void> deleteAgent(String agentId);
 }
 
@@ -63,6 +68,12 @@ class AgentControlAgentRegistryRepository implements AgentRegistryRepository {
       workspace: created.workspaceDir,
     );
   }
+
+  @override
+  Future<void> updateAgentAvatar({
+    required Agent agent,
+    required String avatarUrl,
+  }) async {}
 
   @override
   Future<void> deleteAgent(String agentId) async {
@@ -135,6 +146,24 @@ class LocalAvatarAgentRegistryRepository implements AgentRegistryRepository {
       status: created.status,
     );
     return created.copyWith(avatarUrl: trimmedAvatarUrl);
+  }
+
+  @override
+  Future<void> updateAgentAvatar({
+    required Agent agent,
+    required String avatarUrl,
+  }) async {
+    await delegate.updateAgentAvatar(agent: agent, avatarUrl: avatarUrl);
+    final trimmedAvatarUrl = avatarUrl.trim();
+    if (trimmedAvatarUrl.isEmpty) {
+      return;
+    }
+    await avatarStore.saveAvatar(
+      agentId: agent.id,
+      agentName: agent.name,
+      avatarUrl: trimmedAvatarUrl,
+      status: agent.status,
+    );
   }
 
   @override
