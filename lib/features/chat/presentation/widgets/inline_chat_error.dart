@@ -1,3 +1,4 @@
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:flutter/material.dart';
 
 class InlineChatError extends StatelessWidget {
@@ -9,13 +10,13 @@ class InlineChatError extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: const Color(0xFFFFF1F3),
+      color: AppThemeTokens.dangerSoft,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Text(
         message,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Color(0xFFB42318)),
+        style: const TextStyle(color: AppThemeTokens.dangerText),
       ),
     );
   }

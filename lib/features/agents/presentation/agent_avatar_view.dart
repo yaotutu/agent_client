@@ -35,7 +35,7 @@ class AgentAvatarView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: _statusColor(agent.status),
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFF8FBFE), width: 2),
+                border: Border.all(color: AppThemeTokens.panel, width: 2),
               ),
             ),
           ),
@@ -104,7 +104,7 @@ class _InitialAvatar extends StatelessWidget {
 Color _statusColor(AgentStatus status) {
   return switch (status) {
     AgentStatus.online => AppThemeTokens.success,
-    AgentStatus.busy => const Color(0xFFF79009),
+    AgentStatus.busy => AppThemeTokens.warning,
     AgentStatus.offline => AppThemeTokens.subtleText,
   };
 }

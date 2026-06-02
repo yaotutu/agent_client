@@ -83,9 +83,10 @@ class _ChatDetailHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
                 style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppThemeTokens.text,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppThemeTokens.headingText,
+                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -142,7 +143,7 @@ class _EveryoneDetail extends StatelessWidget {
                             onPressed: onBack,
                             icon: const Icon(Icons.arrow_back),
                           ),
-                        const Icon(Icons.star, color: Color(0xFFF7B731)),
+                        const Icon(Icons.star, color: AppThemeTokens.accent),
                         const SizedBox(width: 12),
                         const Expanded(
                           child: Column(
@@ -154,9 +155,10 @@ class _EveryoneDetail extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppThemeTokens.text,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppThemeTokens.headingText,
+                                  letterSpacing: 0,
                                 ),
                               ),
                               SizedBox(height: 3),
@@ -192,8 +194,9 @@ class _EveryoneDetail extends StatelessWidget {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 20,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppThemeTokens.text,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppThemeTokens.headingText,
+                                  letterSpacing: 0,
                                 ),
                               ),
                               SizedBox(height: 8),

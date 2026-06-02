@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:agent_client/app/adaptive/adaptive_layout_policy.dart';
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/agents/application/agent_controller.dart';
 import 'package:agent_client/features/agents/domain/agent.dart';
@@ -22,13 +23,10 @@ part 'agent_workspace_conversation_helpers.dart';
 part 'agent_workspace_conversation_list.dart';
 part 'agent_workspace_detail.dart';
 
-const _phoneMaxWidth = 600.0;
 const _appRailWidth = 76.0;
-const _conversationListWidth = 352.0;
-const _tabletConversationListWidth = 312.0;
 const _chatSurfaceMaxWidth = 1120.0;
-const _conversationListColor = Color(0xFFF8FBFE);
-const _chatHeaderColor = Color(0xFFFBFDFF);
+const _conversationListColor = AppThemeTokens.workspaceAlt;
+const _chatHeaderColor = AppThemeTokens.panel;
 const _conversationListStatusBarStyle = SystemUiOverlayStyle(
   statusBarColor: _conversationListColor,
   statusBarIconBrightness: Brightness.dark,
@@ -67,7 +65,11 @@ class _AgentWorkspacePageState extends ConsumerState<AgentWorkspacePage> {
           bottom: false,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              if (constraints.maxWidth < _phoneMaxWidth) {
+              final policy = AdaptiveLayoutPolicy.fromWidth(
+                constraints.maxWidth,
+              );
+
+              if (policy.usesMobileWorkspace) {
                 return _MobileConversationPage(
                   agents: agents,
                   currentAgentId: currentAgentId,
@@ -79,9 +81,9 @@ class _AgentWorkspacePageState extends ConsumerState<AgentWorkspacePage> {
                   _selectedAgent(availableAgents, currentAgentId) ??
                   fallbackAgent(currentAgentId);
               final effectiveAgentId = selectedAgent.id;
-              final conversationWidth = constraints.maxWidth < 920
-                  ? _tabletConversationListWidth
-                  : _conversationListWidth;
+              final conversationWidth =
+                  policy.conversationListWidth ??
+                  AdaptiveLayoutPolicy.tabletConversationListWidth;
 
               return Row(
                 key: const Key('agent-im-shell'),
@@ -93,6 +95,7 @@ class _AgentWorkspacePageState extends ConsumerState<AgentWorkspacePage> {
                       agents: agents,
                       currentAgentId: effectiveAgentId,
                       everyoneSelected: _showEveryone,
+                      showSelection: true,
                       showSettingsButton: false,
                       onSelectEveryone: () {
                         setState(() => _showEveryone = true);
@@ -164,6 +167,7 @@ class _MobileConversationPage extends ConsumerWidget {
         agents: agents,
         currentAgentId: selectedAgent.id,
         everyoneSelected: false,
+        showSelection: false,
         showSettingsButton: true,
         onSelectEveryone: () {
           Navigator.of(context).push(

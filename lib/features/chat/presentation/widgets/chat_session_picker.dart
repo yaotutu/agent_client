@@ -46,7 +46,8 @@ class ChatSessionPickerBar extends ConsumerWidget {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: AppThemeTokens.text,
+                        color: AppThemeTokens.headingText,
+                        letterSpacing: 0,
                       ),
                     ),
                     if (session case final selected?)
@@ -135,8 +136,9 @@ class _ChatSessionDialog extends ConsumerWidget {
                       'Conversations',
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppThemeTokens.text,
+                        fontWeight: FontWeight.w700,
+                        color: AppThemeTokens.headingText,
+                        letterSpacing: 0,
                       ),
                     ),
                   ),
@@ -205,7 +207,7 @@ class _EmptySessions extends StatelessWidget {
         padding: EdgeInsets.all(24),
         child: Text(
           'No sessions yet',
-          style: TextStyle(fontSize: 13, color: Color(0xFF667085)),
+          style: TextStyle(fontSize: 13, color: AppThemeTokens.mutedText),
         ),
       ),
     );

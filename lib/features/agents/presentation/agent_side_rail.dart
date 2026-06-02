@@ -130,7 +130,7 @@ class _CompactAgentList extends StatelessWidget {
         return Tooltip(
           message: agent.name,
           child: Material(
-            color: selected ? AppThemeTokens.brandSoft : Colors.transparent,
+            color: selected ? AppThemeTokens.selected : Colors.transparent,
             borderRadius: BorderRadius.circular(AppThemeTokens.radius),
             child: InkWell(
               key: Key('agent-compact-tile-${agent.id}'),

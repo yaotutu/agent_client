@@ -25,17 +25,26 @@ class ChatMessageBubble extends StatelessWidget {
     final hasContent = message.content.trim().isNotEmpty;
     final hasAttachments = message.attachments.isNotEmpty;
     final placeholder = _placeholder();
-    final textStyle = TextStyle(color: textColor, height: 1.35, fontSize: 14);
+    final textStyle = TextStyle(color: textColor, height: 1.45, fontSize: 14);
 
     final bubble = Container(
       width: hasAttachments ? double.infinity : null,
       constraints: const BoxConstraints(maxWidth: 760),
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(8),
         border: user ? null : Border.all(color: AppThemeTokens.border),
+        boxShadow: user
+            ? null
+            : const [
+                BoxShadow(
+                  color: AppThemeTokens.shadow,
+                  blurRadius: 10,
+                  offset: Offset(0, 2),
+                ),
+              ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -110,11 +119,11 @@ class ChatMessageBubble extends StatelessWidget {
   MarkdownStyleSheet _markdownStyleSheet(Color textColor, bool user) {
     final mutedText = user ? Colors.white70 : AppThemeTokens.mutedText;
     final codeBackground = user
-        ? const Color(0x33256D85)
-        : const Color(0xFFF2F4F7);
+        ? Colors.white24
+        : AppThemeTokens.codeBackground;
 
     return MarkdownStyleSheet(
-      p: TextStyle(color: textColor, height: 1.35, fontSize: 14),
+      p: TextStyle(color: textColor, height: 1.45, fontSize: 14),
       h1: TextStyle(
         color: textColor,
         fontSize: 20,
@@ -142,7 +151,7 @@ class ChatMessageBubble extends StatelessWidget {
         vertical: 6,
       ),
       blockquoteDecoration: BoxDecoration(
-        color: user ? Colors.white12 : const Color(0xFFF2F4F7),
+        color: user ? Colors.white12 : AppThemeTokens.codeBackground,
         border: Border(left: BorderSide(color: mutedText, width: 3)),
       ),
       code: TextStyle(

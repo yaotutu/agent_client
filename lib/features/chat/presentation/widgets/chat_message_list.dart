@@ -243,8 +243,15 @@ class ChatLiveActivity extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: AppThemeTokens.panel,
-          border: Border.all(color: AppThemeTokens.strongBorder),
+          border: Border.all(color: AppThemeTokens.border),
           borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+          boxShadow: const [
+            BoxShadow(
+              color: AppThemeTokens.shadow,
+              blurRadius: 10,
+              offset: Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -283,9 +290,10 @@ class _ActivityRow extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF344054),
+            color: AppThemeTokens.headingText,
             fontSize: 13,
             fontWeight: FontWeight.w700,
+            letterSpacing: 0,
           ),
         ),
         const SizedBox(width: 8),

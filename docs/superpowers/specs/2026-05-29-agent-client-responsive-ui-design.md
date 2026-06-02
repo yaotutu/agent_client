@@ -1,5 +1,10 @@
 # Agent Client Responsive UI Design
 
+> Note: The large-screen direction in this document is superseded by
+> `docs/superpowers/specs/2026-06-02-mobile-first-adaptive-ui-strategy.md`.
+> Current policy is mobile first, tablet second, and desktop-as-tablet until a
+> dedicated desktop enhancement phase is planned.
+
 ## Goal
 
 Improve the mobile, tablet, and large-screen UI without changing backend contracts or feature boundaries. The app should feel like one coherent agent workspace: focused chat, dense but readable file/task lists, and predictable navigation.

@@ -1,4 +1,6 @@
 import 'package:agent_client/app/agent_client_app.dart';
+import 'package:agent_client/app/adaptive/adaptive_layout_policy.dart';
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/core/config/app_config.dart';
 import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
 import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
@@ -131,6 +133,27 @@ void main() {
     expect(find.byKey(const Key('agent-detail-tasks-button')), findsNothing);
   });
 
+  testWidgets('desktop shell follows tablet layout policy for now', (
+    tester,
+  ) async {
+    await pumpAppAtSize(tester, const Size(1200, 800));
+
+    final conversationListRect = tester.getRect(
+      find.byKey(const Key('agent-conversation-list')),
+    );
+
+    expect(
+      conversationListRect.width,
+      moreOrLessEquals(
+        AdaptiveLayoutPolicy.tabletConversationListWidth,
+        epsilon: 1,
+      ),
+    );
+    expect(find.byKey(const Key('agent-app-rail')), findsOneWidget);
+    expect(find.byKey(const Key('agent-compact-rail')), findsNothing);
+    expect(find.byKey(const Key('agent-side-rail')), findsNothing);
+  });
+
   testWidgets('phone layout starts at the conversation list and opens chat', (
     tester,
   ) async {
@@ -163,6 +186,46 @@ void main() {
     expect(find.byKey(const Key('chat-message-list')), findsNothing);
   });
 
+  testWidgets('phone conversation list does not keep selected row styling', (
+    tester,
+  ) async {
+    await pumpAppAtSize(tester, const Size(390, 844));
+
+    await tester.tap(find.byKey(const Key('agent-conversation-agent-nanobot')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('agent-chat-back-button')));
+    await tester.pumpAndSettle();
+
+    final tileFinder = find.byKey(const Key('agent-tile-nanobot'));
+    final tileMaterial = tester.widget<Material>(
+      find.descendant(of: tileFinder, matching: find.byType(Material)).first,
+    );
+    final tileContainer = tester.widget<Container>(
+      find
+          .descendant(
+            of: tileFinder,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Container &&
+                  widget.constraints == const BoxConstraints(minHeight: 72),
+            ),
+          )
+          .first,
+    );
+    final decoration = tileContainer.decoration as BoxDecoration;
+    final border = decoration.border as Border;
+
+    expect(tileMaterial.color, Colors.transparent);
+    expect(border.top.color, Colors.transparent);
+    expect(
+      find.descendant(
+        of: tileFinder,
+        matching: find.byIcon(Icons.check_circle),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets(
     'phone conversation list keeps safe area while styling status bar',
     (tester) async {
@@ -183,8 +246,8 @@ void main() {
           .value;
 
       expect(listRect.top, moreOrLessEquals(44, epsilon: 1));
-      expect(rootScaffold.backgroundColor, const Color(0xFFF8FBFE));
-      expect(overlayStyle.statusBarColor, const Color(0xFFF8FBFE));
+      expect(rootScaffold.backgroundColor, AppThemeTokens.workspaceAlt);
+      expect(overlayStyle.statusBarColor, AppThemeTokens.workspaceAlt);
       expect(overlayStyle.statusBarIconBrightness, Brightness.dark);
     },
   );
@@ -277,8 +340,8 @@ void main() {
     expect(headerRect.top, moreOrLessEquals(44, epsilon: 1));
     expect(headerRect.height, moreOrLessEquals(56, epsilon: 1));
     expect(headerAvatarRect.top, greaterThanOrEqualTo(52));
-    expect(mobileScaffold.backgroundColor, const Color(0xFFFBFDFF));
-    expect(overlayStyle.statusBarColor, const Color(0xFFFBFDFF));
+    expect(mobileScaffold.backgroundColor, AppThemeTokens.panel);
+    expect(overlayStyle.statusBarColor, AppThemeTokens.panel);
     expect(overlayStyle.statusBarIconBrightness, Brightness.dark);
   });
 

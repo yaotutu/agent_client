@@ -124,7 +124,12 @@ class _FilesToolbar extends StatelessWidget {
               key: const Key('agent-files-current-path'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                color: AppThemeTokens.headingText,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
             ),
           ),
           IconButton(
@@ -193,10 +198,13 @@ class _FileRow extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEAF3F5),
+                  color: AppThemeTokens.brandSofter,
                   borderRadius: BorderRadius.circular(AppThemeTokens.radius),
                 ),
-                child: Icon(_iconFor(file.kind), color: AppThemeTokens.brand),
+                child: Icon(
+                  _iconFor(file.kind),
+                  color: AppThemeTokens.brandPressed,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -208,8 +216,10 @@ class _FileRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
+                        color: AppThemeTokens.headingText,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 4),

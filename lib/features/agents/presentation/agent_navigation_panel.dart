@@ -1,3 +1,4 @@
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/agents/application/agent_controller.dart';
 import 'package:agent_client/features/agents/domain/agent.dart';
 import 'package:agent_client/features/agents/domain/agent_avatar.dart';
@@ -44,8 +45,9 @@ class AgentNavigationPanel extends ConsumerWidget {
                       fontSize: showTitle ? 18 : 13,
                       fontWeight: FontWeight.w700,
                       color: showTitle
-                          ? const Color(0xFF101828)
-                          : const Color(0xFF344054),
+                          ? AppThemeTokens.headingText
+                          : AppThemeTokens.mutedText,
+                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -93,9 +95,7 @@ class AgentNavigationPanel extends ConsumerWidget {
                     return ListTile(
                       key: Key('agent-tile-${agent.id}'),
                       selected: selected,
-                      selectedTileColor: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.10),
+                      selectedTileColor: AppThemeTokens.selected,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),

@@ -40,7 +40,7 @@ class ChatInputBar extends StatelessWidget {
       top: false,
       child: Container(
         key: const Key('chat-input-bar'),
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
         decoration: const BoxDecoration(
           color: AppThemeTokens.panel,
           border: Border(top: BorderSide(color: AppThemeTokens.border)),
@@ -78,6 +78,7 @@ class ChatInputBar extends StatelessWidget {
                     textInputAction: TextInputAction.newline,
                     decoration: const InputDecoration(
                       hintText: 'Message',
+                      fillColor: AppThemeTokens.panelMuted,
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: 12,
@@ -87,32 +88,106 @@ class ChatInputBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton.filled(
-                  tooltip: isStopping
-                      ? 'Stopping'
-                      : isStreaming
-                      ? 'Stop'
-                      : 'Send',
-                  onPressed: isStopping
-                      ? null
-                      : isStreaming
-                      ? onStop
-                      : canSend
-                      ? onSend
-                      : null,
-                  icon: isStopping
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(isStreaming ? Icons.stop : Icons.arrow_upward),
+                _SendControlButton(
+                  canSend: canSend,
+                  isStreaming: isStreaming,
+                  isStopping: isStopping,
+                  onSend: onSend,
+                  onStop: onStop,
                 ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SendControlButton extends StatelessWidget {
+  const _SendControlButton({
+    required this.canSend,
+    required this.isStreaming,
+    required this.isStopping,
+    required this.onSend,
+    required this.onStop,
+  });
+
+  final bool canSend;
+  final bool isStreaming;
+  final bool isStopping;
+  final VoidCallback onSend;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.filled(
+      key: const Key('chat-send-button'),
+      tooltip: isStopping
+          ? 'Stopping'
+          : isStreaming
+          ? 'Stop'
+          : 'Send',
+      onPressed: isStopping
+          ? null
+          : isStreaming
+          ? onStop
+          : canSend
+          ? onSend
+          : null,
+      style: ButtonStyle(
+        fixedSize: const WidgetStatePropertyAll(Size.square(44)),
+        minimumSize: const WidgetStatePropertyAll(Size.square(44)),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return AppThemeTokens.workspace;
+          }
+          if (isStreaming) {
+            return AppThemeTokens.dangerSoft;
+          }
+          if (states.contains(WidgetState.pressed)) {
+            return AppThemeTokens.brandPressed;
+          }
+          return AppThemeTokens.brand;
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return AppThemeTokens.subtleText;
+          }
+          if (isStreaming) {
+            return AppThemeTokens.dangerText;
+          }
+          return Colors.white;
+        }),
+        side: WidgetStateProperty.resolveWith((states) {
+          if (isStreaming) {
+            return const BorderSide(color: AppThemeTokens.dangerBorder);
+          }
+          if (states.contains(WidgetState.disabled)) {
+            return const BorderSide(color: AppThemeTokens.strongBorder);
+          }
+          return const BorderSide(color: AppThemeTokens.brandPressed);
+        }),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppThemeTokens.controlRadius),
+          ),
+        ),
+      ),
+      icon: isStopping
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                color: AppThemeTokens.mutedText,
+                strokeWidth: 2,
+              ),
+            )
+          : Icon(
+              isStreaming ? Icons.stop : Icons.arrow_upward,
+              size: isStreaming ? 18 : 20,
+            ),
     );
   }
 }

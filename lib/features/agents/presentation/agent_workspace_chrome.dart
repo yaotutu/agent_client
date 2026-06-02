@@ -9,7 +9,7 @@ class _AppRail extends StatelessWidget {
       key: const Key('agent-app-rail'),
       width: _appRailWidth,
       decoration: const BoxDecoration(
-        color: Color(0xFFF0F7FC),
+        color: AppThemeTokens.rail,
         border: Border(right: BorderSide(color: AppThemeTokens.border)),
       ),
       child: Column(
@@ -60,7 +60,7 @@ class _WorkspaceAvatar extends StatelessWidget {
       children: [
         const CircleAvatar(
           radius: 23,
-          backgroundColor: Color(0xFF1D2939),
+          backgroundColor: AppThemeTokens.headingText,
           foregroundColor: Colors.white,
           child: Text('>_'),
         ),
@@ -101,17 +101,20 @@ class _RailButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Container(
-        width: 46,
-        height: 46,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          color: selected ? AppThemeTokens.panel : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppThemeTokens.controlRadius),
+          border: selected
+              ? Border.all(color: AppThemeTokens.border)
+              : Border.all(color: Colors.transparent),
           boxShadow: selected
               ? const [
                   BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
+                    color: AppThemeTokens.shadow,
+                    blurRadius: 10,
+                    offset: Offset(0, 3),
                   ),
                 ]
               : null,
@@ -119,7 +122,9 @@ class _RailButton extends StatelessWidget {
         child: IconButton(
           onPressed: onPressed,
           icon: Icon(icon),
-          color: selected ? AppThemeTokens.brand : const Color(0xFF667085),
+          color: selected
+              ? AppThemeTokens.brandPressed
+              : AppThemeTokens.mutedText,
         ),
       ),
     );

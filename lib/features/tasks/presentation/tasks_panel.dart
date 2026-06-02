@@ -68,6 +68,8 @@ class _TaskRow extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
+                          color: AppThemeTokens.headingText,
+                          letterSpacing: 0,
                         ),
                       ),
                     ),
@@ -127,7 +129,7 @@ class _TaskRow extends StatelessWidget {
     return switch (status) {
       AgentTaskStatus.todo => (
         AppThemeTokens.mutedText,
-        const Color(0xFFF2F4F7),
+        AppThemeTokens.codeBackground,
       ),
       AgentTaskStatus.inProgress => (
         AppThemeTokens.brand,

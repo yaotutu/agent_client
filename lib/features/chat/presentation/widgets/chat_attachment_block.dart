@@ -1,3 +1,4 @@
+import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/chat/domain/chat_attachment.dart';
 import 'package:flutter/material.dart';
 
@@ -34,10 +35,10 @@ class _FileAttachmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = user ? Colors.white24 : const Color(0xFFE4E7EC);
-    final backgroundColor = user ? Colors.white12 : const Color(0xFFFCFCFD);
-    final primaryText = user ? Colors.white : const Color(0xFF101828);
-    final secondaryText = user ? Colors.white70 : const Color(0xFF667085);
+    final borderColor = user ? Colors.white24 : AppThemeTokens.border;
+    final backgroundColor = user ? Colors.white12 : AppThemeTokens.panelMuted;
+    final primaryText = user ? Colors.white : AppThemeTokens.headingText;
+    final secondaryText = user ? Colors.white70 : AppThemeTokens.mutedText;
 
     return Container(
       key: Key('chat-file-${attachment.id}'),
@@ -54,12 +55,12 @@ class _FileAttachmentTile extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: user ? Colors.white12 : const Color(0xFFEFF8FF),
+              color: user ? Colors.white12 : AppThemeTokens.brandSofter,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               Icons.description_outlined,
-              color: user ? Colors.white : const Color(0xFF256D85),
+              color: user ? Colors.white : AppThemeTokens.brandPressed,
             ),
           ),
           const SizedBox(width: 10),
@@ -96,7 +97,7 @@ class _FileAttachmentTile extends StatelessWidget {
             onPressed: () {},
             icon: Icon(
               Icons.open_in_new,
-              color: user ? Colors.white : const Color(0xFF475467),
+              color: user ? Colors.white : AppThemeTokens.mutedText,
             ),
           ),
         ],
@@ -113,10 +114,10 @@ class _ImageAttachmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = user ? Colors.white24 : const Color(0xFFE4E7EC);
-    final backgroundColor = user ? Colors.white12 : Colors.white;
-    final primaryText = user ? Colors.white : const Color(0xFF101828);
-    final secondaryText = user ? Colors.white70 : const Color(0xFF667085);
+    final borderColor = user ? Colors.white24 : AppThemeTokens.border;
+    final backgroundColor = user ? Colors.white12 : AppThemeTokens.panel;
+    final primaryText = user ? Colors.white : AppThemeTokens.headingText;
+    final secondaryText = user ? Colors.white70 : AppThemeTokens.mutedText;
     final imageUrl = attachment.thumbnailUrl ?? attachment.url;
 
     return Container(
@@ -193,11 +194,11 @@ class _ImageFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: user ? Colors.white12 : const Color(0xFFF2F4F7),
+      color: user ? Colors.white12 : AppThemeTokens.codeBackground,
       child: Center(
         child: Icon(
           loading ? Icons.hourglass_empty : Icons.image_outlined,
-          color: user ? Colors.white70 : const Color(0xFF667085),
+          color: user ? Colors.white70 : AppThemeTokens.mutedText,
           size: 32,
         ),
       ),

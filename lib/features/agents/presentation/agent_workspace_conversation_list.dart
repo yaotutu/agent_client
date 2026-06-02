@@ -5,6 +5,7 @@ class _ConversationListPane extends ConsumerWidget {
     required this.agents,
     required this.currentAgentId,
     required this.everyoneSelected,
+    required this.showSelection,
     required this.showSettingsButton,
     required this.onSelectEveryone,
     required this.onSelectAgent,
@@ -13,6 +14,7 @@ class _ConversationListPane extends ConsumerWidget {
   final AsyncValue<List<Agent>> agents;
   final String currentAgentId;
   final bool everyoneSelected;
+  final bool showSelection;
   final bool showSettingsButton;
   final VoidCallback onSelectEveryone;
   final ValueChanged<Agent> onSelectAgent;
@@ -35,9 +37,10 @@ class _ConversationListPane extends ConsumerWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 25,
-                      fontWeight: FontWeight.w800,
-                      color: AppThemeTokens.text,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: AppThemeTokens.headingText,
+                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -83,6 +86,7 @@ class _ConversationListPane extends ConsumerWidget {
                 agents: agents,
                 currentAgentId: currentAgentId,
                 everyoneSelected: everyoneSelected,
+                showSelection: showSelection,
                 onSelectEveryone: onSelectEveryone,
                 onSelectAgent: onSelectAgent,
               ),
@@ -105,7 +109,7 @@ class _ConversationFilters extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 38,
+      height: 36,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -132,7 +136,16 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChoiceChip(
-      label: Text(label),
+      label: Text(
+        label,
+        style: TextStyle(
+          color: selected
+              ? AppThemeTokens.brandPressed
+              : AppThemeTokens.mutedText,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          letterSpacing: 0,
+        ),
+      ),
       selected: selected,
       onSelected: (_) {},
       showCheckmark: false,
@@ -146,6 +159,7 @@ class _ConversationRows extends StatelessWidget {
     required this.agents,
     required this.currentAgentId,
     required this.everyoneSelected,
+    required this.showSelection,
     required this.onSelectEveryone,
     required this.onSelectAgent,
   });
@@ -153,6 +167,7 @@ class _ConversationRows extends StatelessWidget {
   final List<Agent> agents;
   final String currentAgentId;
   final bool everyoneSelected;
+  final bool showSelection;
   final VoidCallback onSelectEveryone;
   final ValueChanged<Agent> onSelectAgent;
 
@@ -163,7 +178,7 @@ class _ConversationRows extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
         children: [
           _EveryoneConversationTile(
-            selected: everyoneSelected,
+            selected: showSelection && everyoneSelected,
             onTap: onSelectEveryone,
           ),
           const SizedBox(height: 12),
@@ -187,7 +202,7 @@ class _ConversationRows extends StatelessWidget {
         }
         if (index == 1) {
           return _EveryoneConversationTile(
-            selected: everyoneSelected,
+            selected: showSelection && everyoneSelected,
             onTap: onSelectEveryone,
           );
         }
@@ -195,7 +210,8 @@ class _ConversationRows extends StatelessWidget {
         final agent = agents[index - 2];
         return _AgentConversationTile(
           agent: agent,
-          selected: !everyoneSelected && agent.id == currentAgentId,
+          selected:
+              showSelection && !everyoneSelected && agent.id == currentAgentId,
           onTap: () => onSelectAgent(agent),
         );
       },
@@ -215,10 +231,10 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         text,
         style: const TextStyle(
-          color: Color(0xFF98A2B3),
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.2,
+          color: AppThemeTokens.subtleText,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
         ),
       ),
     );
@@ -253,9 +269,10 @@ class _EveryoneConversationTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppThemeTokens.text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppThemeTokens.headingText,
+                    letterSpacing: 0,
                   ),
                 ),
                 SizedBox(height: 4),
@@ -263,7 +280,10 @@ class _EveryoneConversationTile extends StatelessWidget {
                   'Team chat placeholder',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: AppThemeTokens.mutedText),
+                  style: TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
@@ -325,9 +345,10 @@ class _AgentConversationTile extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                           softWrap: false,
                           style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: AppThemeTokens.text,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppThemeTokens.headingText,
+                            letterSpacing: 0,
                           ),
                         ),
                       ),
@@ -337,7 +358,7 @@ class _AgentConversationTile extends ConsumerWidget {
                           label,
                           style: const TextStyle(
                             color: AppThemeTokens.subtleText,
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
                         ),
                     ],
@@ -350,7 +371,7 @@ class _AgentConversationTile extends ConsumerWidget {
                     softWrap: false,
                     style: const TextStyle(
                       color: AppThemeTokens.mutedText,
-                      fontSize: 14,
+                      fontSize: 13,
                     ),
                   ),
                 ],
@@ -380,18 +401,18 @@ class _ConversationSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? const Color(0xFFE8F6FF) : Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
+      color: selected ? AppThemeTokens.selected : Colors.transparent,
+      borderRadius: BorderRadius.circular(AppThemeTokens.radius),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 72),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppThemeTokens.radius),
             border: selected
-                ? Border.all(color: const Color(0xFFB9E6FE))
+                ? Border.all(color: AppThemeTokens.selectedBorder)
                 : Border.all(color: Colors.transparent),
           ),
           child: child,
@@ -414,22 +435,42 @@ class _GroupAvatar extends StatelessWidget {
           Positioned(
             left: 0,
             top: 2,
-            child: CircleAvatar(radius: 16, child: Text('A')),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: AppThemeTokens.brandSofter,
+              foregroundColor: AppThemeTokens.brandPressed,
+              child: Text('A'),
+            ),
           ),
           Positioned(
             right: 2,
             top: 0,
-            child: CircleAvatar(radius: 16, child: Text('N')),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: AppThemeTokens.warningSoft,
+              foregroundColor: AppThemeTokens.warning,
+              child: Text('N'),
+            ),
           ),
           Positioned(
             left: 8,
             bottom: 0,
-            child: CircleAvatar(radius: 16, child: Text('B')),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: AppThemeTokens.workspace,
+              foregroundColor: AppThemeTokens.mutedText,
+              child: Text('B'),
+            ),
           ),
           Positioned(
             right: 0,
             bottom: 2,
-            child: CircleAvatar(radius: 16, child: Text('I')),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: AppThemeTokens.panel,
+              foregroundColor: AppThemeTokens.headingText,
+              child: Text('I'),
+            ),
           ),
         ],
       ),
@@ -449,7 +490,11 @@ class _AgentTileActions extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (selected)
-          const Icon(Icons.check_circle, size: 18, color: AppThemeTokens.brand),
+          const Icon(
+            Icons.check_circle,
+            size: 18,
+            color: AppThemeTokens.brandPressed,
+          ),
         PopupMenuButton<_AgentMenuAction>(
           key: Key('agent-menu-${agent.id}'),
           tooltip: 'Agent actions',
@@ -497,7 +542,7 @@ class _EmptyAgentList extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppThemeTokens.panel,
         border: Border.all(color: AppThemeTokens.border),
         borderRadius: BorderRadius.circular(AppThemeTokens.radius),
       ),
@@ -534,6 +579,7 @@ class _ConversationError extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: AppThemeTokens.dangerSoft,
+            border: Border.all(color: AppThemeTokens.dangerBorder),
             borderRadius: BorderRadius.circular(AppThemeTokens.radius),
           ),
           child: Row(

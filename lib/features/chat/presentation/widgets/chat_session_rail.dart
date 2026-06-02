@@ -39,7 +39,8 @@ class ChatSessionRail extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF344054),
+                        color: AppThemeTokens.headingText,
+                        letterSpacing: 0,
                       ),
                     ),
                   ),
@@ -94,7 +95,7 @@ class _EmptySessionRail extends StatelessWidget {
         child: Text(
           'No sessions yet',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: Color(0xFF667085)),
+          style: TextStyle(fontSize: 12, color: AppThemeTokens.mutedText),
         ),
       ),
     );
@@ -115,12 +116,8 @@ class ChatSessionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Material(
-      color: selected
-          ? colorScheme.primary.withValues(alpha: 0.10)
-          : Colors.transparent,
+      color: selected ? AppThemeTokens.selected : Colors.transparent,
       borderRadius: BorderRadius.circular(AppThemeTokens.radius),
       child: InkWell(
         key: Key('chat-session-${session.id}'),
@@ -150,7 +147,8 @@ class ChatSessionTile extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: AppThemeTokens.text,
+                              color: AppThemeTokens.headingText,
+                              letterSpacing: 0,
                             ),
                           ),
                         ),
@@ -225,10 +223,10 @@ class ChatSessionStatusDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (status) {
-      ChatSessionStatus.running => const Color(0xFF1570EF),
-      ChatSessionStatus.stopping => const Color(0xFFF79009),
-      ChatSessionStatus.error => const Color(0xFFD92D20),
-      ChatSessionStatus.idle => const Color(0xFF12B76A),
+      ChatSessionStatus.running => AppThemeTokens.info,
+      ChatSessionStatus.stopping => AppThemeTokens.warning,
+      ChatSessionStatus.error => AppThemeTokens.dangerText,
+      ChatSessionStatus.idle => AppThemeTokens.success,
     };
 
     return Tooltip(
