@@ -1,5 +1,5 @@
 import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
-import 'package:agent_client/features/chat/data/agent_control_chat_services.dart';
+import 'package:agent_client/features/agent_control/data/agent_control_chat_services.dart';
 import 'package:agent_client/features/chat/data/agent_chat_repository.dart';
 import 'package:agent_client/features/chat/domain/chat_event.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';

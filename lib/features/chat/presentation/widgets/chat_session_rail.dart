@@ -179,7 +179,7 @@ class ChatSessionTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${session.messageCount} messages',
+                      _sessionDetailLabel(session),
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppThemeTokens.subtleText,
@@ -194,6 +194,27 @@ class ChatSessionTile extends StatelessWidget {
       ),
     );
   }
+}
+
+String _sessionDetailLabel(ChatSessionSummary session) {
+  final runStartedAt = session.runStartedAt;
+  if (session.status == ChatSessionStatus.running && runStartedAt != null) {
+    return 'Running ${_elapsedLabel(DateTime.now().difference(runStartedAt))}';
+  }
+  return '${session.messageCount} messages';
+}
+
+String _elapsedLabel(Duration duration) {
+  final seconds = duration.inSeconds < 0 ? 0 : duration.inSeconds;
+  if (seconds < 60) {
+    return '${seconds}s';
+  }
+  final minutes = seconds ~/ 60;
+  if (minutes < 60) {
+    return '${minutes}m';
+  }
+  final hours = minutes ~/ 60;
+  return '${hours}h';
 }
 
 class ChatSessionStatusDot extends StatelessWidget {

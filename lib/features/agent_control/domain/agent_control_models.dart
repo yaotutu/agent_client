@@ -6,6 +6,7 @@ enum AgentControlStreamEventType {
   toolHint,
   goalStatus,
   goalState,
+  fileEdit,
   streamEnd,
   done,
   error,
@@ -260,6 +261,7 @@ class CreateSessionResponse {
     required this.updatedAt,
     required this.messageCount,
     required this.status,
+    this.runStartedAt,
   });
 
   final String sessionId;
@@ -269,6 +271,7 @@ class CreateSessionResponse {
   final DateTime? updatedAt;
   final int messageCount;
   final String status;
+  final DateTime? runStartedAt;
 
   factory CreateSessionResponse.fromJson(Map<String, Object?> json) {
     return CreateSessionResponse(
@@ -279,6 +282,9 @@ class CreateSessionResponse {
       updatedAt: _date(json['updatedAt'] ?? json['updated_at']),
       messageCount: _int(json['messageCount'] ?? json['message_count']) ?? 0,
       status: json['status']?.toString() ?? 'idle',
+      runStartedAt: _dateOrEpochSeconds(
+        json['runStartedAt'] ?? json['run_started_at'],
+      ),
     );
   }
 }
@@ -324,6 +330,7 @@ class SessionSummary {
     required this.preview,
     this.messageCount = 0,
     this.status = 'idle',
+    this.runStartedAt,
   });
 
   final String key;
@@ -334,6 +341,7 @@ class SessionSummary {
   final String preview;
   final int messageCount;
   final String status;
+  final DateTime? runStartedAt;
 
   String get sessionId {
     if (rawSessionId != null && rawSessionId!.isNotEmpty) {
@@ -354,6 +362,9 @@ class SessionSummary {
       preview: json['preview']?.toString() ?? '',
       messageCount: _int(json['messageCount'] ?? json['message_count']) ?? 0,
       status: json['status']?.toString() ?? 'idle',
+      runStartedAt: _dateOrEpochSeconds(
+        json['runStartedAt'] ?? json['run_started_at'],
+      ),
     );
   }
 }
@@ -441,6 +452,7 @@ class AgentControlStreamEvent {
     this.latencyMs,
     this.goalState,
     this.toolEvents,
+    this.fileEdits = const [],
     this.raw = const {},
   });
 
@@ -453,6 +465,7 @@ class AgentControlStreamEvent {
   final int? latencyMs;
   final Map<String, Object?>? goalState;
   final List<Object?>? toolEvents;
+  final List<Map<String, Object?>> fileEdits;
   final Map<String, Object?> raw;
 
   factory AgentControlStreamEvent.doneMarker() {
@@ -470,6 +483,7 @@ class AgentControlStreamEvent {
       'tool_hint' => AgentControlStreamEventType.toolHint,
       'goal_status' => AgentControlStreamEventType.goalStatus,
       'goal_state' => AgentControlStreamEventType.goalState,
+      'file_edit' => AgentControlStreamEventType.fileEdit,
       'stream_end' => AgentControlStreamEventType.streamEnd,
       'done' => AgentControlStreamEventType.done,
       'error' => AgentControlStreamEventType.error,
@@ -486,6 +500,7 @@ class AgentControlStreamEvent {
       latencyMs: _int(json['latencyMs']),
       goalState: _nullableMap(json['goalState']),
       toolEvents: _nullableList(json['toolEvents']),
+      fileEdits: _list(json['edits']),
       raw: json,
     );
   }
@@ -906,6 +921,24 @@ DateTime? _date(Object? value) {
     return null;
   }
   return DateTime.tryParse(value.toString());
+}
+
+DateTime? _dateOrEpochSeconds(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  final parsedDate = DateTime.tryParse(value.toString());
+  if (parsedDate != null) {
+    return parsedDate;
+  }
+  final epochSeconds = _double(value);
+  if (epochSeconds == null) {
+    return null;
+  }
+  return DateTime.fromMillisecondsSinceEpoch(
+    (epochSeconds * 1000).round(),
+    isUtc: true,
+  );
 }
 
 int? _int(Object? value) {

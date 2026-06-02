@@ -129,6 +129,7 @@ class ChatController extends Notifier<ChatState> {
         clearReasoning: true,
         clearProgress: true,
         clearToolHint: true,
+        clearFileEdits: true,
         clearGoalStatus: true,
         clearGoalState: true,
       );
@@ -178,6 +179,7 @@ class ChatController extends Notifier<ChatState> {
       clearReasoning: true,
       clearProgress: true,
       clearToolHint: true,
+      clearFileEdits: true,
       clearGoalStatus: true,
       clearGoalState: true,
     );
@@ -338,6 +340,7 @@ class ChatController extends Notifier<ChatState> {
       clearReasoning: true,
       clearProgress: true,
       clearToolHint: true,
+      clearFileEdits: true,
       clearGoalStatus: true,
       clearGoalState: true,
     );
@@ -379,6 +382,7 @@ class ChatController extends Notifier<ChatState> {
       clearReasoning: true,
       clearProgress: true,
       clearToolHint: true,
+      clearFileEdits: true,
       clearGoalStatus: true,
       clearGoalState: true,
     );
@@ -396,6 +400,17 @@ class ChatController extends Notifier<ChatState> {
         state = state.copyWith(progressText: activity.text);
       case ChatActivityType.toolHint:
         state = state.copyWith(toolHintText: activity.text);
+      case ChatActivityType.fileEdit:
+        final text = _fileEditText(activity.fileEdits);
+        if (text.isNotEmpty) {
+          state = state.copyWith(
+            fileEditText: [
+              if (state.fileEditText?.trim().isNotEmpty == true)
+                state.fileEditText!.trim(),
+              text,
+            ].join('\n'),
+          );
+        }
       case ChatActivityType.goalStatus:
         state = state.copyWith(goalStatus: activity.state);
       case ChatActivityType.goalState:
@@ -445,6 +460,7 @@ class ChatController extends Notifier<ChatState> {
       clearReasoning: true,
       clearProgress: true,
       clearToolHint: true,
+      clearFileEdits: true,
       clearGoalStatus: true,
       clearGoalState: true,
     );
@@ -621,5 +637,18 @@ class ChatController extends Notifier<ChatState> {
     }
     final sessionId = messages.last.conversationId;
     return sessionId.isEmpty ? null : sessionId;
+  }
+
+  String _fileEditText(List<Map<String, Object?>> fileEdits) {
+    return [
+      for (final edit in fileEdits)
+        if (_fileEditLine(edit) case final line when line.isNotEmpty) line,
+    ].join('\n');
+  }
+
+  String _fileEditLine(Map<String, Object?> edit) {
+    final path = edit['path'] ?? edit['file'] ?? edit['name'] ?? 'unknown file';
+    final action = edit['action'] ?? edit['type'] ?? edit['status'] ?? 'edited';
+    return '${action.toString()}: ${path.toString()}';
   }
 }

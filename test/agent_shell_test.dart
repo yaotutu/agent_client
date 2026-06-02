@@ -18,6 +18,7 @@ import 'package:agent_client/features/files/application/agent_files_provider.dar
 import 'package:agent_client/features/files/data/agent_resources_repository.dart';
 import 'package:agent_client/features/files/domain/agent_file_content.dart';
 import 'package:agent_client/features/files/domain/agent_file_item.dart';
+import 'package:agent_client/features/files/domain/agent_resources_repository.dart';
 import 'package:agent_client/features/files/presentation/files_panel.dart';
 import 'package:agent_client/features/settings/data/agent_settings_repository.dart';
 import 'package:flutter/material.dart';

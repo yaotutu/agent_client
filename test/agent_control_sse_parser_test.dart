@@ -21,6 +21,10 @@ data: {"type":"tool_hint","text":"Searching","toolEvents":[{"name":"rg"}]}
 
 data: {"type":"goal_state","goalState":{"active":true}}
 
+data: {"type":"file_edit","edits":[{"path":"src/a.js","action":"modified"},{"file":"lib/b.dart","status":"created"}]}
+
+data: {"type":"stream_end","text":"Final response"}
+
 data: {"type":"text","text":"lo"}
 
 data: {"type":"done","latencyMs":2653,"goalState":{"active":false}}
@@ -37,6 +41,8 @@ data: [DONE]
       AgentControlStreamEventType.progress,
       AgentControlStreamEventType.toolHint,
       AgentControlStreamEventType.goalState,
+      AgentControlStreamEventType.fileEdit,
+      AgentControlStreamEventType.streamEnd,
       AgentControlStreamEventType.text,
       AgentControlStreamEventType.done,
       AgentControlStreamEventType.doneMarker,
@@ -48,7 +54,12 @@ data: [DONE]
       {'name': 'rg'},
     ]);
     expect(events[6].goalState, {'active': true});
-    expect(events[8].latencyMs, 2653);
+    expect(events[7].fileEdits, [
+      {'path': 'src/a.js', 'action': 'modified'},
+      {'file': 'lib/b.dart', 'status': 'created'},
+    ]);
+    expect(events[8].text, 'Final response');
+    expect(events[10].latencyMs, 2653);
   });
 
   test('buffers chunks split across network packets', () {

@@ -205,6 +205,7 @@ void main() {
             reasoningText: 'Checking the state machine.',
             progressText: 'Searching files.',
             toolHintText: 'running rg',
+            fileEditText: 'modified: src/a.js\ncreated: lib/b.dart',
           ),
         ),
       ),
@@ -220,6 +221,11 @@ void main() {
     expect(find.text('Searching files.'), findsOneWidget);
     expect(find.text('Tool'), findsOneWidget);
     expect(find.text('running rg'), findsOneWidget);
+    expect(find.text('Files'), findsOneWidget);
+    expect(
+      find.text('modified: src/a.js\ncreated: lib/b.dart'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('keeps empty state when there is no active turn', (tester) async {

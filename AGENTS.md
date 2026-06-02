@@ -2,6 +2,19 @@
 
 本文件给后续在本仓库工作的 coding agent 使用。目标是保持架构边界清晰，方便后续接入多种 agent backend。
 
+## 文档查询约定
+
+当用户询问库、框架、SDK、API、CLI 工具或云服务的用法时，使用 Context7 MCP 获取当前文档；即使是 React、Next.js、Prisma、Express、Tailwind、Django、Spring Boot 等常见项目，也不要只依赖已有记忆。适用范围包括 API 语法、配置、版本迁移、库相关调试、安装步骤和 CLI 用法。优先使用 Context7，而不是 web search。
+
+不需要为重构、从零编写脚本、业务逻辑调试、代码审查或通用编程概念使用 Context7。
+
+使用步骤：
+
+1. 除非用户提供 `/org/project` 格式的精确 library ID，否则先用库名和用户问题调用 `resolve-library-id`。
+2. 按精确名称、描述相关性、代码片段数量、来源声誉和 benchmark score 选择最佳匹配；如果结果不合适，换用别名或重述查询。
+3. 用选定的 library ID 和用户完整问题调用 `query-docs`。
+4. 基于获取到的文档回答。
+
 ## 项目定位
 
 这是一个 Flutter 客户端。当前第一个 backend adapter 是 Agent Control v1，但业务层不应绑定 Agent Control。后续接入其他 agent 时，应新增 adapter/provider 分发，而不是把新协议逻辑写进 UI 或 controller。

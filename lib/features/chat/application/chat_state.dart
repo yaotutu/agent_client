@@ -11,6 +11,7 @@ class ChatState {
     this.reasoningText,
     this.progressText,
     this.toolHintText,
+    this.fileEditText,
     this.goalStatus,
     this.goalState,
   });
@@ -28,6 +29,7 @@ class ChatState {
   final String? reasoningText;
   final String? progressText;
   final String? toolHintText;
+  final String? fileEditText;
   final String? goalStatus;
   final Map<String, Object?>? goalState;
 
@@ -41,12 +43,14 @@ class ChatState {
     String? reasoningText,
     String? progressText,
     String? toolHintText,
+    String? fileEditText,
     String? goalStatus,
     Map<String, Object?>? goalState,
     bool clearError = false,
     bool clearReasoning = false,
     bool clearProgress = false,
     bool clearToolHint = false,
+    bool clearFileEdits = false,
     bool clearGoalStatus = false,
     bool clearGoalState = false,
   }) {
@@ -62,6 +66,7 @@ class ChatState {
           : reasoningText ?? this.reasoningText,
       progressText: clearProgress ? null : progressText ?? this.progressText,
       toolHintText: clearToolHint ? null : toolHintText ?? this.toolHintText,
+      fileEditText: clearFileEdits ? null : fileEditText ?? this.fileEditText,
       goalStatus: clearGoalStatus ? null : goalStatus ?? this.goalStatus,
       goalState: clearGoalState ? null : goalState ?? this.goalState,
     );

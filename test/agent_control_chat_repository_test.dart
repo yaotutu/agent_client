@@ -1,6 +1,6 @@
 import 'package:agent_client/features/agent_control/data/agent_control_api_client.dart';
+import 'package:agent_client/features/agent_control/data/agent_control_chat_repository.dart';
 import 'package:agent_client/features/agent_control/domain/agent_control_models.dart';
-import 'package:agent_client/features/chat/data/agent_control_chat_repository.dart';
 import 'package:agent_client/features/chat/data/agent_chat_repository.dart';
 import 'package:agent_client/features/chat/domain/chat_event.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';
@@ -96,6 +96,10 @@ void main() {
   );
 
   test('listSessions maps backend session metadata for the UI', () async {
+    final runStartedAt = DateTime.fromMillisecondsSinceEpoch(
+      1780023022320,
+      isUtc: true,
+    );
     final api = _FakeAgentControlApi(
       card: _card(name: 'coder', defaultSessionId: null),
       sessions: [
@@ -106,7 +110,8 @@ void main() {
           title: '你好，帮我看看代码',
           preview: '你好，帮我看看代码',
           messageCount: 4,
-          status: 'idle',
+          status: 'running',
+          runStartedAt: runStartedAt,
         ),
       ],
     );
@@ -118,7 +123,8 @@ void main() {
     expect(sessions.single.title, '你好，帮我看看代码');
     expect(sessions.single.preview, '你好，帮我看看代码');
     expect(sessions.single.messageCount, 4);
-    expect(sessions.single.status, ChatSessionStatus.idle);
+    expect(sessions.single.status, ChatSessionStatus.running);
+    expect(sessions.single.runStartedAt, runStartedAt);
   });
 
   test('listSessions maps backend stopping session status', () async {
@@ -248,6 +254,47 @@ void main() {
     expect(events.last.type, ChatEventType.error);
     expect(events.last.errorMessage, 'Session is busy');
     expect(events.last.errorCode, 'SESSION_BUSY');
+  });
+
+  test('maps Agent Control file edit events into chat activity', () async {
+    final api = _FakeAgentControlApi(
+      card: _card(name: 'coder', defaultSessionId: 'session-1'),
+      streamEvents: const [
+        AgentControlStreamEvent(
+          type: AgentControlStreamEventType.fileEdit,
+          fileEdits: [
+            {'path': 'src/a.js', 'action': 'modified'},
+            {'file': 'lib/b.dart', 'status': 'created'},
+            {'name': 'README.md'},
+          ],
+        ),
+        AgentControlStreamEvent(type: AgentControlStreamEventType.done),
+      ],
+    );
+    final repository = AgentControlChatRepository(api: api);
+
+    final events = await repository
+        .sendMessage(
+          const SendMessageRequest(
+            agentId: 'coder',
+            sessionId: 'session-1',
+            assistantMessageId: 'assistant-1',
+            input: 'Hi',
+          ),
+        )
+        .toList();
+
+    expect(events[1].type, ChatEventType.activity);
+    expect(
+      events[1].activity,
+      const ChatActivity.fileEdit(
+        fileEdits: [
+          {'path': 'src/a.js', 'action': 'modified'},
+          {'file': 'lib/b.dart', 'status': 'created'},
+          {'name': 'README.md'},
+        ],
+      ),
+    );
   });
 
   test('attaches an existing session before sending a message', () async {

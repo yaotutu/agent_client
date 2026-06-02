@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 part 'agent_workspace_chrome.dart';
+part 'agent_workspace_conversation_helpers.dart';
 part 'agent_workspace_conversation_list.dart';
 part 'agent_workspace_detail.dart';
 

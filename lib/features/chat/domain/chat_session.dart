@@ -9,6 +9,7 @@ class ChatSessionSummary {
     this.createdAt,
     this.updatedAt,
     this.status = ChatSessionStatus.idle,
+    this.runStartedAt,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class ChatSessionSummary {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final ChatSessionStatus status;
+  final DateTime? runStartedAt;
 
   DateTime? get activityAt => updatedAt ?? createdAt;
 

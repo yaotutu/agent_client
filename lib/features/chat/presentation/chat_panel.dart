@@ -87,6 +87,7 @@ class ChatPanel extends HookConsumerWidget {
                   reasoningText: state.reasoningText,
                   progressText: state.progressText,
                   toolHintText: state.toolHintText,
+                  fileEditText: state.fileEditText,
                   goalStatus: state.goalStatus,
                 ),
               ),

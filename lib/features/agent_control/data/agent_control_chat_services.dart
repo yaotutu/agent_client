@@ -125,6 +125,7 @@ class AgentSessionService {
       updatedAt: session.updatedAt,
       messageCount: session.messageCount,
       status: _sessionStatus(session.status),
+      runStartedAt: session.runStartedAt,
     );
   }
 
@@ -137,6 +138,7 @@ class AgentSessionService {
       updatedAt: session.updatedAt,
       messageCount: session.messageCount,
       status: _sessionStatus(session.status),
+      runStartedAt: session.runStartedAt,
     );
   }
 
@@ -320,6 +322,10 @@ class AgentChatTurnService {
       AgentControlStreamEventType.goalState => ChatEvent.activity(
         messageId: assistantMessageId,
         activity: ChatActivity.goalState(event.goalState),
+      ),
+      AgentControlStreamEventType.fileEdit => ChatEvent.activity(
+        messageId: assistantMessageId,
+        activity: ChatActivity.fileEdit(fileEdits: event.fileEdits),
       ),
       AgentControlStreamEventType.streamEnd => ChatEvent.activity(
         messageId: assistantMessageId,

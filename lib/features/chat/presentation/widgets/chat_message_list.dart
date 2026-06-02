@@ -13,6 +13,7 @@ class ChatMessageList extends StatefulWidget {
     this.reasoningText,
     this.progressText,
     this.toolHintText,
+    this.fileEditText,
     this.goalStatus,
     this.scrollController,
   });
@@ -23,6 +24,7 @@ class ChatMessageList extends StatefulWidget {
   final String? reasoningText;
   final String? progressText;
   final String? toolHintText;
+  final String? fileEditText;
   final String? goalStatus;
   final ScrollController? scrollController;
 
@@ -87,6 +89,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
             reasoningText: widget.reasoningText,
             progressText: widget.progressText,
             toolHintText: widget.toolHintText,
+            fileEditText: widget.fileEditText,
             goalStatus: widget.goalStatus,
           );
         }
@@ -158,6 +161,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
         (widget.reasoningText?.trim().isNotEmpty == true ||
             widget.progressText?.trim().isNotEmpty == true ||
             widget.toolHintText?.trim().isNotEmpty == true ||
+            widget.fileEditText?.trim().isNotEmpty == true ||
             widget.goalStatus?.trim().isNotEmpty == true);
   }
 
@@ -167,6 +171,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
       widget.reasoningText,
       widget.progressText,
       widget.toolHintText,
+      widget.fileEditText,
       widget.goalStatus,
     ].join('\u0001');
   }
@@ -182,12 +187,14 @@ class ChatLiveActivity extends StatelessWidget {
     this.reasoningText,
     this.progressText,
     this.toolHintText,
+    this.fileEditText,
     this.goalStatus,
   });
 
   final String? reasoningText;
   final String? progressText;
   final String? toolHintText;
+  final String? fileEditText;
   final String? goalStatus;
 
   @override
@@ -218,6 +225,12 @@ class ChatLiveActivity extends StatelessWidget {
           icon: Icons.terminal_outlined,
           label: 'Tool',
           text: toolHintText!,
+        ),
+      if (fileEditText?.trim().isNotEmpty == true)
+        _ActivityRow(
+          icon: Icons.edit_document,
+          label: 'Files',
+          text: fileEditText!,
         ),
     ];
 

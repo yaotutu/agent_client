@@ -13,6 +13,7 @@ enum ChatActivityType {
   toolHint,
   goalStatus,
   goalState,
+  fileEdit,
   streamEnd,
 }
 
@@ -24,6 +25,7 @@ class ChatActivity {
     this.startedAt,
     this.goalState,
     this.toolEvents,
+    this.fileEdits = const [],
   });
 
   const ChatActivity.reasoning(String text)
@@ -52,6 +54,9 @@ class ChatActivity {
   const ChatActivity.goalState(Map<String, Object?>? goalState)
     : this._(type: ChatActivityType.goalState, goalState: goalState);
 
+  const ChatActivity.fileEdit({required List<Map<String, Object?>> fileEdits})
+    : this._(type: ChatActivityType.fileEdit, fileEdits: fileEdits);
+
   const ChatActivity.streamEnd() : this._(type: ChatActivityType.streamEnd);
 
   final ChatActivityType type;
@@ -60,6 +65,7 @@ class ChatActivity {
   final double? startedAt;
   final Map<String, Object?>? goalState;
   final List<Object?>? toolEvents;
+  final List<Map<String, Object?>> fileEdits;
 
   @override
   bool operator ==(Object other) {
@@ -71,7 +77,8 @@ class ChatActivity {
         other.state == state &&
         other.startedAt == startedAt &&
         _mapEquals(other.goalState, goalState) &&
-        _listEquals(other.toolEvents, toolEvents);
+        _listEquals(other.toolEvents, toolEvents) &&
+        _listEquals(other.fileEdits, fileEdits);
   }
 
   @override
@@ -82,6 +89,7 @@ class ChatActivity {
     startedAt,
     _mapHash(goalState),
     _listHash(toolEvents),
+    _listHash(fileEdits),
   );
 }
 
