@@ -21,13 +21,22 @@ import 'package:agent_client/features/files/domain/agent_file_item.dart';
 import 'package:agent_client/features/files/domain/agent_resources_repository.dart';
 import 'package:agent_client/features/files/presentation/files_panel.dart';
 import 'package:agent_client/features/settings/data/agent_settings_repository.dart';
+import 'package:agent_client/features/settings/domain/agent_command.dart';
+import 'package:agent_client/features/settings/domain/agent_settings.dart';
+import 'package:agent_client/features/settings/domain/agent_settings_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
-  Future<void> pumpAppAtSize(WidgetTester tester, Size size) async {
+  Future<void> pumpAppAtSize(
+    WidgetTester tester,
+    Size size, {
+    _FakeAgentSettingsRepository? settingsRepository,
+  }) async {
+    final effectiveSettingsRepository =
+        settingsRepository ?? _FakeAgentSettingsRepository();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -44,6 +53,9 @@ void main() {
           chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
           agentFilesProvider.overrideWith((ref, query) async => _files),
           agentCommandsProvider.overrideWith((ref, agentId) async => const []),
+          agentSettingsRepositoryProvider.overrideWithValue(
+            effectiveSettingsRepository,
+          ),
         ],
         child: const AgentClientApp(),
       ),
@@ -56,8 +68,11 @@ void main() {
     Size size,
     _FakeAgentControlApi api, {
     _FakeAgentAvatarStore? avatarStore,
+    _FakeAgentSettingsRepository? settingsRepository,
   }) async {
     final effectiveAvatarStore = avatarStore ?? _FakeAgentAvatarStore();
+    final effectiveSettingsRepository =
+        settingsRepository ?? _FakeAgentSettingsRepository();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -74,6 +89,9 @@ void main() {
           chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
           agentFilesProvider.overrideWith((ref, query) async => _files),
           agentCommandsProvider.overrideWith((ref, agentId) async => const []),
+          agentSettingsRepositoryProvider.overrideWithValue(
+            effectiveSettingsRepository,
+          ),
         ],
         child: const AgentClientApp(),
       ),
@@ -108,8 +126,9 @@ void main() {
     expect(find.byKey(const Key('agent-create-button')), findsNothing);
     expect(find.text('Compose'), findsNothing);
     expect(find.byKey(const Key('chat-message-list')), findsOneWidget);
-    expect(find.byKey(const Key('agent-detail-files-button')), findsOneWidget);
-    expect(find.byKey(const Key('agent-detail-tasks-button')), findsOneWidget);
+    expect(find.byKey(const Key('agent-detail-button')), findsOneWidget);
+    expect(find.byKey(const Key('agent-detail-files-button')), findsNothing);
+    expect(find.byKey(const Key('agent-detail-tasks-button')), findsNothing);
   });
 
   testWidgets('phone layout starts at the conversation list and opens chat', (
@@ -639,28 +658,94 @@ void main() {
     expect(find.text('Tablet layout preview'), findsOneWidget);
   });
 
-  testWidgets('agent detail toolbar opens workspace files and live task data', (
+  testWidgets(
+    'agent detail page keeps overview, model, files, and tasks tabs',
+    (tester) async {
+      await pumpAppAtSize(tester, const Size(1200, 800));
+
+      await tester.tap(find.byKey(const Key('agent-detail-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('agent-detail-page')), findsOneWidget);
+      expect(find.byKey(const Key('agent-detail-tab-bar')), findsOneWidget);
+      expect(
+        find.byKey(const Key('agent-detail-overview-tab-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('agent-detail-model-tab-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('agent-detail-files-tab-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('agent-detail-tasks-tab-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('agent-detail-overview-tab')),
+        findsOneWidget,
+      );
+      expect(find.text('代码审查助手'), findsWidgets);
+      expect(find.text('/workspace'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('agent-detail-model-tab-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('agent-detail-model-tab')), findsOneWidget);
+      expect(
+        find.byKey(const Key('agent-detail-provider-field')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('agent-detail-model-field')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('agent-detail-files-tab-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('agent-files-list')), findsOneWidget);
+      expect(find.text('AGENTS.md'), findsWidgets);
+      expect(find.text('workspace'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('agent-detail-tasks-tab-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('agent-tasks-list')), findsOneWidget);
+      expect(find.text('No active task'), findsOneWidget);
+      expect(find.text('Done'), findsOneWidget);
+    },
+  );
+
+  testWidgets('agent detail model tab saves provider and model settings', (
     tester,
   ) async {
-    await pumpAppAtSize(tester, const Size(1200, 800));
+    final settingsRepository = _FakeAgentSettingsRepository();
+    await pumpAppAtSize(
+      tester,
+      const Size(1200, 800),
+      settingsRepository: settingsRepository,
+    );
 
-    await tester.tap(find.byKey(const Key('agent-detail-files-button')));
+    await tester.tap(find.byKey(const Key('agent-detail-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('agent-detail-model-tab-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('agent-tool-dialog')), findsOneWidget);
-    expect(find.byKey(const Key('agent-files-list')), findsOneWidget);
-    expect(find.text('AGENTS.md'), findsWidgets);
-    expect(find.text('workspace'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Close'));
+    await tester.tap(find.byKey(const Key('agent-detail-provider-field')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('agent-detail-tasks-button')));
+    await tester.tap(find.text('Zhipu (zhipu)').last);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('agent-tool-dialog')), findsOneWidget);
-    expect(find.byKey(const Key('agent-tasks-list')), findsOneWidget);
-    expect(find.text('No active task'), findsOneWidget);
-    expect(find.text('Done'), findsOneWidget);
+    expect(find.text('glm-4-flash'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('agent-detail-model-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(settingsRepository.updatedAgentName, 'nanobot');
+    expect(settingsRepository.updatedProvider, 'zhipu');
+    expect(settingsRepository.updatedModel, 'glm-4-flash');
+    expect(find.text('Agent settings saved'), findsOneWidget);
   });
 
   testWidgets('global settings page edits backend URL and API key', (
@@ -874,6 +959,66 @@ class _FakeAgentAvatarStore implements AgentAvatarStore {
   @override
   Future<void> deleteAvatar(String agentId) async {
     _avatars.remove(agentId);
+  }
+}
+
+class _FakeAgentSettingsRepository implements AgentSettingsRepository {
+  String? updatedAgentName;
+  String? updatedProvider;
+  String? updatedModel;
+
+  var _snapshot = const AgentSettingsSnapshot(
+    model: 'MiniMax-M2.7-highspeed',
+    provider: 'minimax',
+    resolvedProvider: 'minimax',
+    hasApiKey: true,
+    providers: [
+      AgentProviderSettingsItem(
+        name: 'minimax',
+        label: 'MiniMax',
+        configured: true,
+        models: ['MiniMax-M2.7-highspeed'],
+        apiBase: 'https://api.minimax.io',
+      ),
+      AgentProviderSettingsItem(
+        name: 'zhipu',
+        label: 'Zhipu',
+        configured: true,
+        models: ['glm-4-flash'],
+        apiBase: 'https://open.bigmodel.cn',
+      ),
+    ],
+    requiresRestart: false,
+  );
+
+  @override
+  Future<List<AgentCommandItem>> commands(String agentName) async {
+    return const [];
+  }
+
+  @override
+  Future<AgentSettingsSnapshot> settings(String agentName) async {
+    return _snapshot;
+  }
+
+  @override
+  Future<AgentSettingsSnapshot> update({
+    required String agentName,
+    String? model,
+    String? provider,
+  }) async {
+    updatedAgentName = agentName;
+    updatedProvider = provider;
+    updatedModel = model;
+    _snapshot = AgentSettingsSnapshot(
+      model: model ?? _snapshot.model,
+      provider: provider ?? _snapshot.provider,
+      resolvedProvider: provider ?? _snapshot.resolvedProvider,
+      hasApiKey: _snapshot.hasApiKey,
+      providers: _snapshot.providers,
+      requiresRestart: false,
+    );
+    return _snapshot;
   }
 }
 

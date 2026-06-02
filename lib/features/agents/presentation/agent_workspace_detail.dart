@@ -91,24 +91,10 @@ class _ChatDetailHeader extends StatelessWidget {
             ),
           ),
           IconButton(
-            key: const Key('agent-detail-files-button'),
-            tooltip: 'Files',
-            onPressed: () => _showAgentToolDialog(
-              context,
-              title: 'Files',
-              child: FilesPanel(agentId: agent.id),
-            ),
-            icon: const Icon(Icons.folder_outlined),
-          ),
-          IconButton(
-            key: const Key('agent-detail-tasks-button'),
-            tooltip: 'Tasks',
-            onPressed: () => _showAgentToolDialog(
-              context,
-              title: 'Tasks',
-              child: TasksPanel(agentId: agent.id),
-            ),
-            icon: const Icon(Icons.fact_check_outlined),
+            key: const Key('agent-detail-button'),
+            tooltip: 'Agent details',
+            onPressed: () => openAgentDetailPage(context, agent),
+            icon: const Icon(Icons.tune_outlined),
           ),
         ],
       ),
@@ -247,62 +233,4 @@ class _EveryoneDetail extends StatelessWidget {
       ),
     );
   }
-}
-
-void _showAgentToolDialog(
-  BuildContext context, {
-  required String title,
-  required Widget child,
-}) {
-  final size = MediaQuery.sizeOf(context);
-  showDialog<void>(
-    context: context,
-    builder: (context) {
-      return Dialog(
-        insetPadding: const EdgeInsets.all(18),
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppThemeTokens.radius),
-        ),
-        child: SizedBox(
-          key: const Key('agent-tool-dialog'),
-          width: math.min(size.width - 36, 760),
-          height: math.min(size.height - 48, 680),
-          child: Column(
-            children: [
-              Container(
-                height: 54,
-                padding: const EdgeInsets.only(left: 18, right: 6),
-                decoration: const BoxDecoration(
-                  color: AppThemeTokens.panel,
-                  border: Border(
-                    bottom: BorderSide(color: AppThemeTokens.border),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Close',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(child: child),
-            ],
-          ),
-        ),
-      );
-    },
-  );
 }
