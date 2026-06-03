@@ -116,6 +116,9 @@ void main() {
   ) async {
     await pumpAppAtSize(tester, const Size(1200, 800));
 
+    expect(find.byKey(const Key('agent-desktop-workspace')), findsOneWidget);
+    expect(find.byKey(const Key('agent-tablet-workspace')), findsOneWidget);
+    expect(find.byKey(const Key('agent-mobile-workspace')), findsNothing);
     expect(find.byKey(const Key('agent-im-shell')), findsOneWidget);
     expect(find.byKey(const Key('agent-app-rail')), findsOneWidget);
     expect(find.byKey(const Key('agent-conversation-list')), findsOneWidget);
@@ -191,32 +194,39 @@ void main() {
     expect(find.byKey(const Key('chat-header-typing-indicator')), findsNothing);
   });
 
-  testWidgets('desktop shell follows tablet layout policy for now', (
-    tester,
-  ) async {
-    await pumpAppAtSize(tester, const Size(1200, 800));
+  testWidgets(
+    'desktop workspace entry falls back to the tablet shell for now',
+    (tester) async {
+      await pumpAppAtSize(tester, const Size(1200, 800));
 
-    final conversationListRect = tester.getRect(
-      find.byKey(const Key('agent-conversation-list')),
-    );
+      final conversationListRect = tester.getRect(
+        find.byKey(const Key('agent-conversation-list')),
+      );
 
-    expect(
-      conversationListRect.width,
-      moreOrLessEquals(
-        AdaptiveLayoutPolicy.tabletConversationListWidth,
-        epsilon: 1,
-      ),
-    );
-    expect(find.byKey(const Key('agent-app-rail')), findsOneWidget);
-    expect(find.byKey(const Key('agent-compact-rail')), findsNothing);
-    expect(find.byKey(const Key('agent-side-rail')), findsNothing);
-  });
+      expect(
+        conversationListRect.width,
+        moreOrLessEquals(
+          AdaptiveLayoutPolicy.tabletConversationListWidth,
+          epsilon: 1,
+        ),
+      );
+      expect(find.byKey(const Key('agent-desktop-workspace')), findsOneWidget);
+      expect(find.byKey(const Key('agent-tablet-workspace')), findsOneWidget);
+      expect(find.byKey(const Key('agent-mobile-workspace')), findsNothing);
+      expect(find.byKey(const Key('agent-app-rail')), findsOneWidget);
+      expect(find.byKey(const Key('agent-compact-rail')), findsNothing);
+      expect(find.byKey(const Key('agent-side-rail')), findsNothing);
+    },
+  );
 
   testWidgets('phone layout starts at the conversation list and opens chat', (
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(390, 844));
 
+    expect(find.byKey(const Key('agent-mobile-workspace')), findsOneWidget);
+    expect(find.byKey(const Key('agent-tablet-workspace')), findsNothing);
+    expect(find.byKey(const Key('agent-desktop-workspace')), findsNothing);
     expect(
       find.byKey(const Key('agent-mobile-conversation-list')),
       findsOneWidget,
@@ -543,7 +553,7 @@ void main() {
     expect(inputRect.bottom, moreOrLessEquals(800, epsilon: 1));
   });
 
-  testWidgets('wide fullscreen constrains and centers the chat surface', (
+  testWidgets('wide fullscreen stretches chat chrome across the detail pane', (
     tester,
   ) async {
     await pumpAppAtSize(tester, const Size(1728, 1117));
@@ -554,14 +564,18 @@ void main() {
     final frameRect = tester.getRect(
       find.byKey(const Key('agent-chat-detail-frame')),
     );
-
-    expect(frameRect.width, lessThanOrEqualTo(1120));
-    expect(frameRect.left, greaterThan(workspaceRect.left));
-    expect(frameRect.right, lessThan(workspaceRect.right));
-    expect(
-      frameRect.center.dx,
-      moreOrLessEquals(workspaceRect.center.dx, epsilon: 1),
+    final headerRect = tester.getRect(
+      find.byKey(const Key('agent-chat-header')),
     );
+    final inputRect = tester.getRect(find.byKey(const Key('chat-input-bar')));
+
+    expect(frameRect.width, moreOrLessEquals(workspaceRect.width, epsilon: 1));
+    expect(frameRect.left, moreOrLessEquals(workspaceRect.left, epsilon: 1));
+    expect(frameRect.right, moreOrLessEquals(workspaceRect.right, epsilon: 1));
+    expect(headerRect.width, moreOrLessEquals(workspaceRect.width, epsilon: 1));
+    expect(headerRect.left, moreOrLessEquals(workspaceRect.left, epsilon: 1));
+    expect(inputRect.width, moreOrLessEquals(workspaceRect.width, epsilon: 1));
+    expect(inputRect.left, moreOrLessEquals(workspaceRect.left, epsilon: 1));
   });
 
   testWidgets('desktop agent navigator deletes the current agent', (
@@ -744,6 +758,9 @@ void main() {
   ) async {
     await pumpAppAtSize(tester, const Size(768, 1024));
 
+    expect(find.byKey(const Key('agent-tablet-workspace')), findsOneWidget);
+    expect(find.byKey(const Key('agent-desktop-workspace')), findsNothing);
+    expect(find.byKey(const Key('agent-mobile-workspace')), findsNothing);
     expect(find.byKey(const Key('agent-im-shell')), findsOneWidget);
     expect(find.byKey(const Key('agent-app-rail')), findsOneWidget);
     expect(find.byKey(const Key('agent-conversation-list')), findsOneWidget);

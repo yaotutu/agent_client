@@ -1,5 +1,10 @@
 # Project Code Cleanup Implementation Plan
 
+> Superseded note: this historical plan predates the current
+> `mobile/`, `tablet/`, `desktop/`, and `shared/` presentation layout. Use
+> `docs/superpowers/specs/2026-06-02-mobile-first-adaptive-ui-strategy.md` and
+> `AGENTS.md` for current file locations.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 整理 Flutter 客户端代码结构，让 Agent Control adapter 边界更清晰，并拆分明显过大的展示代码，同时保持现有行为不变。

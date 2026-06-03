@@ -1,7 +1,7 @@
-part of 'agent_workspace_page.dart';
+part of '../agent_workspace_page.dart';
 
-class _ConversationListPane extends ConsumerWidget {
-  const _ConversationListPane({
+class _SharedConversationListPane extends ConsumerWidget {
+  const _SharedConversationListPane({
     required this.agents,
     required this.currentAgentId,
     required this.everyoneSelected,

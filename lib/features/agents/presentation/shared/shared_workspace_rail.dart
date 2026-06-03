@@ -1,7 +1,7 @@
-part of 'agent_workspace_page.dart';
+part of '../agent_workspace_page.dart';
 
-class _AppRail extends StatelessWidget {
-  const _AppRail();
+class _SharedWorkspaceRail extends StatelessWidget {
+  const _SharedWorkspaceRail();
 
   @override
   Widget build(BuildContext context) {

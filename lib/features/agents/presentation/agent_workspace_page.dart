@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:agent_client/app/adaptive/adaptive_layout_policy.dart';
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/agents/application/agent_controller.dart';
@@ -13,19 +11,22 @@ import 'package:agent_client/features/chat/application/chat_conversation_preview
 import 'package:agent_client/features/chat/application/chat_controller.dart';
 import 'package:agent_client/features/chat/application/chat_preload_controller.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';
-import 'package:agent_client/features/chat/presentation/chat_panel.dart';
+import 'package:agent_client/features/chat/presentation/mobile/mobile_chat_panel.dart';
+import 'package:agent_client/features/chat/presentation/tablet/tablet_chat_panel.dart';
 import 'package:agent_client/features/settings/presentation/app_settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-part 'agent_workspace_chrome.dart';
-part 'agent_workspace_conversation_helpers.dart';
-part 'agent_workspace_conversation_list.dart';
-part 'agent_workspace_detail.dart';
+part 'desktop/desktop_agent_workspace.dart';
+part 'mobile/mobile_agent_workspace.dart';
+part 'shared/shared_agent_chat_detail.dart';
+part 'shared/shared_conversation_helpers.dart';
+part 'shared/shared_conversation_list.dart';
+part 'shared/shared_workspace_rail.dart';
+part 'tablet/tablet_agent_workspace.dart';
 
 const _appRailWidth = 76.0;
-const _chatSurfaceMaxWidth = 1120.0;
 const _conversationListColor = AppThemeTokens.workspaceAlt;
 const _chatHeaderColor = AppThemeTokens.panel;
 const _conversationListStatusBarStyle = SystemUiOverlayStyle(
@@ -47,7 +48,6 @@ class AgentWorkspacePage extends ConsumerStatefulWidget {
 }
 
 class _AgentWorkspacePageState extends ConsumerState<AgentWorkspacePage> {
-  var _showEveryone = false;
   var _preloadSignature = '';
 
   @override
@@ -70,53 +70,20 @@ class _AgentWorkspacePageState extends ConsumerState<AgentWorkspacePage> {
                 constraints.maxWidth,
               );
 
-              if (policy.usesMobileWorkspace) {
-                return _MobileConversationPage(
+              return switch (policy.workspaceLayout) {
+                WorkspaceLayoutMode.mobile => _MobileAgentWorkspace(
                   agents: agents,
                   currentAgentId: currentAgentId,
-                );
-              }
-
-              final availableAgents = _agentsFrom(agents);
-              final selectedAgent =
-                  _selectedAgent(availableAgents, currentAgentId) ??
-                  fallbackAgent(currentAgentId);
-              final effectiveAgentId = selectedAgent.id;
-              final conversationWidth =
-                  policy.conversationListWidth ??
-                  AdaptiveLayoutPolicy.tabletConversationListWidth;
-
-              return Row(
-                key: const Key('agent-im-shell'),
-                children: [
-                  const _AppRail(),
-                  SizedBox(
-                    width: conversationWidth,
-                    child: _ConversationListPane(
-                      agents: agents,
-                      currentAgentId: effectiveAgentId,
-                      everyoneSelected: _showEveryone,
-                      showSelection: true,
-                      showSettingsButton: false,
-                      onSelectEveryone: () {
-                        setState(() => _showEveryone = true);
-                      },
-                      onSelectAgent: (agent) {
-                        setState(() => _showEveryone = false);
-                        ref
-                            .read(currentAgentIdProvider.notifier)
-                            .selectAgent(agent.id);
-                      },
-                    ),
-                  ),
-                  const VerticalDivider(width: 1, thickness: 1),
-                  Expanded(
-                    child: _showEveryone
-                        ? const _EveryoneDetail()
-                        : _AgentChatDetail(agent: selectedAgent),
-                  ),
-                ],
-              );
+                ),
+                WorkspaceLayoutMode.tablet => _TabletAgentWorkspace(
+                  agents: agents,
+                  currentAgentId: currentAgentId,
+                ),
+                WorkspaceLayoutMode.desktop => _DesktopAgentWorkspace(
+                  agents: agents,
+                  currentAgentId: currentAgentId,
+                ),
+              };
             },
           ),
         ),
@@ -143,100 +110,6 @@ class _AgentWorkspacePageState extends ConsumerState<AgentWorkspacePage> {
         ref.read(chatPreloadControllerProvider).preloadAgents(agentIds),
       );
     });
-  }
-}
-
-class _MobileConversationPage extends ConsumerWidget {
-  const _MobileConversationPage({
-    required this.agents,
-    required this.currentAgentId,
-  });
-
-  final AsyncValue<List<Agent>> agents;
-  final String currentAgentId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final availableAgents = _agentsFrom(agents);
-    final selectedAgent =
-        _selectedAgent(availableAgents, currentAgentId) ??
-        fallbackAgent(currentAgentId);
-
-    return KeyedSubtree(
-      key: const Key('agent-mobile-conversation-list'),
-      child: _ConversationListPane(
-        agents: agents,
-        currentAgentId: selectedAgent.id,
-        everyoneSelected: false,
-        showSelection: false,
-        showSettingsButton: true,
-        onSelectEveryone: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const _MobileEveryoneDetailPage(),
-            ),
-          );
-        },
-        onSelectAgent: (agent) async {
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => _MobileAgentChatPage(agent: agent),
-            ),
-          );
-          if (!context.mounted) {
-            return;
-          }
-          ref.read(currentAgentIdProvider.notifier).selectAgent(agent.id);
-        },
-      ),
-    );
-  }
-}
-
-class _MobileAgentChatPage extends StatelessWidget {
-  const _MobileAgentChatPage({required this.agent});
-
-  final Agent agent;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: _lightStatusBarStyle,
-      child: Scaffold(
-        backgroundColor: _chatHeaderColor,
-        resizeToAvoidBottomInset: false,
-        body: SafeArea(
-          bottom: false,
-          child: _AgentChatDetail(
-            agent: agent,
-            showBackButton: true,
-            onBack: () => Navigator.of(context).pop(),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MobileEveryoneDetailPage extends StatelessWidget {
-  const _MobileEveryoneDetailPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: _lightStatusBarStyle,
-      child: Scaffold(
-        backgroundColor: _chatHeaderColor,
-        resizeToAvoidBottomInset: false,
-        body: SafeArea(
-          bottom: false,
-          child: _EveryoneDetail(
-            showBackButton: true,
-            onBack: () => Navigator.of(context).pop(),
-          ),
-        ),
-      ),
-    );
   }
 }
 

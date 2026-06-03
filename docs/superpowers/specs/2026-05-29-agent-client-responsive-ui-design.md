@@ -2,8 +2,8 @@
 
 > Note: The large-screen direction in this document is superseded by
 > `docs/superpowers/specs/2026-06-02-mobile-first-adaptive-ui-strategy.md`.
-> Current policy is mobile first, tablet second, and desktop-as-tablet until a
-> dedicated desktop enhancement phase is planned.
+> Current policy uses separate mobile, tablet, and desktop workspace entries;
+> incomplete entries degrade downward inside their own workspace implementation.
 
 ## Goal
 

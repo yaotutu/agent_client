@@ -1,4 +1,4 @@
-part of 'agent_workspace_page.dart';
+part of '../agent_workspace_page.dart';
 
 enum _AgentMenuAction { avatar, delete }
 

@@ -1,8 +1,8 @@
 enum AdaptiveDeviceClass { mobile, tablet, desktop }
 
-enum WorkspaceLayoutMode { mobile, tablet }
+enum WorkspaceLayoutMode { mobile, tablet, desktop }
 
-enum WorkspaceInteractionMode { mobile, tablet }
+enum WorkspaceInteractionMode { mobile, tablet, desktop }
 
 class AdaptiveLayoutPolicy {
   const AdaptiveLayoutPolicy({
@@ -21,7 +21,8 @@ class AdaptiveLayoutPolicy {
   final WorkspaceInteractionMode interactionMode;
   final double? conversationListWidth;
 
-  bool get usesDesktopEnhancements => false;
+  bool get usesDesktopEnhancements =>
+      interactionMode == WorkspaceInteractionMode.desktop;
 
   bool get usesMobileWorkspace => workspaceLayout == WorkspaceLayoutMode.mobile;
 
@@ -34,12 +35,16 @@ class AdaptiveLayoutPolicy {
       );
     }
 
-    final deviceClass = width >= desktopMinWidth
-        ? AdaptiveDeviceClass.desktop
-        : AdaptiveDeviceClass.tablet;
+    if (width >= desktopMinWidth) {
+      return const AdaptiveLayoutPolicy(
+        deviceClass: AdaptiveDeviceClass.desktop,
+        workspaceLayout: WorkspaceLayoutMode.desktop,
+        interactionMode: WorkspaceInteractionMode.desktop,
+      );
+    }
 
-    return AdaptiveLayoutPolicy(
-      deviceClass: deviceClass,
+    return const AdaptiveLayoutPolicy(
+      deviceClass: AdaptiveDeviceClass.tablet,
       workspaceLayout: WorkspaceLayoutMode.tablet,
       interactionMode: WorkspaceInteractionMode.tablet,
       conversationListWidth: tabletConversationListWidth,

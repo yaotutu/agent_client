@@ -21,17 +21,14 @@ void main() {
       expect(policy.usesDesktopEnhancements, isFalse);
     });
 
-    test('classifies desktop widths but falls back to tablet behavior', () {
+    test('classifies desktop widths as desktop layout and interaction', () {
       final policy = AdaptiveLayoutPolicy.fromWidth(1200);
 
       expect(policy.deviceClass, AdaptiveDeviceClass.desktop);
-      expect(policy.workspaceLayout, WorkspaceLayoutMode.tablet);
-      expect(policy.interactionMode, WorkspaceInteractionMode.tablet);
-      expect(
-        policy.conversationListWidth,
-        AdaptiveLayoutPolicy.tabletConversationListWidth,
-      );
-      expect(policy.usesDesktopEnhancements, isFalse);
+      expect(policy.workspaceLayout, WorkspaceLayoutMode.desktop);
+      expect(policy.interactionMode, WorkspaceInteractionMode.desktop);
+      expect(policy.conversationListWidth, isNull);
+      expect(policy.usesDesktopEnhancements, isTrue);
     });
   });
 }

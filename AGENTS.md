@@ -73,19 +73,21 @@ lib/
 
 ## Adaptive UI 策略
 
-当前 UI 适配按 mobile first 规划，顺序是手机端、平板端、桌面端。桌面端在专门适配前必须复用平板布局和交互，不要提前引入桌面专属三栏、右键菜单、hover action 或快捷键入口。
+当前 UI 适配按 mobile first 规划，顺序是手机端、平板端、桌面端。桌面端有独立入口；在专门适配前，desktop 入口内部可以降级复用 tablet 实现，不要把桌面专属三栏、右键菜单、hover action 或快捷键入口写进 mobile/tablet 组件。
 
 - 统一策略记录在 `docs/superpowers/specs/2026-06-02-mobile-first-adaptive-ui-strategy.md`。
-- 宽度阈值和 fallback 规则集中在 `lib/app/adaptive/adaptive_layout_policy.dart`。
-- Adaptive UI 分三层：policy 层负责设备分类和 fallback，workspace shell 层选择页面结构，feature presentation 层只渲染自身内容。
+- 宽度阈值集中在 `lib/app/adaptive/adaptive_layout_policy.dart`；未完成入口的降级放在对应 workspace 入口内部。
+- Adaptive UI 分三层：policy 层负责设备分类和目标 layout/interaction，workspace shell 层选择页面结构并处理入口降级，feature presentation 层只渲染自身内容。
 - `AdaptiveDeviceClass` 表示设备分类；`WorkspaceLayoutMode` 表示当前实际布局；`WorkspaceInteractionMode` 表示当前实际交互。不要把这三个概念混成一个宽度判断。
-- 当前映射规则是：`mobile -> mobile layout/interaction`，`tablet -> tablet layout/interaction`，`desktop -> tablet layout/interaction`。
-- 桌面端虽然会被识别为 `desktop`，但 `usesDesktopEnhancements` 当前必须保持关闭；桌面专属三栏、右键菜单、hover action、快捷键入口都属于后续 desktop enhancement。
+- 当前映射规则是：`mobile -> mobile layout/interaction`，`tablet -> tablet layout/interaction`，`desktop -> desktop layout/interaction`。
+- 三套 workspace 入口都应可路由。开发阶段如果某个入口没做完，入口内部自行降级：`desktop -> tablet -> mobile`，`mobile` 是永远可用的最低基线。不要用额外 availability 开关控制入口是否存在。
+- 桌面专属三栏、右键菜单、hover action、快捷键入口只能写在 desktop UI tree 里，不要改 mobile/tablet 组件来顺手实现 desktop 能力。
+- workspace presentation 目录按 `mobile/`、`tablet/`、`desktop/`、`shared/` 组织。新布局代码进对应端目录；跨端复用但不带端特有交互的组件才放 `shared/`。
 - presentation widget 应消费 adaptive policy，不要把新的 raw width breakpoint 散落在组件里；只有局部尺寸微调可以在已选 layout mode 内部处理。
-- workspace shell 只根据 `WorkspaceLayoutMode` 选择 mobile 单列或 tablet shell；不要让 feature widget 自己决定整页结构。
+- workspace shell 只根据 `WorkspaceLayoutMode` 选择 mobile/tablet/desktop workspace 入口；不要让 feature widget 自己决定整页结构。
 - 交互差异只根据 `WorkspaceInteractionMode` 处理。后续把三个点菜单替换为桌面右键菜单时，应替换 action 的呈现方式，不要改业务 action 本身。
-- 后续桌面增强应新增 desktop layout/interaction mode，而不是重写 mobile/tablet 行为。
-- 改 adaptive policy 或 shell 结构时，必须补 widget/unit 测试，至少覆盖 phone、tablet、desktop-as-tablet fallback。
+- desktop layout/interaction mode 已存在；后续桌面增强应在 desktop 目录内实现，而不是重写 mobile/tablet 行为。
+- 改 adaptive policy 或 shell 结构时，必须补 widget/unit 测试，至少覆盖 phone、tablet、desktop entry fallback。
 
 ## 新增 Backend 的做法
 
