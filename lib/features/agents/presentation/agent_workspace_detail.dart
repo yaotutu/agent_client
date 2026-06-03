@@ -42,7 +42,7 @@ class _AgentChatDetail extends StatelessWidget {
   }
 }
 
-class _ChatDetailHeader extends StatelessWidget {
+class _ChatDetailHeader extends ConsumerWidget {
   const _ChatDetailHeader({
     required this.agent,
     required this.showBackButton,
@@ -54,7 +54,11 @@ class _ChatDetailHeader extends StatelessWidget {
   final VoidCallback? onBack;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isTyping = ref.watch(
+      chatControllerProvider(agent.id).select((state) => state.isStreaming),
+    );
+
     return Container(
       key: const Key('agent-chat-header'),
       height: 56,
@@ -77,17 +81,37 @@ class _ChatDetailHeader extends StatelessWidget {
           Expanded(
             child: KeyedSubtree(
               key: const Key('current-agent-title'),
-              child: Text(
-                agent.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: AppThemeTokens.headingText,
-                  letterSpacing: 0,
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: Text(
+                      agent.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppThemeTokens.headingText,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                  if (isTyping)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 6),
+                      child: SizedBox(
+                        key: Key('chat-header-typing-indicator'),
+                        width: 24,
+                        height: 18,
+                        child: Align(
+                          alignment: Alignment.bottomLeft,
+                          child: _HeaderTypingIndicator(),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -98,6 +122,45 @@ class _ChatDetailHeader extends StatelessWidget {
             icon: const Icon(Icons.tune_outlined),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeaderTypingIndicator extends StatelessWidget {
+  const _HeaderTypingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Assistant is typing',
+      child: const Row(
+        key: Key('chat-header-typing-dots'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _HeaderTypingDot(),
+          SizedBox(width: 4),
+          _HeaderTypingDot(),
+          SizedBox(width: 4),
+          _HeaderTypingDot(),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderTypingDot extends StatelessWidget {
+  const _HeaderTypingDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.square(
+      dimension: 5,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppThemeTokens.mutedText,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }

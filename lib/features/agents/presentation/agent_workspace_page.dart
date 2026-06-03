@@ -10,6 +10,7 @@ import 'package:agent_client/features/agents/presentation/agent_avatar_view.dart
 import 'package:agent_client/features/agents/presentation/agent_detail_page.dart';
 import 'package:agent_client/features/agents/presentation/agent_navigation_panel.dart';
 import 'package:agent_client/features/chat/application/chat_conversation_preview_provider.dart';
+import 'package:agent_client/features/chat/application/chat_controller.dart';
 import 'package:agent_client/features/chat/application/chat_preload_controller.dart';
 import 'package:agent_client/features/chat/domain/chat_message.dart';
 import 'package:agent_client/features/chat/presentation/chat_panel.dart';

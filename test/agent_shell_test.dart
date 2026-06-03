@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:agent_client/app/agent_client_app.dart';
 import 'package:agent_client/app/adaptive/adaptive_layout_policy.dart';
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
@@ -36,9 +38,12 @@ void main() {
     WidgetTester tester,
     Size size, {
     _FakeAgentSettingsRepository? settingsRepository,
+    AgentChatRepository? chatRepository,
   }) async {
     final effectiveSettingsRepository =
         settingsRepository ?? _FakeAgentSettingsRepository();
+    final effectiveChatRepository =
+        chatRepository ?? _FakeAgentChatRepository();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -50,7 +55,7 @@ void main() {
           appConfigStoreProvider.overrideWithValue(_MemoryAppConfigStore()),
           agentsProvider.overrideWith((ref) async => _agents),
           agentChatRepositoryProvider.overrideWithValue(
-            _FakeAgentChatRepository(),
+            effectiveChatRepository,
           ),
           chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
           agentFilesProvider.overrideWith((ref, query) async => _files),
@@ -131,6 +136,59 @@ void main() {
     expect(find.byKey(const Key('agent-detail-button')), findsOneWidget);
     expect(find.byKey(const Key('agent-detail-files-button')), findsNothing);
     expect(find.byKey(const Key('agent-detail-tasks-button')), findsNothing);
+  });
+
+  testWidgets('chat header shows typing dots while response is active', (
+    tester,
+  ) async {
+    final repository = _PendingAgentChatRepository();
+    addTearDown(repository.dispose);
+
+    await pumpAppAtSize(
+      tester,
+      const Size(1200, 800),
+      chatRepository: repository,
+    );
+
+    expect(find.byKey(const Key('chat-header-typing-indicator')), findsNothing);
+
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const Key('chat-input-bar')),
+        matching: find.byType(TextField),
+      ),
+      'Hi',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('chat-send-button')));
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('chat-header-typing-indicator')),
+      findsOneWidget,
+    );
+    final titleRect = tester.getRect(
+      find.descendant(
+        of: find.byKey(const Key('current-agent-title')),
+        matching: find.text('nanobot'),
+      ),
+    );
+    final typingRect = tester.getRect(
+      find.byKey(const Key('chat-header-typing-indicator')),
+    );
+    final dotsRect = tester.getRect(
+      find.byKey(const Key('chat-header-typing-dots')),
+    );
+    expect(typingRect.left, greaterThan(titleRect.right));
+    expect(dotsRect.bottom, moreOrLessEquals(typingRect.bottom, epsilon: 0.5));
+    expect(typingRect.bottom, moreOrLessEquals(titleRect.bottom, epsilon: 2));
+    expect(find.byKey(const Key('chat-typing-indicator')), findsNothing);
+    expect(find.text('Waiting for response'), findsNothing);
+
+    repository.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('chat-header-typing-indicator')), findsNothing);
   });
 
   testWidgets('desktop shell follows tablet layout policy for now', (
@@ -1289,6 +1347,29 @@ class _FakeAgentChatRepository implements AgentChatRepository {
 
   @override
   Stream<ChatEvent> sendMessage(SendMessageRequest request) async* {}
+}
+
+class _PendingAgentChatRepository extends _FakeAgentChatRepository {
+  final _complete = Completer<void>();
+
+  void complete() {
+    if (!_complete.isCompleted) {
+      _complete.complete();
+    }
+  }
+
+  void dispose() => complete();
+
+  @override
+  Stream<ChatEvent> sendMessage(SendMessageRequest request) async* {
+    yield ChatEvent.messageStarted(messageId: request.assistantMessageId);
+    await _complete.future;
+    yield ChatEvent.textDelta(
+      messageId: request.assistantMessageId,
+      delta: 'Hello',
+    );
+    yield ChatEvent.messageCompleted(messageId: request.assistantMessageId);
+  }
 }
 
 class _MemoryAppConfigStore implements AppConfigStore {

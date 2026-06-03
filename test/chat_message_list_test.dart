@@ -211,7 +211,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Waiting for response'), findsOneWidget);
+    expect(find.text('Waiting for response'), findsNothing);
     expect(find.byKey(const Key('chat-live-activity')), findsOneWidget);
     expect(find.text('Processing'), findsOneWidget);
     expect(find.text('running'), findsOneWidget);

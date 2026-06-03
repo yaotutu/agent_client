@@ -65,8 +65,11 @@ class _ChatMessageListState extends State<ChatMessageList> {
   @override
   Widget build(BuildContext context) {
     final showActivity = _hasActivity(widget);
+    final visibleMessages = widget.messages
+        .where((message) => !_isPendingAssistantResponse(message))
+        .toList(growable: false);
 
-    if (widget.messages.isEmpty && !showActivity) {
+    if (visibleMessages.isEmpty && !showActivity) {
       return const Center(
         child: Text(
           'Start a chat',
@@ -82,9 +85,10 @@ class _ChatMessageListState extends State<ChatMessageList> {
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       addAutomaticKeepAlives: false,
       addSemanticIndexes: false,
-      itemCount: widget.messages.length + (showActivity ? 1 : 0),
+      itemCount: visibleMessages.length + (showActivity ? 1 : 0),
       itemBuilder: (context, index) {
-        if (showActivity && index == 0) {
+        var offset = 0;
+        if (showActivity && index == offset) {
           return ChatLiveActivity(
             reasoningText: widget.reasoningText,
             progressText: widget.progressText,
@@ -93,9 +97,12 @@ class _ChatMessageListState extends State<ChatMessageList> {
             goalStatus: widget.goalStatus,
           );
         }
-        final messageIndex =
-            widget.messages.length - 1 - (index - (showActivity ? 1 : 0));
-        final message = widget.messages[messageIndex];
+        if (showActivity) {
+          offset += 1;
+        }
+
+        final messageIndex = visibleMessages.length - 1 - (index - offset);
+        final message = visibleMessages[messageIndex];
         return RepaintBoundary(
           key: ValueKey(message.id),
           child: ChatMessageBubble(
@@ -163,6 +170,13 @@ class _ChatMessageListState extends State<ChatMessageList> {
             widget.toolHintText?.trim().isNotEmpty == true ||
             widget.fileEditText?.trim().isNotEmpty == true ||
             widget.goalStatus?.trim().isNotEmpty == true);
+  }
+
+  bool _isPendingAssistantResponse(ChatMessage message) {
+    return message.role == ChatRole.assistant &&
+        message.status == ChatMessageStatus.streaming &&
+        message.content.trim().isEmpty &&
+        message.attachments.isEmpty;
   }
 
   String _activitySignature(ChatMessageList widget) {

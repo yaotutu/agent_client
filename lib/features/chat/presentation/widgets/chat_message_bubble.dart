@@ -27,6 +27,10 @@ class ChatMessageBubble extends StatelessWidget {
     final placeholder = _placeholder();
     final textStyle = TextStyle(color: textColor, height: 1.45, fontSize: 14);
 
+    if (!hasContent && !hasAttachments && placeholder == null) {
+      return const SizedBox.shrink();
+    }
+
     final bubble = Container(
       width: hasAttachments ? double.infinity : null,
       constraints: const BoxConstraints(maxWidth: 760),
@@ -51,7 +55,7 @@ class ChatMessageBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!hasContent && !hasAttachments && placeholder != null)
-            _MessagePlaceholder(text: placeholder.$1, busy: placeholder.$2),
+            _MessagePlaceholder(text: placeholder),
           if (hasContent)
             _looksLikeMarkdown(message.content)
                 ? MarkdownBody(
@@ -104,14 +108,14 @@ class ChatMessageBubble extends StatelessWidget {
     );
   }
 
-  (String, bool)? _placeholder() {
-    if (message.role != ChatRole.assistant || message.content.isNotEmpty) {
+  String? _placeholder() {
+    if (message.role != ChatRole.assistant ||
+        message.content.trim().isNotEmpty) {
       return null;
     }
     return switch (message.status) {
-      ChatMessageStatus.streaming => ('Waiting for response', true),
-      ChatMessageStatus.failed => ('Response failed', false),
-      ChatMessageStatus.stopped => ('Response stopped', false),
+      ChatMessageStatus.failed => 'Response failed',
+      ChatMessageStatus.stopped => 'Response stopped',
       _ => null,
     };
   }
@@ -190,31 +194,20 @@ class ChatMessageBubble extends StatelessWidget {
 }
 
 class _MessagePlaceholder extends StatelessWidget {
-  const _MessagePlaceholder({required this.text, required this.busy});
+  const _MessagePlaceholder({required this.text});
 
   final String text;
-  final bool busy;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (busy)
-          const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppThemeTokens.brand,
-            ),
-          )
-        else
-          const Icon(
-            Icons.info_outline,
-            size: 16,
-            color: AppThemeTokens.mutedText,
-          ),
+        const Icon(
+          Icons.info_outline,
+          size: 16,
+          color: AppThemeTokens.mutedText,
+        ),
         const SizedBox(width: 8),
         Text(
           text,
