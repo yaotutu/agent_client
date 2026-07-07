@@ -8,10 +8,12 @@
 .build/
 .buildlog/
 .history
+.artifacts/
 .superpowers/
 .svn/
 .swiftpm/
 migrate_working_dir/
+status-cache.json
 .worktrees/
 
 # IntelliJ related
