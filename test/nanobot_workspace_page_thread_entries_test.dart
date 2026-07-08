@@ -1441,6 +1441,39 @@ void main() {
     expect(repository.sentContents, ['send queued now']);
     expect(find.text('Queued guidance'), findsNothing);
   });
+
+  testWidgets('composer queued guidance rows reorder before auto flush', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({'event': 'delta', 'chat_id': 'chat-1', 'text': 'working'});
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, 'first queued');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'second queued');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byTooltip('Drag to reorder').first, const Offset(0, 48));
+    await tester.pumpAndSettle();
+
+    repository.emit({'event': 'turn_end', 'chat_id': 'chat-1'});
+    await tester.pumpAndSettle();
+
+    expect(repository.sentContents, ['second queued']);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {

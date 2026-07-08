@@ -97,6 +97,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
                   _sendQueuedPrompt(controller, prompt),
               onEditQueuedPrompt: _editQueuedPrompt,
               onDeleteQueuedPrompt: _deleteQueuedPrompt,
+              onReorderQueuedPrompts: _reorderQueuedPrompts,
               onAttachImages: _pickImageAttachments,
               onRemoveAttachedImage: _removeImageAttachment,
               onWorkspaceAccessMode: controller.applyWorkspaceAccessMode,
@@ -228,6 +229,17 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
       _queuedPrompts.removeWhere((prompt) => prompt.id == id);
     });
     _focusNode.requestFocus();
+  }
+
+  void _reorderQueuedPrompts(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _queuedPrompts.length) {
+      return;
+    }
+    setState(() {
+      final targetIndex = newIndex.clamp(0, _queuedPrompts.length - 1);
+      final prompt = _queuedPrompts.removeAt(oldIndex);
+      _queuedPrompts.insert(targetIndex, prompt);
+    });
   }
 
   Future<void> _pickImageAttachments() async {
@@ -882,6 +894,7 @@ class _ChatPane extends StatelessWidget {
     required this.onSendQueuedPrompt,
     required this.onEditQueuedPrompt,
     required this.onDeleteQueuedPrompt,
+    required this.onReorderQueuedPrompts,
     required this.onAttachImages,
     required this.onRemoveAttachedImage,
     required this.onWorkspaceAccessMode,
@@ -909,6 +922,7 @@ class _ChatPane extends StatelessWidget {
   final ValueChanged<_QueuedPrompt> onSendQueuedPrompt;
   final ValueChanged<_QueuedPrompt> onEditQueuedPrompt;
   final ValueChanged<String> onDeleteQueuedPrompt;
+  final void Function(int oldIndex, int newIndex) onReorderQueuedPrompts;
   final VoidCallback onAttachImages;
   final ValueChanged<int> onRemoveAttachedImage;
   final ValueChanged<String> onWorkspaceAccessMode;
@@ -984,6 +998,7 @@ class _ChatPane extends StatelessWidget {
               onSendQueuedPrompt: onSendQueuedPrompt,
               onEditQueuedPrompt: onEditQueuedPrompt,
               onDeleteQueuedPrompt: onDeleteQueuedPrompt,
+              onReorderQueuedPrompts: onReorderQueuedPrompts,
               onAttachImages: onAttachImages,
               onRemoveAttachedImage: onRemoveAttachedImage,
               onWorkspaceAccessMode: onWorkspaceAccessMode,
@@ -4585,12 +4600,14 @@ class _QueuedPromptStack extends StatelessWidget {
     required this.onGuide,
     required this.onEdit,
     required this.onDelete,
+    required this.onReorder,
   });
 
   final List<_QueuedPrompt> prompts;
   final ValueChanged<_QueuedPrompt> onGuide;
   final ValueChanged<_QueuedPrompt> onEdit;
   final ValueChanged<String> onDelete;
+  final void Function(int oldIndex, int newIndex) onReorder;
 
   @override
   Widget build(BuildContext context) {
@@ -4621,18 +4638,27 @@ class _QueuedPromptStack extends StatelessWidget {
             const SizedBox(height: 4),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 216),
-              child: ListView.separated(
+              child: ReorderableListView.builder(
                 shrinkWrap: true,
+                buildDefaultDragHandles: false,
+                physics: const NeverScrollableScrollPhysics(),
                 padding: EdgeInsets.zero,
                 itemCount: prompts.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 4),
+                onReorderItem: onReorder,
                 itemBuilder: (context, index) {
                   final prompt = prompts[index];
-                  return _QueuedPromptRow(
-                    prompt: prompt,
-                    onGuide: onGuide,
-                    onEdit: onEdit,
-                    onDelete: onDelete,
+                  return Padding(
+                    key: ValueKey('nanobot-queued-prompt-${prompt.id}'),
+                    padding: EdgeInsets.only(
+                      bottom: index == prompts.length - 1 ? 0 : 4,
+                    ),
+                    child: _QueuedPromptRow(
+                      prompt: prompt,
+                      index: index,
+                      onGuide: onGuide,
+                      onEdit: onEdit,
+                      onDelete: onDelete,
+                    ),
                   );
                 },
               ),
@@ -4647,12 +4673,14 @@ class _QueuedPromptStack extends StatelessWidget {
 class _QueuedPromptRow extends StatelessWidget {
   const _QueuedPromptRow({
     required this.prompt,
+    required this.index,
     required this.onGuide,
     required this.onEdit,
     required this.onDelete,
   });
 
   final _QueuedPrompt prompt;
+  final int index;
   final ValueChanged<_QueuedPrompt> onGuide;
   final ValueChanged<_QueuedPrompt> onEdit;
   final ValueChanged<String> onDelete;
@@ -4667,7 +4695,6 @@ class _QueuedPromptRow extends StatelessWidget {
         ? '1 image'
         : '$mediaCount images';
     return Container(
-      key: ValueKey('nanobot-queued-prompt-${prompt.id}'),
       constraints: const BoxConstraints(minHeight: 32),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
@@ -4676,10 +4703,16 @@ class _QueuedPromptRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.drag_indicator,
-            size: 16,
-            color: AppThemeTokens.subtleText,
+          ReorderableDragStartListener(
+            index: index,
+            child: const Tooltip(
+              message: 'Drag to reorder',
+              child: Icon(
+                Icons.drag_indicator,
+                size: 16,
+                color: AppThemeTokens.subtleText,
+              ),
+            ),
           ),
           const SizedBox(width: 6),
           Expanded(
@@ -4755,6 +4788,7 @@ class _InputBar extends StatefulWidget {
     required this.onSendQueuedPrompt,
     required this.onEditQueuedPrompt,
     required this.onDeleteQueuedPrompt,
+    required this.onReorderQueuedPrompts,
     required this.onAttachImages,
     required this.onRemoveAttachedImage,
     required this.onWorkspaceAccessMode,
@@ -4786,6 +4820,7 @@ class _InputBar extends StatefulWidget {
   final ValueChanged<_QueuedPrompt> onSendQueuedPrompt;
   final ValueChanged<_QueuedPrompt> onEditQueuedPrompt;
   final ValueChanged<String> onDeleteQueuedPrompt;
+  final void Function(int oldIndex, int newIndex) onReorderQueuedPrompts;
   final VoidCallback onAttachImages;
   final ValueChanged<int> onRemoveAttachedImage;
   final ValueChanged<String> onWorkspaceAccessMode;
@@ -4838,6 +4873,7 @@ class _InputBarState extends State<_InputBar> {
                       onGuide: widget.onSendQueuedPrompt,
                       onEdit: widget.onEditQueuedPrompt,
                       onDelete: widget.onDeleteQueuedPrompt,
+                      onReorder: widget.onReorderQueuedPrompts,
                     ),
                   if (widget.workspaceScope != null)
                     _WorkspaceScopeBar(
