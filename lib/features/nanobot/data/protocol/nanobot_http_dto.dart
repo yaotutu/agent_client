@@ -262,6 +262,310 @@ class NanobotFilePreviewDto {
   }
 }
 
+class NanobotSettingsDto {
+  const NanobotSettingsDto({
+    this.surface,
+    this.runtimeSurface,
+    this.runtimeCapabilities,
+    this.applyState,
+    this.restartBehaviorBySection,
+    this.agent = const {},
+    this.modelPresets = const [],
+    this.providers = const [],
+    this.webSearch,
+    this.web,
+    this.imageGeneration,
+    this.transcription,
+    this.runtime,
+    this.usage,
+    this.advanced,
+    this.requiresRestart = false,
+    this.restartRequiredSections = const [],
+    this.version,
+  });
+
+  final String? surface;
+  final String? runtimeSurface;
+  final Map<String, Object?>? runtimeCapabilities;
+  final Map<String, Object?>? applyState;
+  final Map<String, Object?>? restartBehaviorBySection;
+  final Map<String, Object?> agent;
+  final List<Map<String, Object?>> modelPresets;
+  final List<Map<String, Object?>> providers;
+  final Map<String, Object?>? webSearch;
+  final Map<String, Object?>? web;
+  final Map<String, Object?>? imageGeneration;
+  final Map<String, Object?>? transcription;
+  final Map<String, Object?>? runtime;
+  final NanobotSettingsUsageDto? usage;
+  final Map<String, Object?>? advanced;
+  final bool requiresRestart;
+  final List<String> restartRequiredSections;
+  final Map<String, Object?>? version;
+
+  factory NanobotSettingsDto.fromJson(Map<String, Object?> json) {
+    return NanobotSettingsDto(
+      surface: json['surface'] as String?,
+      runtimeSurface: json['runtime_surface'] as String?,
+      runtimeCapabilities: _mapFrom(json['runtime_capabilities']),
+      applyState: _mapFrom(json['apply_state']),
+      restartBehaviorBySection: _mapFrom(json['restart_behavior_by_section']),
+      agent: _mapFrom(json['agent']) ?? const {},
+      modelPresets: _mapListFrom(json['model_presets']),
+      providers: _mapListFrom(json['providers']),
+      webSearch: _mapFrom(json['web_search']),
+      web: _mapFrom(json['web']),
+      imageGeneration: _mapFrom(json['image_generation']),
+      transcription: _mapFrom(json['transcription']),
+      runtime: _mapFrom(json['runtime']),
+      usage: _mapFrom(json['usage']) == null
+          ? null
+          : NanobotSettingsUsageDto.fromJson(_mapFrom(json['usage'])!),
+      advanced: _mapFrom(json['advanced']),
+      requiresRestart: json['requires_restart'] == true,
+      restartRequiredSections: _stringListFrom(
+        json['restart_required_sections'],
+      ),
+      version: _mapFrom(json['version']),
+    );
+  }
+}
+
+class NanobotSettingsUsageDto {
+  const NanobotSettingsUsageDto({
+    this.days = const [],
+    this.totalTokens = 0,
+    this.totalTokens30d = 0,
+    this.totalTokens365d = 0,
+    this.peakDayTokens = 0,
+    this.currentStreakDays = 0,
+    this.longestStreakDays = 0,
+    this.activeDays30d = 0,
+    this.requests30d = 0,
+    this.updatedAt,
+  });
+
+  final List<Map<String, Object?>> days;
+  final int totalTokens;
+  final int totalTokens30d;
+  final int totalTokens365d;
+  final int peakDayTokens;
+  final int currentStreakDays;
+  final int longestStreakDays;
+  final int activeDays30d;
+  final int requests30d;
+  final String? updatedAt;
+
+  factory NanobotSettingsUsageDto.fromJson(Map<String, Object?> json) {
+    return NanobotSettingsUsageDto(
+      days: _mapListFrom(json['days']),
+      totalTokens: _intFrom(json['total_tokens']) ?? 0,
+      totalTokens30d: _intFrom(json['total_tokens_30d']) ?? 0,
+      totalTokens365d: _intFrom(json['total_tokens_365d']) ?? 0,
+      peakDayTokens: _intFrom(json['peak_day_tokens']) ?? 0,
+      currentStreakDays: _intFrom(json['current_streak_days']) ?? 0,
+      longestStreakDays: _intFrom(json['longest_streak_days']) ?? 0,
+      activeDays30d: _intFrom(json['active_days_30d']) ?? 0,
+      requests30d: _intFrom(json['requests_30d']) ?? 0,
+      updatedAt: json['updated_at'] as String?,
+    );
+  }
+}
+
+class NanobotSkillsDto {
+  const NanobotSkillsDto({this.skills = const []});
+
+  final List<Map<String, Object?>> skills;
+
+  factory NanobotSkillsDto.fromJson(Map<String, Object?> json) {
+    return NanobotSkillsDto(skills: _mapListFrom(json['skills']));
+  }
+}
+
+class NanobotSkillDetailDto {
+  const NanobotSkillDetailDto({
+    required this.name,
+    required this.description,
+    required this.source,
+    required this.available,
+    this.unavailableReason,
+    this.requirements,
+    this.rawMarkdown = '',
+  });
+
+  final String name;
+  final String description;
+  final String source;
+  final bool available;
+  final String? unavailableReason;
+  final Map<String, Object?>? requirements;
+  final String rawMarkdown;
+
+  factory NanobotSkillDetailDto.fromJson(Map<String, Object?> json) {
+    return NanobotSkillDetailDto(
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      source: json['source'] as String? ?? '',
+      available: json['available'] == true,
+      unavailableReason: json['unavailable_reason'] as String?,
+      requirements: _mapFrom(json['requirements']),
+      rawMarkdown: json['raw_markdown'] as String? ?? '',
+    );
+  }
+}
+
+class NanobotCliAppsDto {
+  const NanobotCliAppsDto({
+    this.apps = const [],
+    this.installedCount = 0,
+    this.catalogUpdatedAt,
+    this.catalogRefreshPending = false,
+    this.lastAction,
+  });
+
+  final List<Map<String, Object?>> apps;
+  final int installedCount;
+  final String? catalogUpdatedAt;
+  final bool catalogRefreshPending;
+  final Map<String, Object?>? lastAction;
+
+  factory NanobotCliAppsDto.fromJson(Map<String, Object?> json) {
+    return NanobotCliAppsDto(
+      apps: _mapListFrom(json['apps']),
+      installedCount: _intFrom(json['installed_count']) ?? 0,
+      catalogUpdatedAt: json['catalog_updated_at'] as String?,
+      catalogRefreshPending: json['catalog_refresh_pending'] == true,
+      lastAction: _mapFrom(json['last_action']),
+    );
+  }
+}
+
+class NanobotFeaturesDto {
+  const NanobotFeaturesDto({
+    this.features = const [],
+    this.enabledCount = 0,
+    this.requiresRestart = false,
+    this.lastAction,
+  });
+
+  final List<Map<String, Object?>> features;
+  final int enabledCount;
+  final bool requiresRestart;
+  final Map<String, Object?>? lastAction;
+
+  factory NanobotFeaturesDto.fromJson(Map<String, Object?> json) {
+    return NanobotFeaturesDto(
+      features: _mapListFrom(json['features']),
+      enabledCount: _intFrom(json['enabled_count']) ?? 0,
+      requiresRestart: json['requires_restart'] == true,
+      lastAction: _mapFrom(json['last_action']),
+    );
+  }
+}
+
+class NanobotMcpPresetsDto {
+  const NanobotMcpPresetsDto({
+    this.presets = const [],
+    this.installedCount = 0,
+    this.requiresRestart = false,
+    this.hotReload,
+    this.lastAction,
+  });
+
+  final List<Map<String, Object?>> presets;
+  final int installedCount;
+  final bool requiresRestart;
+  final Map<String, Object?>? hotReload;
+  final Map<String, Object?>? lastAction;
+
+  factory NanobotMcpPresetsDto.fromJson(Map<String, Object?> json) {
+    return NanobotMcpPresetsDto(
+      presets: _mapListFrom(json['presets']),
+      installedCount: _intFrom(json['installed_count']) ?? 0,
+      requiresRestart: json['requires_restart'] == true,
+      hotReload: _mapFrom(json['hot_reload']),
+      lastAction: _mapFrom(json['last_action']),
+    );
+  }
+}
+
+class NanobotProviderModelsDto {
+  const NanobotProviderModelsDto({
+    required this.provider,
+    required this.label,
+    required this.status,
+    required this.catalogKind,
+    this.models = const [],
+    this.modelCount = 0,
+    this.message,
+    this.fetchedAt,
+  });
+
+  final String provider;
+  final String label;
+  final String status;
+  final String catalogKind;
+  final List<Map<String, Object?>> models;
+  final int modelCount;
+  final String? message;
+  final int? fetchedAt;
+
+  factory NanobotProviderModelsDto.fromJson(Map<String, Object?> json) {
+    return NanobotProviderModelsDto(
+      provider: json['provider'] as String? ?? '',
+      label: json['label'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      catalogKind: json['catalog_kind'] as String? ?? '',
+      models: _mapListFrom(json['models']),
+      modelCount: _intFrom(json['model_count']) ?? 0,
+      message: json['message'] as String?,
+      fetchedAt: _intFrom(json['fetched_at']),
+    );
+  }
+}
+
+class NanobotAutomationsDto {
+  const NanobotAutomationsDto({this.jobs = const []});
+
+  final List<Map<String, Object?>> jobs;
+
+  factory NanobotAutomationsDto.fromJson(Map<String, Object?> json) {
+    return NanobotAutomationsDto(jobs: _mapListFrom(json['jobs']));
+  }
+}
+
+class NanobotSessionDeleteResultDto {
+  const NanobotSessionDeleteResultDto({
+    required this.deleted,
+    this.blockedByAutomations = false,
+    this.automations = const [],
+  });
+
+  final bool deleted;
+  final bool blockedByAutomations;
+  final List<Map<String, Object?>> automations;
+
+  factory NanobotSessionDeleteResultDto.fromJson(Map<String, Object?> json) {
+    return NanobotSessionDeleteResultDto(
+      deleted: json['deleted'] == true,
+      blockedByAutomations: json['blocked_by_automations'] == true,
+      automations: _mapListFrom(json['automations']),
+    );
+  }
+}
+
+class NanobotVersionCheckDto {
+  const NanobotVersionCheckDto({this.updateAvailable});
+
+  final Map<String, Object?>? updateAvailable;
+
+  factory NanobotVersionCheckDto.fromJson(Map<String, Object?> json) {
+    return NanobotVersionCheckDto(
+      updateAvailable: _mapFrom(json['updateAvailable']),
+    );
+  }
+}
+
 const _supportedSlashCommandLifecycles = {
   'side_channel',
   'finalize_active_turn',

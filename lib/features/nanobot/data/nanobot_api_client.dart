@@ -151,6 +151,122 @@ class NanobotApiClient {
     return NanobotSidebarStateDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotSettingsDto> fetchSettings() async {
+    final response = await _dio.get<Object?>(
+      '/api/settings',
+      options: await _authOptions(),
+    );
+    return NanobotSettingsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotSettingsUsageDto> fetchSettingsUsage() async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/usage',
+      options: await _authOptions(),
+    );
+    return NanobotSettingsUsageDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotVersionCheckDto> checkVersion() async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/version-check',
+      options: await _authOptions(),
+    );
+    return NanobotVersionCheckDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotSkillsDto> fetchSkills() async {
+    final response = await _dio.get<Object?>(
+      '/api/webui/skills',
+      options: await _authOptions(),
+    );
+    return NanobotSkillsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotSkillDetailDto> fetchSkillDetail(String name) async {
+    final response = await _dio.get<Object?>(
+      '/api/webui/skills/${Uri.encodeComponent(name)}',
+      options: await _authOptions(),
+    );
+    return NanobotSkillDetailDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotCliAppsDto> fetchCliApps() async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/cli-apps',
+      options: await _authOptions(),
+    );
+    return NanobotCliAppsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotCliAppsDto> fetchInstalledCliApps() async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/cli-apps',
+      queryParameters: {'installed_only': 1},
+      options: await _authOptions(),
+    );
+    return NanobotCliAppsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotFeaturesDto> fetchNanobotFeatures() async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/nanobot-features',
+      options: await _authOptions(),
+    );
+    return NanobotFeaturesDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotMcpPresetsDto> fetchMcpPresets() async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/mcp-presets',
+      options: await _authOptions(),
+    );
+    return NanobotMcpPresetsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotProviderModelsDto> fetchProviderModels(String provider) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/provider-models',
+      queryParameters: {'provider': provider},
+      options: await _authOptions(),
+    );
+    return NanobotProviderModelsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotAutomationsDto> fetchAutomations() async {
+    final response = await _dio.get<Object?>(
+      '/api/webui/automations',
+      options: await _authOptions(),
+    );
+    return NanobotAutomationsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotAutomationsDto> fetchSessionAutomations(
+    String sessionKey,
+  ) async {
+    final response = await _dio.get<Object?>(
+      '/api/sessions/${Uri.encodeComponent(sessionKey)}/automations',
+      options: await _authOptions(),
+    );
+    return NanobotAutomationsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotSessionDeleteResultDto> deleteSession({
+    required String sessionKey,
+    bool deleteAutomations = false,
+  }) async {
+    final query = <String, Object?>{};
+    if (deleteAutomations) {
+      query['delete_automations'] = true;
+    }
+    final response = await _dio.get<Object?>(
+      '/api/sessions/${Uri.encodeComponent(sessionKey)}/delete',
+      queryParameters: query,
+      options: await _authOptions(),
+    );
+    return NanobotSessionDeleteResultDto.fromJson(_asMap(response.data));
+  }
+
   Future<Options> _authOptions() async {
     final token = (await bootstrap()).token;
     return Options(headers: {'Authorization': 'Bearer $token'});

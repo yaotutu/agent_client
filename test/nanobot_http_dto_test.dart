@@ -120,4 +120,184 @@ void main() {
     expect(dto.size, 1024);
     expect(dto.truncated, isTrue);
   });
+
+  test('settings dto preserves broad webui settings surface', () {
+    final dto = NanobotSettingsDto.fromJson({
+      'surface': 'native',
+      'apply_state': {
+        'status': 'requires_app_restart',
+        'sections': ['runtime'],
+      },
+      'agent': {
+        'model': 'minimax',
+        'provider': 'openai',
+        'context_window_tokens': 262144,
+        'bot_name': 'nanobot',
+      },
+      'model_presets': [
+        {'name': 'default', 'label': 'Default', 'active': true},
+      ],
+      'providers': [
+        {'name': 'openai', 'label': 'OpenAI', 'configured': true},
+      ],
+      'web_search': {'provider': 'searxng', 'max_results': 5},
+      'image_generation': {
+        'enabled': true,
+        'provider': 'openrouter',
+        'model': 'image-model',
+      },
+      'transcription': {
+        'enabled': true,
+        'provider': 'openai',
+        'model': 'whisper',
+      },
+      'runtime': {'config_path': '/tmp/config.toml', 'gateway_port': 8765},
+      'advanced': {
+        'webui_allow_local_service_access': false,
+        'webui_default_access_mode': 'default',
+      },
+      'usage': {
+        'days': [
+          {'date': '2026-07-08', 'total_tokens': 100, 'requests': 2},
+        ],
+        'total_tokens': 100,
+        'requests_30d': 2,
+      },
+      'requires_restart': true,
+      'version': {'current': '1.2.3'},
+    });
+
+    expect(dto.surface, 'native');
+    expect(dto.applyState?['status'], 'requires_app_restart');
+    expect(dto.agent['model'], 'minimax');
+    expect(dto.modelPresets.single['name'], 'default');
+    expect(dto.providers.single['configured'], isTrue);
+    expect(dto.webSearch?['provider'], 'searxng');
+    expect(dto.imageGeneration?['enabled'], isTrue);
+    expect(dto.transcription?['model'], 'whisper');
+    expect(dto.runtime?['gateway_port'], 8765);
+    expect(dto.advanced?['webui_default_access_mode'], 'default');
+    expect(dto.usage?.totalTokens, 100);
+    expect(dto.usage?.days.single['date'], '2026-07-08');
+    expect(dto.requiresRestart, isTrue);
+    expect(dto.version?['current'], '1.2.3');
+  });
+
+  test(
+    'catalog dtos preserve skills apps features mcp and provider models',
+    () {
+      final skills = NanobotSkillsDto.fromJson({
+        'skills': [
+          {
+            'name': 'browser',
+            'description': 'Browse',
+            'source': 'builtin',
+            'available': true,
+          },
+        ],
+      });
+      final skill = NanobotSkillDetailDto.fromJson({
+        'name': 'browser',
+        'description': 'Browse',
+        'source': 'builtin',
+        'available': true,
+        'requirements': {
+          'bins': ['node'],
+          'missing_bins': [],
+        },
+        'raw_markdown': '# Browser',
+      });
+      final apps = NanobotCliAppsDto.fromJson({
+        'apps': [
+          {
+            'name': 'gimp',
+            'display_name': 'GIMP',
+            'installed': true,
+            'status': 'installed',
+            'manifest': {'id': 'gimp'},
+          },
+        ],
+        'installed_count': 1,
+        'last_action': {'ok': true, 'message': 'installed'},
+      });
+      final features = NanobotFeaturesDto.fromJson({
+        'features': [
+          {'name': 'matrix', 'enabled': false, 'ready': true},
+        ],
+        'enabled_count': 0,
+        'requires_restart': true,
+      });
+      final mcp = NanobotMcpPresetsDto.fromJson({
+        'presets': [
+          {
+            'name': 'github',
+            'display_name': 'GitHub',
+            'configured': true,
+            'required_fields': [
+              {'name': 'GITHUB_TOKEN', 'secret': true},
+            ],
+          },
+        ],
+        'installed_count': 1,
+        'hot_reload': {'ok': true},
+      });
+      final models = NanobotProviderModelsDto.fromJson({
+        'provider': 'openai',
+        'label': 'OpenAI',
+        'status': 'available',
+        'catalog_kind': 'official',
+        'models': [
+          {'id': 'gpt-test', 'context_window': 128000},
+        ],
+        'model_count': 1,
+      });
+
+      expect(skills.skills.single['name'], 'browser');
+      expect(skill.rawMarkdown, '# Browser');
+      expect(skill.requirements?['bins'], ['node']);
+      expect(apps.apps.single['manifest'], {'id': 'gimp'});
+      expect(apps.lastAction?['message'], 'installed');
+      expect(features.requiresRestart, isTrue);
+      expect(features.features.single['ready'], isTrue);
+      expect(mcp.presets.single['required_fields'], hasLength(1));
+      expect(mcp.hotReload?['ok'], isTrue);
+      expect(models.provider, 'openai');
+      expect(models.models.single['id'], 'gpt-test');
+    },
+  );
+
+  test('automation and version dtos preserve action metadata', () {
+    final automations = NanobotAutomationsDto.fromJson({
+      'jobs': [
+        {
+          'id': 'job-1',
+          'name': 'Daily',
+          'enabled': true,
+          'schedule': {'kind': 'cron', 'expr': '* * * * *'},
+          'payload': {'message': 'ping'},
+          'state': {'pending': false},
+        },
+      ],
+    });
+    final deleteResult = NanobotSessionDeleteResultDto.fromJson({
+      'deleted': false,
+      'blocked_by_automations': true,
+      'automations': [
+        {'id': 'job-1', 'name': 'Daily'},
+      ],
+    });
+    final version = NanobotVersionCheckDto.fromJson({
+      'updateAvailable': {
+        'currentVersion': '1.0.0',
+        'latestVersion': '1.1.0',
+        'pypiUrl': 'https://pypi.org/project/nanobot',
+      },
+    });
+
+    expect(automations.jobs.single['id'], 'job-1');
+    expect(deleteResult.deleted, isFalse);
+    expect(deleteResult.blockedByAutomations, isTrue);
+    expect(deleteResult.automations.single['id'], 'job-1');
+    expect(version.updateAvailable?['latestVersion'], '1.1.0');
+  });
 }
