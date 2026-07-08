@@ -1,4 +1,5 @@
 import 'package:agent_client/features/nanobot/data/nanobot_api_client.dart';
+import 'package:agent_client/features/nanobot/data/protocol/nanobot_http_dto.dart';
 import 'package:agent_client/features/nanobot/data/protocol/nanobot_ws_envelope.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
@@ -31,6 +32,41 @@ class NanobotRepository {
       sessionKey: session.key,
       chatId: session.chatId,
     );
+  }
+
+  Future<NanobotWebuiThreadDto> fetchThreadPage({
+    required String sessionKey,
+    int limit = 120,
+    String? before,
+  }) {
+    return api.fetchWebuiThreadPage(
+      sessionKey: sessionKey,
+      limit: limit,
+      before: before,
+    );
+  }
+
+  Future<NanobotFilePreviewDto> fetchFilePreview({
+    required String sessionKey,
+    required String path,
+  }) {
+    return api.fetchFilePreview(sessionKey: sessionKey, path: path);
+  }
+
+  Future<NanobotWorkspacesDto> fetchWorkspaces() => api.fetchWorkspaces();
+
+  Future<List<NanobotSlashCommandDto>> listSlashCommands() {
+    return api.listSlashCommands();
+  }
+
+  Future<NanobotSidebarStateDto> fetchSidebarState() {
+    return api.fetchSidebarState();
+  }
+
+  Future<NanobotSidebarStateDto> updateSidebarState(
+    NanobotSidebarStateDto state,
+  ) {
+    return api.updateSidebarState(state);
   }
 
   Future<String> newChat() => ws.newChat();

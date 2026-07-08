@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:agent_client/features/nanobot/data/protocol/nanobot_http_dto.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_config.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
@@ -66,26 +69,86 @@ class NanobotApiClient {
     required String sessionKey,
     required String chatId,
     int limit = 120,
+    String? before,
   }) async {
+    final dto = await fetchWebuiThreadPage(
+      sessionKey: sessionKey,
+      limit: limit,
+      before: before,
+    );
+    return [
+      for (final row in dto.messages)
+        NanobotMessage.fromWebuiJson(
+          json: row,
+          sessionKey: sessionKey,
+          chatId: chatId,
+        ),
+    ];
+  }
+
+  Future<NanobotWebuiThreadDto> fetchWebuiThreadPage({
+    required String sessionKey,
+    int limit = 120,
+    String? before,
+  }) async {
+    final query = <String, Object?>{'limit': limit, 'direction': 'latest'};
+    final trimmedBefore = before?.trim();
+    if (trimmedBefore != null && trimmedBefore.isNotEmpty) {
+      query['before'] = trimmedBefore;
+    }
     final response = await _dio.get<Object?>(
       '/api/sessions/${Uri.encodeComponent(sessionKey)}/webui-thread',
-      queryParameters: {'limit': limit, 'direction': 'latest'},
+      queryParameters: query,
       options: await _authOptions(),
     );
-    final data = _asMap(response.data);
-    final rows = data['messages'];
-    if (rows is! List) {
-      return const [];
-    }
-    return [
-      for (final row in rows)
-        if (row is Map)
-          NanobotMessage.fromWebuiJson(
-            json: Map<String, Object?>.from(row),
-            sessionKey: sessionKey,
-            chatId: chatId,
-          ),
-    ];
+    return NanobotWebuiThreadDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotFilePreviewDto> fetchFilePreview({
+    required String sessionKey,
+    required String path,
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/sessions/${Uri.encodeComponent(sessionKey)}/file-preview',
+      queryParameters: {'path': path},
+      options: await _authOptions(),
+    );
+    return NanobotFilePreviewDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotWorkspacesDto> fetchWorkspaces() async {
+    final response = await _dio.get<Object?>(
+      '/api/workspaces',
+      options: await _authOptions(),
+    );
+    return NanobotWorkspacesDto.fromJson(_asMap(response.data));
+  }
+
+  Future<List<NanobotSlashCommandDto>> listSlashCommands() async {
+    final response = await _dio.get<Object?>(
+      '/api/commands',
+      options: await _authOptions(),
+    );
+    return NanobotSlashCommandDto.listFromJson(_asMap(response.data));
+  }
+
+  Future<NanobotSidebarStateDto> fetchSidebarState() async {
+    final response = await _dio.get<Object?>(
+      '/api/webui/sidebar-state',
+      options: await _authOptions(),
+    );
+    return NanobotSidebarStateDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotSidebarStateDto> updateSidebarState(
+    NanobotSidebarStateDto state,
+  ) async {
+    final response = await _dio.get<Object?>(
+      '/api/webui/sidebar-state/update',
+      queryParameters: {'state': jsonEncode(state.toJson())},
+      options: await _authOptions(),
+    );
+    return NanobotSidebarStateDto.fromJson(_asMap(response.data));
   }
 
   Future<Options> _authOptions() async {
