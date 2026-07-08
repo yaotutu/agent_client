@@ -11,6 +11,81 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('repository maps apps catalog across plugins cli and mcp', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings/nanobot-features': {
+        'features': [
+          {
+            'name': 'websocket',
+            'display_name': 'WebSocket',
+            'type': 'channel',
+            'enabled': true,
+            'ready': true,
+            'installed': true,
+          },
+        ],
+        'enabled_count': 1,
+      },
+      'GET /api/settings/cli-apps': {
+        'apps': [
+          {
+            'name': 'gimp',
+            'display_name': 'GIMP',
+            'description': 'Image editor',
+            'installed': true,
+            'install_supported': true,
+          },
+        ],
+        'installed_count': 1,
+      },
+      'GET /api/settings/mcp-presets': {
+        'presets': [
+          {
+            'name': 'github',
+            'display_name': 'GitHub',
+            'description': 'Repository tools',
+            'installed': true,
+            'configured': true,
+            'status': 'configured',
+          },
+        ],
+        'installed_count': 1,
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final apps = await repository.fetchAppItems();
+
+    expect(
+      [for (final item in apps) item.id],
+      ['cli:gimp', 'mcp:github', 'nanobot:websocket'],
+    );
+    expect(apps[0].title, 'GIMP');
+    expect(apps[0].subtitle, 'Image editor');
+    expect(apps[0].status, 'CLI');
+    expect(apps[0].filterKeys, containsAll(['cli', 'ready']));
+    expect(apps[1].status, 'Configured');
+    expect(apps[1].filterKeys, containsAll(['mcp', 'ready']));
+    expect(apps[2].subtitle, 'Required for WebUI');
+    expect(apps[2].status, 'Channel');
+    expect(apps[2].filterKeys, containsAll(['nanobot', 'ready']));
+  });
+
   test(
     'repository maps unavailable skill reasons for catalog display',
     () async {

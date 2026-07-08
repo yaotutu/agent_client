@@ -284,16 +284,77 @@ class NanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
-    final payload = await api.fetchCliApps();
-    return [
-      for (final row in payload.apps)
-        NanobotCatalogItem(
-          id: _stringValue(row, 'name'),
-          title: _stringValue(row, 'display_name', fallbackKey: 'name'),
-          subtitle: _stringValue(row, 'description', fallbackKey: 'category'),
-          status: _stringValue(row, 'status'),
-        ),
+    final results = await Future.wait([
+      api.fetchNanobotFeatures(),
+      api.fetchCliApps(),
+      api.fetchMcpPresets(),
+    ]);
+    final features = results[0] as NanobotFeaturesDto;
+    final cliApps = results[1] as NanobotCliAppsDto;
+    final mcpPresets = results[2] as NanobotMcpPresetsDto;
+    final items = [
+      for (final row in features.features) _featureCatalogItem(row),
+      for (final row in cliApps.apps) _cliCatalogItem(row),
+      for (final row in mcpPresets.presets) _mcpCatalogItem(row),
     ];
+    items.sort((left, right) {
+      final readyRank =
+          (right.filterKeys.contains('ready') ? 1 : 0) -
+          (left.filterKeys.contains('ready') ? 1 : 0);
+      if (readyRank != 0) {
+        return readyRank;
+      }
+      return left.title.toLowerCase().compareTo(right.title.toLowerCase());
+    });
+    return items;
+  }
+
+  NanobotCatalogItem _featureCatalogItem(Map<String, Object?> row) {
+    final name = _stringValue(row, 'name');
+    final type = _stringFrom(row['type']) ?? 'feature';
+    final enabled = row['enabled'] == true;
+    return NanobotCatalogItem(
+      id: 'nanobot:$name',
+      title: _stringValue(row, 'display_name', fallbackKey: 'name'),
+      subtitle: _featureStatusLabel(row),
+      status: type == 'channel' ? 'Channel' : 'Feature',
+      filterKeys: ['nanobot', enabled ? 'ready' : 'unavailable'],
+    );
+  }
+
+  NanobotCatalogItem _cliCatalogItem(Map<String, Object?> row) {
+    final name = _stringValue(row, 'name');
+    final installed = row['installed'] == true;
+    return NanobotCatalogItem(
+      id: 'cli:$name',
+      title: _stringValue(row, 'display_name', fallbackKey: 'name'),
+      subtitle: _firstString(row, const [
+        'description',
+        'requires',
+        'entry_point',
+        'name',
+      ]),
+      status: 'CLI',
+      filterKeys: ['cli', installed ? 'ready' : 'unavailable'],
+    );
+  }
+
+  NanobotCatalogItem _mcpCatalogItem(Map<String, Object?> row) {
+    final name = _stringValue(row, 'name');
+    final installed = row['installed'] == true;
+    final configured = row['configured'] == true;
+    return NanobotCatalogItem(
+      id: 'mcp:$name',
+      title: _stringValue(row, 'display_name', fallbackKey: 'name'),
+      subtitle: _firstString(row, const [
+        'description',
+        'requires',
+        'note',
+        'name',
+      ]),
+      status: _mcpStatusLabel(_stringFrom(row['status']) ?? ''),
+      filterKeys: ['mcp', installed && configured ? 'ready' : 'unavailable'],
+    );
   }
 
   @override
@@ -544,6 +605,46 @@ class NanobotRepository implements NanobotRepositoryPort {
       return value.trim();
     }
     return null;
+  }
+
+  String _firstString(Map<String, Object?> row, List<String> keys) {
+    for (final key in keys) {
+      final value = _stringFrom(row[key]);
+      if (value != null) {
+        return value;
+      }
+    }
+    return '';
+  }
+
+  String _featureStatusLabel(Map<String, Object?> row) {
+    final ready = row['ready'] == true;
+    final installed = row['installed'] == true;
+    final type = _stringFrom(row['type']);
+    final name = _stringFrom(row['name']);
+    if (ready && type == 'channel' && name == 'websocket') {
+      return 'Required for WebUI';
+    }
+    if (ready) {
+      return 'Ready';
+    }
+    if (!installed) {
+      return 'Support missing';
+    }
+    if (type == 'channel') {
+      return 'Channel is disabled';
+    }
+    return 'Not enabled';
+  }
+
+  String _mcpStatusLabel(String status) {
+    return switch (status) {
+      'configured' => 'Configured',
+      'missing_credentials' => 'Needs key',
+      'missing_dependency' => 'Needs dependency',
+      'coming_soon' => 'Coming soon',
+      _ => 'Not enabled',
+    };
   }
 
   Map<String, Object?>? _mapValue(Object? value) {

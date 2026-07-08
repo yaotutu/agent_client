@@ -1453,11 +1453,7 @@ class _SecondarySurface extends StatelessWidget {
         NanobotShellView.settings => _SettingsSurface(
           snapshot: state.settingsSnapshot,
         ),
-        NanobotShellView.apps => _CatalogSurface(
-          title: 'Apps',
-          emptyText: 'No apps match this filter.',
-          items: state.appItems,
-        ),
+        NanobotShellView.apps => _AppsCatalogSurface(items: state.appItems),
         NanobotShellView.automations => _CatalogSurface(
           title: 'Automations',
           emptyText: 'No automations yet.',
@@ -1851,6 +1847,173 @@ class _RawSkillMarkdown extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AppsCatalogSurface extends StatefulWidget {
+  const _AppsCatalogSurface({required this.items});
+
+  final List<NanobotCatalogItem> items;
+
+  @override
+  State<_AppsCatalogSurface> createState() => _AppsCatalogSurfaceState();
+}
+
+class _AppsCatalogSurfaceState extends State<_AppsCatalogSurface> {
+  final _queryController = TextEditingController();
+  var _activeFilter = 'all';
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _queryController.text.trim().toLowerCase();
+    final visibleItems = [
+      for (final item in widget.items)
+        if (_matchesFilter(item) &&
+            (query.isEmpty || _matchesQuery(item, query)))
+          item,
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SurfaceTitle('Apps'),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            const Expanded(
+              child: Text(
+                'Enable plugins, local app adapters, and connected tool servers.',
+                style: TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              _caption(),
+              style: const TextStyle(
+                color: AppThemeTokens.mutedText,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          key: const ValueKey('apps-catalog-search'),
+          controller: _queryController,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: 'Search Apps',
+            prefixIcon: const Icon(Icons.search),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+              borderSide: const BorderSide(color: AppThemeTokens.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+              borderSide: const BorderSide(color: AppThemeTokens.border),
+            ),
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _filterChip('all', 'All'),
+            _filterChip('nanobot', 'Plugins'),
+            _filterChip('cli', 'App CLIs'),
+            _filterChip('mcp', 'MCP services'),
+          ],
+        ),
+        const SizedBox(height: 22),
+        Row(
+          children: [
+            const Expanded(child: _SurfaceTitle('Catalog')),
+            _CountPill('${visibleItems.length}'),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (widget.items.isEmpty || visibleItems.isEmpty)
+          const _EmptySurface(text: 'No apps match this filter.')
+        else
+          for (final item in visibleItems)
+            _CatalogRow(key: ValueKey(item.id), item: item),
+      ],
+    );
+  }
+
+  Widget _filterChip(String value, String label) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: _activeFilter == value,
+      onSelected: (_) => setState(() => _activeFilter = value),
+    );
+  }
+
+  String _caption() {
+    final plugins = _countKind('nanobot');
+    final cli = _countKind('cli');
+    final mcp = _countKind('mcp');
+    return '$plugins Plugin · $cli CLI · $mcp MCP';
+  }
+
+  int _countKind(String kind) {
+    return widget.items.where((item) => item.filterKeys.contains(kind)).length;
+  }
+
+  bool _matchesFilter(NanobotCatalogItem item) {
+    return _activeFilter == 'all' || item.filterKeys.contains(_activeFilter);
+  }
+
+  bool _matchesQuery(NanobotCatalogItem item, String query) {
+    final text = [
+      item.title,
+      item.subtitle,
+      item.details,
+      item.status,
+      item.id,
+      ...item.filterKeys,
+    ].join(' ').toLowerCase();
+    return text.contains(query);
+  }
+}
+
+class _CountPill extends StatelessWidget {
+  const _CountPill(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspaceAlt,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: AppThemeTokens.mutedText,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }

@@ -70,6 +70,76 @@ void main() {
     expect(find.text('Start a chat'), findsOneWidget);
   });
 
+  testWidgets('apps surface filters and searches webui catalog kinds', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      appItems: const [
+        NanobotCatalogItem(
+          id: 'nanobot:websocket',
+          title: 'WebSocket',
+          subtitle: 'Required for WebUI',
+          status: 'Channel',
+          filterKeys: ['nanobot', 'ready'],
+        ),
+        NanobotCatalogItem(
+          id: 'cli:gimp',
+          title: 'GIMP',
+          subtitle: 'Image editor',
+          status: 'CLI',
+          filterKeys: ['cli', 'ready'],
+        ),
+        NanobotCatalogItem(
+          id: 'mcp:github',
+          title: 'GitHub',
+          subtitle: 'Repository tools',
+          status: 'Configured',
+          filterKeys: ['mcp', 'ready'],
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Apps'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 Plugin · 1 CLI · 1 MCP'), findsOneWidget);
+    expect(find.text('Catalog'), findsOneWidget);
+    expect(find.text('3'), findsWidgets);
+    expect(find.text('WebSocket'), findsOneWidget);
+    expect(find.text('GIMP'), findsOneWidget);
+    expect(find.text('GitHub'), findsOneWidget);
+
+    await tester.tap(find.text('MCP services'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('GitHub'), findsOneWidget);
+    expect(find.text('GIMP'), findsNothing);
+    expect(find.text('WebSocket'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('apps-catalog-search')),
+      'image',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No apps match this filter.'), findsOneWidget);
+
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('GIMP'), findsOneWidget);
+    expect(find.text('GitHub'), findsNothing);
+  });
+
   testWidgets('automations empty surface keeps heading and webui empty copy', (
     tester,
   ) async {
