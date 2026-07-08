@@ -8,6 +8,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_thread_page.dart';
 import 'package:agent_client/features/nanobot/presentation/nanobot_workspace_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -157,6 +158,7 @@ void main() {
 
   testWidgets('assistant message footer forks from replies', (tester) async {
     final repository = _FakeNanobotRepository(
+      threadUserMessageOffset: 100,
       threadMessages: [
         NanobotMessage(
           id: 'user-1',
@@ -190,7 +192,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.forkSourceChatId, 'chat-1');
-    expect(repository.forkBeforeUserIndex, 1);
+    expect(repository.forkBeforeUserIndex, 101);
     expect(repository.forkTitle, 'Fork: Chat chat-1');
     expect(find.text('Fork: Chat chat-1'), findsWidgets);
   });
@@ -1120,11 +1122,15 @@ void main() {
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
-  _FakeNanobotRepository({this.threadMessages = const []});
+  _FakeNanobotRepository({
+    this.threadMessages = const [],
+    this.threadUserMessageOffset = 0,
+  });
 
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
   final List<NanobotMessage> threadMessages;
+  final int threadUserMessageOffset;
   final _sessions = [
     NanobotSessionSummary(
       key: 'websocket:chat-1',
@@ -1223,6 +1229,18 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       return const [];
     }
     return threadMessages;
+  }
+
+  @override
+  Future<NanobotThreadPage> fetchThreadPage(
+    NanobotSessionSummary session, {
+    int limit = 120,
+    String? before,
+  }) async {
+    return NanobotThreadPage(
+      messages: await fetchThread(session),
+      userMessageOffset: threadUserMessageOffset,
+    );
   }
 
   @override

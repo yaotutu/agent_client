@@ -1209,7 +1209,8 @@ class _MessageList extends StatelessWidget {
           final entryIndex = threadEntries.length - 1 - index;
           final entry = threadEntries[entryIndex];
           final forkIndex = _assistantActionsVisible(threadEntries, entryIndex)
-              ? _userCountBeforeThreadEntry(threadEntries, entryIndex)
+              ? state.threadState!.userMessageOffset +
+                    _userCountBeforeThreadEntry(threadEntries, entryIndex)
               : null;
           return RepaintBoundary(
             key: ValueKey(entry.id),

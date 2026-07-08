@@ -8,6 +8,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_thread_page.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -483,16 +484,18 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     try {
       final repository = ref.read(nanobotRepositoryProvider);
       await repository.attach(session.chatId);
-      final messages = await repository.fetchThread(session);
+      final threadPage = await repository.fetchThreadPage(session);
       if (!_isActive(generation)) {
         return;
       }
+      final threadWindow = _recentThreadWindow(threadPage);
       state = state.copyWith(
-        messages: _recentMessages(messages),
+        messages: threadWindow.messages,
         threadState: _threadStateFromMessages(
           sessionKey: session.key,
           chatId: session.chatId,
-          messages: _recentMessages(messages),
+          messages: threadWindow.messages,
+          userMessageOffset: threadWindow.userMessageOffset,
           isStreaming: session.runStartedAt != null,
           runStartedAt: session.runStartedAt,
         ),
@@ -875,6 +878,22 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     return messages.sublist(messages.length - maxInitialMessages);
   }
 
+  NanobotThreadPage _recentThreadWindow(NanobotThreadPage page) {
+    final messages = _recentMessages(page.messages);
+    if (messages.length == page.messages.length) {
+      return page;
+    }
+    final dropped = page.messages.take(page.messages.length - messages.length);
+    final droppedUserCount = dropped.where(
+      (message) => message.role == NanobotMessageRole.user,
+    );
+    return NanobotThreadPage(
+      messages: messages,
+      userMessageOffset: page.userMessageOffset + droppedUserCount.length,
+      forkBoundaryMessageCount: page.forkBoundaryMessageCount,
+    );
+  }
+
   NanobotWorkspaceState _stateWithWorkspaceScope(NanobotWorkspaceScope scope) {
     final selectedKey = state.selectedSessionKey;
     if (selectedKey == null) {
@@ -958,10 +977,12 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     required List<NanobotMessage> messages,
     bool isStreaming = false,
     int? runStartedAt,
+    int userMessageOffset = 0,
   }) {
     return NanobotThreadState(
       sessionKey: sessionKey,
       chatId: chatId,
+      userMessageOffset: userMessageOffset,
       entries: [
         for (final message in messages)
           NanobotThreadEntry(

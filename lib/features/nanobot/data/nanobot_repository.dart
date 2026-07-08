@@ -7,6 +7,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_thread_page.dart';
 
 abstract class NanobotRepositoryPort {
   Stream<NanobotEvent> get events;
@@ -22,6 +23,12 @@ abstract class NanobotRepositoryPort {
   Future<List<NanobotSessionSummary>> listSessions();
 
   Future<List<NanobotMessage>> fetchThread(NanobotSessionSummary session);
+
+  Future<NanobotThreadPage> fetchThreadPage(
+    NanobotSessionSummary session, {
+    int limit = 120,
+    String? before,
+  });
 
   Future<NanobotFilePreview> fetchFilePreview({
     required String sessionKey,
@@ -130,21 +137,31 @@ class NanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<List<NanobotMessage>> fetchThread(NanobotSessionSummary session) {
-    return api.fetchWebuiThread(
-      sessionKey: session.key,
-      chatId: session.chatId,
-    );
+    return fetchThreadPage(session).then((page) => page.messages);
   }
 
-  Future<NanobotWebuiThreadDto> fetchThreadPage({
-    required String sessionKey,
+  @override
+  Future<NanobotThreadPage> fetchThreadPage(
+    NanobotSessionSummary session, {
     int limit = 120,
     String? before,
-  }) {
-    return api.fetchWebuiThreadPage(
-      sessionKey: sessionKey,
+  }) async {
+    final dto = await api.fetchWebuiThreadPage(
+      sessionKey: session.key,
       limit: limit,
       before: before,
+    );
+    return NanobotThreadPage(
+      messages: [
+        for (final row in dto.messages)
+          NanobotMessage.fromWebuiJson(
+            json: row,
+            sessionKey: session.key,
+            chatId: session.chatId,
+          ),
+      ],
+      userMessageOffset: dto.page?.userMessageOffset ?? 0,
+      forkBoundaryMessageCount: dto.forkBoundaryMessageCount,
     );
   }
 

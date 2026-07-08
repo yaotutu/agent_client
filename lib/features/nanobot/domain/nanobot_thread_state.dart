@@ -12,6 +12,7 @@ class NanobotThreadState {
     this.isStreaming = false,
     this.runStartedAt,
     this.goalState,
+    this.userMessageOffset = 0,
   });
 
   final String sessionKey;
@@ -20,12 +21,14 @@ class NanobotThreadState {
   final bool isStreaming;
   final int? runStartedAt;
   final Map<String, Object?>? goalState;
+  final int userMessageOffset;
 
   NanobotThreadState copyWith({
     List<NanobotThreadEntry>? entries,
     bool? isStreaming,
     int? runStartedAt,
     Map<String, Object?>? goalState,
+    int? userMessageOffset,
     bool clearRunStartedAt = false,
     bool clearGoalState = false,
   }) {
@@ -38,6 +41,7 @@ class NanobotThreadState {
           ? null
           : runStartedAt ?? this.runStartedAt,
       goalState: clearGoalState ? null : goalState ?? this.goalState,
+      userMessageOffset: userMessageOffset ?? this.userMessageOffset,
     );
   }
 }
