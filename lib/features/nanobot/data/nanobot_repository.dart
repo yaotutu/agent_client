@@ -108,6 +108,20 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('fetchAutomationItems');
   }
 
+  Future<List<NanobotCatalogItem>> runAutomationAction({
+    required NanobotAutomationAction action,
+    required String id,
+  }) {
+    throw UnimplementedError('runAutomationAction');
+  }
+
+  Future<List<NanobotCatalogItem>> updateAutomation({
+    required String id,
+    required Map<String, Object?> values,
+  }) {
+    throw UnimplementedError('updateAutomation');
+  }
+
   Future<List<NanobotCatalogItem>> fetchSkillItems() {
     throw UnimplementedError('fetchSkillItems');
   }
@@ -285,6 +299,33 @@ class NanobotRepository implements NanobotRepositoryPort {
   @override
   Future<List<NanobotCatalogItem>> fetchAutomationItems() async {
     final payload = await api.fetchAutomations();
+    return _automationItemsFromPayload(payload);
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> runAutomationAction({
+    required NanobotAutomationAction action,
+    required String id,
+  }) async {
+    final payload = await api.runAutomationAction(
+      action: action.wireName,
+      id: id,
+    );
+    return _automationItemsFromPayload(payload);
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> updateAutomation({
+    required String id,
+    required Map<String, Object?> values,
+  }) async {
+    final payload = await api.updateAutomation(id: id, values: values);
+    return _automationItemsFromPayload(payload);
+  }
+
+  List<NanobotCatalogItem> _automationItemsFromPayload(
+    NanobotAutomationsDto payload,
+  ) {
     return [
       for (final row in payload.jobs)
         NanobotCatalogItem(

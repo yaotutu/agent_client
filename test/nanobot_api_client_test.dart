@@ -170,6 +170,59 @@ void main() {
     expect(page.messages, isEmpty);
     expect(messages, isEmpty);
   });
+
+  test('api client serializes automation actions and updates', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/webui/automations/disable?id=job+1%2F2': {
+        'jobs': [
+          {'id': 'job-1', 'enabled': false},
+        ],
+      },
+      'GET /api/webui/automations/update?id=job+1%2F2': {
+        'jobs': [
+          {'id': 'job-1', 'name': 'Updated job'},
+        ],
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final client = NanobotApiClient(
+      config: const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      ),
+      dio: dio,
+    );
+
+    final disabled = await client.runAutomationAction(
+      action: 'disable',
+      id: 'job 1/2',
+    );
+    final updated = await client.updateAutomation(
+      id: 'job 1/2',
+      values: {
+        'name': 'Updated job',
+        'message': 'Keep going',
+        'timezone': '',
+        'schedule': null,
+      },
+    );
+
+    expect(disabled.jobs.single['enabled'], isFalse);
+    expect(updated.jobs.single['name'], 'Updated job');
+    final updateCall = adapter.calls.last;
+    expect(
+      updateCall.headers['X-Nanobot-Automation-Values'],
+      Uri.encodeComponent(
+        jsonEncode({'name': 'Updated job', 'message': 'Keep going'}),
+      ),
+    );
+  });
 }
 
 class _RouteAdapter implements HttpClientAdapter {

@@ -252,6 +252,36 @@ class NanobotApiClient {
     return NanobotAutomationsDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotAutomationsDto> runAutomationAction({
+    required String action,
+    required String id,
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/webui/automations/$action',
+      queryParameters: {'id': id},
+      options: await _authOptions(),
+    );
+    return NanobotAutomationsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotAutomationsDto> updateAutomation({
+    required String id,
+    required Map<String, Object?> values,
+  }) async {
+    final authOptions = await _authOptions();
+    final automationValues = _encodedAutomationValues(values);
+    final headers = {...?authOptions.headers};
+    if (automationValues != null) {
+      headers['X-Nanobot-Automation-Values'] = automationValues;
+    }
+    final response = await _dio.get<Object?>(
+      '/api/webui/automations/update',
+      queryParameters: {'id': id},
+      options: authOptions.copyWith(headers: headers),
+    );
+    return NanobotAutomationsDto.fromJson(_asMap(response.data));
+  }
+
   Future<NanobotAutomationsDto> fetchSessionAutomations(
     String sessionKey,
   ) async {
@@ -291,5 +321,27 @@ class NanobotApiClient {
       return Map<String, Object?>.from(value);
     }
     throw const FormatException('nanobot API returned non-object JSON');
+  }
+
+  String? _encodedAutomationValues(Map<String, Object?> values) {
+    final payload = <String, Object?>{};
+    for (final entry in values.entries) {
+      final value = entry.value;
+      if (value == null) {
+        continue;
+      }
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isNotEmpty) {
+          payload[entry.key] = trimmed;
+        }
+        continue;
+      }
+      payload[entry.key] = value;
+    }
+    if (payload.isEmpty) {
+      return null;
+    }
+    return Uri.encodeComponent(jsonEncode(payload));
   }
 }

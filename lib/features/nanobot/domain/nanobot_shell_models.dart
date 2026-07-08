@@ -1,5 +1,16 @@
 enum NanobotShellView { chat, settings, apps, automations, skills }
 
+enum NanobotAutomationAction {
+  enable('enable'),
+  disable('disable'),
+  delete('delete'),
+  run('run');
+
+  const NanobotAutomationAction(this.wireName);
+
+  final String wireName;
+}
+
 enum NanobotCapabilityMentionKind { cli, mcp }
 
 class NanobotSettingsSnapshot {

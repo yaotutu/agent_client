@@ -6,6 +6,7 @@ import 'package:agent_client/features/nanobot/data/nanobot_api_client.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_repository.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_config.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -240,6 +241,46 @@ void main() {
     expect(automations.single.nextRunAtMs, 1000);
     expect(automations.single.lastRunAtMs, 2000);
     expect(automations.single.updatedAtMs, 3000);
+  });
+
+  test('repository maps automation action results', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/webui/automations/enable?id=job-1': {
+        'jobs': [
+          {
+            'id': 'job-1',
+            'name': 'Enabled job',
+            'enabled': true,
+            'state': {'next_run_at_ms': 1000},
+          },
+        ],
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final automations = await repository.runAutomationAction(
+      action: NanobotAutomationAction.enable,
+      id: 'job-1',
+    );
+
+    expect(automations.single.title, 'Enabled job');
+    expect(automations.single.status, 'enabled');
+    expect(automations.single.nextRunAtMs, 1000);
   });
 }
 
