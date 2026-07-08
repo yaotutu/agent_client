@@ -1218,7 +1218,10 @@ class _MessageList extends StatelessWidget {
         final message = state.messages[messageIndex];
         return RepaintBoundary(
           key: ValueKey(message.id),
-          child: _MessageBubble(message: message),
+          child: _MessageBubble(
+            message: message,
+            onOpenFilePreview: onOpenFilePreview,
+          ),
         );
       },
     );
@@ -1368,7 +1371,10 @@ class _ThreadEntryBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (entry.kind) {
-      NanobotThreadEntryKind.message => _ThreadMessageBubble(entry: entry),
+      NanobotThreadEntryKind.message => _ThreadMessageBubble(
+        entry: entry,
+        onOpenFilePreview: onOpenFilePreview,
+      ),
       NanobotThreadEntryKind.trace => _ThreadTraceBubble(entry: entry),
       NanobotThreadEntryKind.fileEdit => _ThreadFileEditBubble(
         entry: entry,
@@ -1379,9 +1385,13 @@ class _ThreadEntryBubble extends StatelessWidget {
 }
 
 class _ThreadMessageBubble extends StatelessWidget {
-  const _ThreadMessageBubble({required this.entry});
+  const _ThreadMessageBubble({
+    required this.entry,
+    required this.onOpenFilePreview,
+  });
 
   final NanobotThreadEntry entry;
+  final ValueChanged<String> onOpenFilePreview;
 
   @override
   Widget build(BuildContext context) {
@@ -1416,9 +1426,10 @@ class _ThreadMessageBubble extends StatelessWidget {
                 if (entry.content.trim().isNotEmpty) const SizedBox(height: 8),
               ],
               if (entry.content.trim().isNotEmpty)
-                Text(
-                  entry.content,
-                  style: TextStyle(color: textColor, height: 1.4),
+                _MessageContentText(
+                  text: entry.content,
+                  textColor: textColor,
+                  onOpenFilePreview: onOpenFilePreview,
                 ),
             ],
           ),
@@ -1551,6 +1562,152 @@ class _ThreadFileEditRow extends StatelessWidget {
   }
 }
 
+class _MessageContentText extends StatelessWidget {
+  const _MessageContentText({
+    required this.text,
+    required this.textColor,
+    required this.onOpenFilePreview,
+  });
+
+  final String text;
+  final Color textColor;
+  final ValueChanged<String> onOpenFilePreview;
+
+  @override
+  Widget build(BuildContext context) {
+    final segments = _messageContentSegments(text);
+    if (segments.length == 1 && segments.single.filePath == null) {
+      return Text(text, style: TextStyle(color: textColor, height: 1.4));
+    }
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final segment in segments)
+          if (segment.filePath == null)
+            Text(segment.text, style: TextStyle(color: textColor, height: 1.4))
+          else
+            _InlineFileReferenceChip(
+              label: segment.text,
+              path: segment.filePath!,
+              onOpenFilePreview: onOpenFilePreview,
+            ),
+      ],
+    );
+  }
+}
+
+class _InlineFileReferenceChip extends StatelessWidget {
+  const _InlineFileReferenceChip({
+    required this.label,
+    required this.path,
+    required this.onOpenFilePreview,
+  });
+
+  final String label;
+  final String path;
+  final ValueChanged<String> onOpenFilePreview;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => onOpenFilePreview(path),
+      borderRadius: BorderRadius.circular(5),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.insert_drive_file_outlined,
+              size: 14,
+              color: AppThemeTokens.brandPressed,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppThemeTokens.brandPressed,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageContentSegment {
+  const _MessageContentSegment.text(this.text) : filePath = null;
+  const _MessageContentSegment.file({
+    required this.text,
+    required this.filePath,
+  });
+
+  final String text;
+  final String? filePath;
+}
+
+List<_MessageContentSegment> _messageContentSegments(String text) {
+  final matches = RegExp(r'\[([^\]]+)\]\(([^)]+)\)').allMatches(text).toList();
+  if (matches.isEmpty) {
+    return [if (text.isNotEmpty) _MessageContentSegment.text(text)];
+  }
+  final segments = <_MessageContentSegment>[];
+  var cursor = 0;
+  for (final match in matches) {
+    final href = match.group(2) ?? '';
+    final filePath = _localFilePreviewPath(href);
+    if (filePath == null) {
+      continue;
+    }
+    if (match.start > cursor) {
+      segments.add(
+        _MessageContentSegment.text(text.substring(cursor, match.start)),
+      );
+    }
+    final label = (match.group(1) ?? filePath).trim();
+    segments.add(
+      _MessageContentSegment.file(
+        text: label.isEmpty ? _fileNameFromPath(filePath) : label,
+        filePath: filePath,
+      ),
+    );
+    cursor = match.end;
+  }
+  if (cursor == 0) {
+    return [if (text.isNotEmpty) _MessageContentSegment.text(text)];
+  }
+  if (cursor < text.length) {
+    segments.add(_MessageContentSegment.text(text.substring(cursor)));
+  }
+  return segments;
+}
+
+String? _localFilePreviewPath(String href) {
+  final trimmed = Uri.decodeFull(href.trim());
+  if (trimmed.isEmpty ||
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('/api/') ||
+      trimmed.contains('*')) {
+    return null;
+  }
+  final withoutAnchor = trimmed.split('#').first.split('?').first;
+  final withoutLine = withoutAnchor.replaceFirst(RegExp(r':\d+(?::\d+)?$'), '');
+  if (!RegExp(r'\.[A-Za-z0-9]{1,12}$').hasMatch(withoutLine)) {
+    return null;
+  }
+  return withoutLine;
+}
+
+String _fileNameFromPath(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  final parts = normalized.split('/').where((part) => part.isNotEmpty).toList();
+  return parts.isEmpty ? path : parts.last;
+}
+
 class _ThreadActivityShell extends StatelessWidget {
   const _ThreadActivityShell({required this.child});
 
@@ -1578,9 +1735,13 @@ class _ThreadActivityShell extends StatelessWidget {
 }
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
+  const _MessageBubble({
+    required this.message,
+    required this.onOpenFilePreview,
+  });
 
   final NanobotMessage message;
+  final ValueChanged<String> onOpenFilePreview;
 
   @override
   Widget build(BuildContext context) {
@@ -1624,9 +1785,10 @@ class _MessageBubble extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
               ],
-              Text(
-                message.content,
-                style: TextStyle(color: textColor, height: 1.4),
+              _MessageContentText(
+                text: message.content,
+                textColor: textColor,
+                onOpenFilePreview: onOpenFilePreview,
               ),
             ],
           ),

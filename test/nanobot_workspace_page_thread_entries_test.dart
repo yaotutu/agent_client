@@ -97,6 +97,35 @@ void main() {
     expect(find.text('void main() {}'), findsOneWidget);
     expect(find.text('Preview truncated'), findsOneWidget);
   });
+
+  testWidgets('message markdown file links open a file preview panel', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Edited [main.dart](lib/main.dart:12)',
+    });
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('main.dart'));
+    await tester.pumpAndSettle();
+
+    expect(repository.previewPath, 'lib/main.dart');
+    expect(find.text('File preview'), findsOneWidget);
+    expect(find.text('void main() {}'), findsOneWidget);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
