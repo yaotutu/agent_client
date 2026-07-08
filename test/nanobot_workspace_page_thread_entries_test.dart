@@ -1751,7 +1751,7 @@ class _FakeNanobotVoiceInputRecorder implements NanobotVoiceInputRecorder {
   var recorded = false;
 
   @override
-  Future<NanobotRecordedAudio?> record() async {
+  Future<NanobotRecordedAudio?> record(BuildContext context) async {
     recorded = true;
     return result;
   }

@@ -262,7 +262,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
       _composerInlineError = null;
     });
     try {
-      final recorded = await recorder.record();
+      final recorded = await recorder.record(context);
       if (recorded == null) {
         return;
       }
