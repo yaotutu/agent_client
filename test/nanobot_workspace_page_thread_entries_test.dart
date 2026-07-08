@@ -350,6 +350,40 @@ void main() {
     expect(_containerWithLeftBorder(), findsOneWidget);
   });
 
+  testWidgets('message markdown pipe tables render table cells', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text':
+          '| Name | Status |\n'
+          '| --- | --- |\n'
+          '| Gateway | **Connected** |\n'
+          '| Tests | `passing` |',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Table), findsOneWidget);
+    expect(find.text('Name'), findsOneWidget);
+    expect(find.text('Status'), findsOneWidget);
+    expect(find.text('Gateway'), findsOneWidget);
+    expect(_richTextWithBoldSpan('Connected'), findsOneWidget);
+    expect(_richTextWithCodeSpan('passing'), findsOneWidget);
+    expect(find.textContaining('| Name |'), findsNothing);
+  });
+
   testWidgets('message markdown headings render heading text', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);

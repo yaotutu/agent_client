@@ -1599,7 +1599,8 @@ class _MessageContentText extends ConsumerWidget {
     if (blocks.length == 1 &&
         blocks.single.code == null &&
         blocks.single.heading == null &&
-        blocks.single.quote == null) {
+        blocks.single.quote == null &&
+        blocks.single.table == null) {
       return _buildInlineContent(text, ref);
     }
     return Column(
@@ -1609,6 +1610,11 @@ class _MessageContentText extends ConsumerWidget {
         for (final block in blocks) ...[
           if (block.heading != null)
             _MessageHeading(text: block.heading!, level: block.headingLevel)
+          else if (block.table != null)
+            _MessageTableBlock(
+              table: block.table!,
+              cellBuilder: (cell) => _buildInlineSegments(cell, ref),
+            )
           else if (block.quote != null)
             _MessageQuoteBlock(
               quote: block.quote!,
@@ -1671,6 +1677,64 @@ class _MessageContentText extends ConsumerWidget {
           else
             _InlineFormattedText(text: segment.text, color: textColor),
       ],
+    );
+  }
+}
+
+class _MessageTableBlock extends StatelessWidget {
+  const _MessageTableBlock({required this.table, required this.cellBuilder});
+
+  final _MarkdownTable table;
+  final Widget Function(String cell) cellBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Table(
+        defaultColumnWidth: const IntrinsicColumnWidth(),
+        border: TableBorder.all(color: AppThemeTokens.border),
+        children: [
+          TableRow(
+            decoration: const BoxDecoration(color: AppThemeTokens.panelMuted),
+            children: [
+              for (final header in table.headers)
+                _MessageTableCell(
+                  child: Text(
+                    header,
+                    style: const TextStyle(
+                      color: AppThemeTokens.text,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          for (final row in table.rows)
+            TableRow(
+              children: [
+                for (final cell in row)
+                  _MessageTableCell(child: cellBuilder(cell)),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessageTableCell extends StatelessWidget {
+  const _MessageTableCell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 96),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      child: child,
     );
   }
 }
@@ -1986,25 +2050,36 @@ class _MessageContentBlock {
       code = null,
       heading = null,
       headingLevel = 0,
-      quote = null;
+      quote = null,
+      table = null;
   const _MessageContentBlock.code({required this.language, required this.code})
     : text = '',
       heading = null,
       headingLevel = 0,
-      quote = null;
+      quote = null,
+      table = null;
   const _MessageContentBlock.heading({
     required this.heading,
     required this.headingLevel,
   }) : text = '',
        language = null,
        code = null,
-       quote = null;
+       quote = null,
+       table = null;
   const _MessageContentBlock.quote({required this.quote})
     : text = '',
       language = null,
       code = null,
       heading = null,
-      headingLevel = 0;
+      headingLevel = 0,
+      table = null;
+  const _MessageContentBlock.table({required this.table})
+    : text = '',
+      language = null,
+      code = null,
+      heading = null,
+      headingLevel = 0,
+      quote = null;
 
   final String text;
   final String? language;
@@ -2012,6 +2087,14 @@ class _MessageContentBlock {
   final String? heading;
   final int headingLevel;
   final String? quote;
+  final _MarkdownTable? table;
+}
+
+class _MarkdownTable {
+  const _MarkdownTable({required this.headers, required this.rows});
+
+  final List<String> headers;
+  final List<List<String>> rows;
 }
 
 class _MarkdownBulletList {
@@ -2075,6 +2158,14 @@ List<_MessageContentBlock> _markdownTextBlocks(String text) {
   var index = 0;
   while (index < lines.length) {
     final line = lines[index];
+    final table = _markdownTableAt(lines, index);
+    if (table != null) {
+      flushBuffer();
+      blocks.add(_MessageContentBlock.table(table: table.table));
+      index = table.nextIndex;
+      continue;
+    }
+
     final heading = RegExp(r'^(#{1,3})\s+(.+)$').firstMatch(line.trimRight());
     if (heading != null) {
       flushBuffer();
@@ -2104,6 +2195,72 @@ List<_MessageContentBlock> _markdownTextBlocks(String text) {
   }
   flushBuffer();
   return blocks.isEmpty ? [_MessageContentBlock.text(text)] : blocks;
+}
+
+({_MarkdownTable table, int nextIndex})? _markdownTableAt(
+  List<String> lines,
+  int index,
+) {
+  if (index + 1 >= lines.length) {
+    return null;
+  }
+  final headers = _pipeTableCells(lines[index]);
+  final separator = _pipeTableCells(lines[index + 1]);
+  if (headers == null ||
+      separator == null ||
+      headers.isEmpty ||
+      separator.length != headers.length ||
+      !separator.every(_isPipeTableSeparatorCell)) {
+    return null;
+  }
+
+  final rows = <List<String>>[];
+  var cursor = index + 2;
+  while (cursor < lines.length) {
+    final cells = _pipeTableCells(lines[cursor]);
+    if (cells == null || cells.isEmpty) {
+      break;
+    }
+    rows.add(_normalizeTableRow(cells, headers.length));
+    cursor += 1;
+  }
+  if (rows.isEmpty) {
+    return null;
+  }
+  return (
+    table: _MarkdownTable(headers: headers, rows: rows),
+    nextIndex: cursor,
+  );
+}
+
+List<String>? _pipeTableCells(String line) {
+  final trimmed = line.trim();
+  if (!trimmed.contains('|')) {
+    return null;
+  }
+  final parts = trimmed.split('|').map((part) => part.trim()).toList();
+  if (parts.isNotEmpty && parts.first.isEmpty) {
+    parts.removeAt(0);
+  }
+  if (parts.isNotEmpty && parts.last.isEmpty) {
+    parts.removeLast();
+  }
+  if (parts.length < 2) {
+    return null;
+  }
+  return parts;
+}
+
+bool _isPipeTableSeparatorCell(String cell) {
+  return RegExp(r'^:?-{3,}:?$').hasMatch(cell);
+}
+
+List<String> _normalizeTableRow(List<String> cells, int length) {
+  final row = cells.take(length).toList();
+  while (row.length < length) {
+    row.add('');
+  }
+  return row;
 }
 
 bool _isMarkdownQuoteLine(String line) {
