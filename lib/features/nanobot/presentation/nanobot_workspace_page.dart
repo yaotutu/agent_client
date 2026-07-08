@@ -852,12 +852,16 @@ class _SessionSearchDialog extends StatefulWidget {
 }
 
 class _SessionSearchDialogState extends State<_SessionSearchDialog> {
+  static const _estimatedResultTileExtent = 72.0;
+
   final _queryController = TextEditingController();
+  final _scrollController = ScrollController();
   var _highlightedIndex = 0;
 
   @override
   void dispose() {
     _queryController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -865,7 +869,9 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
   Widget build(BuildContext context) {
     final query = _queryController.text.trim().toLowerCase();
     final results = _searchResults(query);
-    final emptyLabel = query.isEmpty ? 'No sessions yet.' : 'No matching chats.';
+    final emptyLabel = query.isEmpty
+        ? 'No sessions yet.'
+        : 'No matching chats.';
     return AlertDialog(
       titlePadding: EdgeInsets.zero,
       title: Focus(
@@ -924,6 +930,7 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
                       ),
                     )
                   : ListView.builder(
+                      controller: _scrollController,
                       itemCount: results.length,
                       itemBuilder: (context, index) {
                         final session = results[index];
@@ -1000,6 +1007,7 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
       final current = _clampedHighlightedIndex(results);
       _highlightedIndex = (current + delta + results.length) % results.length;
     });
+    _scrollHighlightedResultIntoView(results);
   }
 
   void _selectHighlightedResult() {
@@ -1009,6 +1017,33 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
       return;
     }
     Navigator.of(context).pop(results[_clampedHighlightedIndex(results)]);
+  }
+
+  void _scrollHighlightedResultIntoView(List<NanobotSessionSummary> results) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients || results.isEmpty) {
+        return;
+      }
+      final position = _scrollController.position;
+      final currentOffset = position.pixels;
+      final itemTop =
+          _clampedHighlightedIndex(results) * _estimatedResultTileExtent;
+      final itemBottom = itemTop + _estimatedResultTileExtent;
+      final viewportTop = currentOffset;
+      final viewportBottom = currentOffset + position.viewportDimension;
+      var targetOffset = currentOffset;
+      if (itemTop < viewportTop) {
+        targetOffset = itemTop;
+      } else if (itemBottom > viewportBottom) {
+        targetOffset = itemBottom - position.viewportDimension;
+      }
+      if (targetOffset == currentOffset) {
+        return;
+      }
+      _scrollController.jumpTo(
+        targetOffset.clamp(position.minScrollExtent, position.maxScrollExtent),
+      );
+    });
   }
 }
 

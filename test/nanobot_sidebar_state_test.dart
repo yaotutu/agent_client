@@ -418,6 +418,51 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets('session search scrolls keyboard highlighted results into view', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      sessions: [
+        for (var index = 1; index <= 24; index += 1)
+          NanobotSessionSummary(
+            key: 'websocket:chat-$index',
+            channel: 'websocket',
+            chatId: 'chat-$index',
+            title: 'Chat $index',
+            preview: 'Preview $index',
+            createdAt: DateTime.fromMillisecondsSinceEpoch(index),
+            updatedAt: DateTime.fromMillisecondsSinceEpoch(index),
+          ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ListTile, 'Chat 16'), findsNothing);
+
+    for (var index = 0; index < 15; index += 1) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.widgetWithText(ListTile, 'Chat 16'), findsOneWidget);
+    expect(
+      tester
+          .widget<ListTile>(find.widgetWithText(ListTile, 'Chat 16'))
+          .selected,
+      isTrue,
+    );
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
