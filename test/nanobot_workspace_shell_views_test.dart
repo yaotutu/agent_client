@@ -115,6 +115,14 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotSessionDeleteResult> deleteSession({
+    required String sessionKey,
+    bool deleteAutomations = false,
+  }) async {
+    return const NanobotSessionDeleteResult(deleted: true);
+  }
+
+  @override
   Future<List<NanobotMessage>> fetchThread(
     NanobotSessionSummary session,
   ) async {

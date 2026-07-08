@@ -116,12 +116,49 @@ void main() {
     });
     expect(find.text('Roadmap v2'), findsOneWidget);
   });
+
+  testWidgets('session action menu confirms and deletes a session', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(NanobotWorkspacePage)),
+    );
+
+    await tester.tap(find.byTooltip('Actions for Active Chat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete this chat?'), findsOneWidget);
+    expect(find.text('This action cannot be undone.'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedSessionKey, 'websocket:chat-1');
+    expect(find.text('Active Chat'), findsNothing);
+    expect(
+      container.read(nanobotWorkspaceControllerProvider).selectedSessionKey,
+      'websocket:chat-2',
+    );
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
   NanobotSidebarState? persistedSidebarState;
+  String? deletedSessionKey;
 
   final _sessions = [
     NanobotSessionSummary(
@@ -212,6 +249,16 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   ) async {
     persistedSidebarState = state;
     return state;
+  }
+
+  @override
+  Future<NanobotSessionDeleteResult> deleteSession({
+    required String sessionKey,
+    bool deleteAutomations = false,
+  }) async {
+    deletedSessionKey = sessionKey;
+    _sessions.removeWhere((session) => session.key == sessionKey);
+    return const NanobotSessionDeleteResult(deleted: true);
   }
 
   @override

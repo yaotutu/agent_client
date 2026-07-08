@@ -37,6 +37,13 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('updateSidebarState');
   }
 
+  Future<NanobotSessionDeleteResult> deleteSession({
+    required String sessionKey,
+    bool deleteAutomations = false,
+  }) {
+    throw UnimplementedError('deleteSession');
+  }
+
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() {
     throw UnimplementedError('fetchSettingsSnapshot');
   }
@@ -126,6 +133,22 @@ class NanobotRepository implements NanobotRepositoryPort {
   ) async {
     return _sidebarStateFromDto(
       await api.updateSidebarState(_sidebarStateToDto(state)),
+    );
+  }
+
+  @override
+  Future<NanobotSessionDeleteResult> deleteSession({
+    required String sessionKey,
+    bool deleteAutomations = false,
+  }) async {
+    final dto = await api.deleteSession(
+      sessionKey: sessionKey,
+      deleteAutomations: deleteAutomations,
+    );
+    return NanobotSessionDeleteResult(
+      deleted: dto.deleted,
+      blockedByAutomations: dto.blockedByAutomations,
+      automations: dto.automations,
     );
   }
 

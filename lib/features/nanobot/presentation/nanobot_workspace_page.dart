@@ -55,6 +55,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
                   onTogglePinned: controller.toggleSessionPinned,
                   onToggleArchived: controller.toggleSessionArchived,
                   onRenameSession: controller.renameSession,
+                  onDeleteSession: controller.deleteSession,
                 ),
               ),
             )
@@ -96,6 +97,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
                     onTogglePinned: controller.toggleSessionPinned,
                     onToggleArchived: controller.toggleSessionArchived,
                     onRenameSession: controller.renameSession,
+                    onDeleteSession: controller.deleteSession,
                   ),
                 ),
                 const VerticalDivider(width: 1, color: AppThemeTokens.border),
@@ -134,6 +136,7 @@ class _SessionList extends StatelessWidget {
     required this.onTogglePinned,
     required this.onToggleArchived,
     required this.onRenameSession,
+    required this.onDeleteSession,
   });
 
   final NanobotWorkspaceState state;
@@ -149,6 +152,7 @@ class _SessionList extends StatelessWidget {
   final ValueChanged<String> onTogglePinned;
   final ValueChanged<String> onToggleArchived;
   final Future<void> Function(String key, String title) onRenameSession;
+  final Future<void> Function(String key) onDeleteSession;
 
   @override
   Widget build(BuildContext context) {
@@ -254,6 +258,7 @@ class _SessionList extends StatelessWidget {
                         onTogglePinned: () => onTogglePinned(session.key),
                         onToggleArchived: () => onToggleArchived(session.key),
                         onRename: () => _renameSession(context, session),
+                        onDelete: () => _deleteSession(context, session),
                       );
                     },
                   ),
@@ -293,6 +298,20 @@ class _SessionList extends StatelessWidget {
       return;
     }
     await onRenameSession(session.key, next);
+  }
+
+  Future<void> _deleteSession(
+    BuildContext context,
+    NanobotSessionSummary session,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => const _DeleteSessionDialog(),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    await onDeleteSession(session.key);
   }
 }
 
@@ -351,6 +370,7 @@ class _SessionTile extends StatelessWidget {
     required this.onTogglePinned,
     required this.onToggleArchived,
     required this.onRename,
+    required this.onDelete,
   });
 
   final NanobotSessionSummary session;
@@ -362,6 +382,7 @@ class _SessionTile extends StatelessWidget {
   final VoidCallback onTogglePinned;
   final VoidCallback onToggleArchived;
   final VoidCallback onRename;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -431,6 +452,8 @@ class _SessionTile extends StatelessWidget {
                             onRename();
                           case _SessionAction.archive:
                             onToggleArchived();
+                          case _SessionAction.delete:
+                            onDelete();
                         }
                       },
                       itemBuilder: (context) => [
@@ -445,6 +468,10 @@ class _SessionTile extends StatelessWidget {
                         PopupMenuItem(
                           value: _SessionAction.archive,
                           child: Text(archived ? 'Unarchive' : 'Archive'),
+                        ),
+                        const PopupMenuItem(
+                          value: _SessionAction.delete,
+                          child: Text('Delete'),
                         ),
                       ],
                     ),
@@ -471,7 +498,29 @@ class _SessionTile extends StatelessWidget {
   }
 }
 
-enum _SessionAction { pin, rename, archive }
+enum _SessionAction { pin, rename, archive, delete }
+
+class _DeleteSessionDialog extends StatelessWidget {
+  const _DeleteSessionDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Delete this chat?'),
+      content: const Text('This action cannot be undone.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Delete'),
+        ),
+      ],
+    );
+  }
+}
 
 class _RenameSessionDialog extends StatefulWidget {
   const _RenameSessionDialog({required this.initialTitle});

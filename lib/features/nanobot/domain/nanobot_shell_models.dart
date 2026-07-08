@@ -30,6 +30,18 @@ class NanobotCatalogItem {
   final String status;
 }
 
+class NanobotSessionDeleteResult {
+  const NanobotSessionDeleteResult({
+    required this.deleted,
+    this.blockedByAutomations = false,
+    this.automations = const [],
+  });
+
+  final bool deleted;
+  final bool blockedByAutomations;
+  final List<Map<String, Object?>> automations;
+}
+
 class NanobotSidebarState {
   const NanobotSidebarState({
     this.pinnedKeys = const [],

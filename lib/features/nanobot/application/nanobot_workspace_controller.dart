@@ -223,6 +223,52 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     );
   }
 
+  Future<void> deleteSession(String key) async {
+    final currentSessions = state.sessions;
+    final deletedIndex = currentSessions.indexWhere(
+      (session) => session.key == key,
+    );
+    final deletingActive = state.selectedSessionKey == key;
+    try {
+      final result = await ref
+          .read(nanobotRepositoryProvider)
+          .deleteSession(sessionKey: key);
+      if (result.blockedByAutomations) {
+        state = state.copyWith(
+          errorMessage:
+              'Delete blocked by ${result.automations.length} automation(s).',
+        );
+        return;
+      }
+      if (!result.deleted) {
+        state = state.copyWith(errorMessage: 'Delete failed.');
+        return;
+      }
+      final nextSessions = [
+        for (final session in state.sessions)
+          if (session.key != key) session,
+      ];
+      state = state.copyWith(sessions: nextSessions, clearError: true);
+      if (!deletingActive) {
+        return;
+      }
+      final fallback = _deleteFallbackSession(nextSessions, deletedIndex);
+      if (fallback != null) {
+        await selectSession(fallback);
+      } else {
+        state = state.copyWith(
+          clearSelectedSession: true,
+          clearThreadState: true,
+          messages: const [],
+          clearReasoning: true,
+          clearActivity: true,
+        );
+      }
+    } on Object catch (error) {
+      state = state.copyWith(errorMessage: _friendlyError(error));
+    }
+  }
+
   Future<void> _updateSidebarState(NanobotSidebarState next) async {
     state = state.copyWith(sidebarState: next, clearError: true);
     try {
@@ -591,6 +637,22 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
             reasoning: entry.reasoning,
           ),
     ];
+  }
+
+  NanobotSessionSummary? _deleteFallbackSession(
+    List<NanobotSessionSummary> sessions,
+    int deletedIndex,
+  ) {
+    if (sessions.isEmpty) {
+      return null;
+    }
+    if (deletedIndex < 0) {
+      return sessions.first;
+    }
+    if (deletedIndex < sessions.length) {
+      return sessions[deletedIndex];
+    }
+    return sessions.last;
   }
 
   String? _activeReasoningText(NanobotThreadState thread) {
