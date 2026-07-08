@@ -142,6 +142,63 @@ void main() {
     expect(automations.single.details, 'Release prep');
     expect(automations.single.status, 'enabled');
   });
+
+  test('repository maps automation filter keys', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/webui/automations': {
+        'jobs': [
+          {
+            'id': 'active',
+            'name': 'Active job',
+            'enabled': true,
+            'state': {'next_run_at_ms': 1, 'last_status': 'ok'},
+          },
+          {
+            'id': 'paused',
+            'name': 'Paused job',
+            'enabled': false,
+            'state': {'last_status': 'ok'},
+          },
+          {
+            'id': 'failed',
+            'name': 'Failed job',
+            'enabled': true,
+            'state': {'last_status': 'error'},
+          },
+          {
+            'id': 'system',
+            'name': 'System job',
+            'enabled': true,
+            'protected': true,
+            'state': {'last_status': 'ok'},
+          },
+        ],
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final automations = await repository.fetchAutomationItems();
+
+    expect(automations[0].filterKeys, contains('active'));
+    expect(automations[1].filterKeys, contains('paused'));
+    expect(automations[2].filterKeys, contains('failed'));
+    expect(automations[3].filterKeys, contains('system'));
+  });
 }
 
 class _RouteAdapter implements HttpClientAdapter {

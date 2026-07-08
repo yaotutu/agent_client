@@ -293,6 +293,7 @@ class NanobotRepository implements NanobotRepositoryPort {
           subtitle: _automationSubtitle(row),
           details: _automationDetails(row),
           status: row['enabled'] == false ? 'disabled' : 'enabled',
+          filterKeys: _automationFilterKeys(row),
         ),
     ];
   }
@@ -541,6 +542,21 @@ class NanobotRepository implements NanobotRepositoryPort {
       return channel;
     }
     return '';
+  }
+
+  List<String> _automationFilterKeys(Map<String, Object?> row) {
+    if (row['protected'] == true) {
+      return const ['system'];
+    }
+    final state = row['state'];
+    final lastStatus = state is Map ? state['last_status'] : null;
+    if (lastStatus == 'error') {
+      return const ['failed'];
+    }
+    if (row['enabled'] == false) {
+      return const ['paused'];
+    }
+    return const ['active'];
   }
 
   String _skillStatus(Map<String, Object?> row) {

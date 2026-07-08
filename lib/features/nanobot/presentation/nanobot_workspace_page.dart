@@ -1900,6 +1900,7 @@ class _SearchableCatalogSurface extends StatefulWidget {
 
 class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
   final _queryController = TextEditingController();
+  var _activeFilter = 'all';
 
   @override
   void dispose() {
@@ -1910,17 +1911,23 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
   @override
   Widget build(BuildContext context) {
     final query = _queryController.text.trim();
-    final visibleItems = query.isEmpty
-        ? widget.items
-        : [
-            for (final item in widget.items)
-              if (_matches(item, query)) item,
-          ];
+    final visibleItems = [
+      for (final item in widget.items)
+        if (_matchesFilter(item, _activeFilter) &&
+            (query.isEmpty || _matches(item, query)))
+          item,
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SurfaceTitle(widget.title),
         const SizedBox(height: 16),
+        _AutomationFilterChips(
+          items: widget.items,
+          selected: _activeFilter,
+          onSelected: (filter) => setState(() => _activeFilter = filter),
+        ),
+        const SizedBox(height: 12),
         TextField(
           controller: _queryController,
           onChanged: (_) => setState(() {}),
@@ -1954,6 +1961,16 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
     );
   }
 
+  bool _matchesFilter(NanobotCatalogItem item, String filter) {
+    if (filter == 'all') {
+      return true;
+    }
+    if (item.filterKeys.isEmpty && filter == 'active') {
+      return true;
+    }
+    return item.filterKeys.contains(filter);
+  }
+
   bool _matches(NanobotCatalogItem item, String query) {
     final haystack = [
       item.title,
@@ -1967,6 +1984,59 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
         .where((token) => token.isNotEmpty);
     return tokens.every(haystack.contains);
   }
+}
+
+class _AutomationFilterChips extends StatelessWidget {
+  const _AutomationFilterChips({
+    required this.items,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<NanobotCatalogItem> items;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final options = [
+      _AutomationFilterOption('all', 'All', items.length),
+      _AutomationFilterOption('active', 'Active', _count('active')),
+      _AutomationFilterOption('paused', 'Paused', _count('paused')),
+      _AutomationFilterOption('failed', 'Needs attention', _count('failed')),
+      _AutomationFilterOption('system', 'System', _count('system')),
+    ];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final option in options)
+          ChoiceChip(
+            label: Text('${option.label} ${option.count}'),
+            selected: selected == option.key,
+            onSelected: (_) => onSelected(option.key),
+          ),
+      ],
+    );
+  }
+
+  int _count(String key) {
+    return items
+        .where(
+          (item) =>
+              item.filterKeys.contains(key) ||
+              (key == 'active' && item.filterKeys.isEmpty),
+        )
+        .length;
+  }
+}
+
+class _AutomationFilterOption {
+  const _AutomationFilterOption(this.key, this.label, this.count);
+
+  final String key;
+  final String label;
+  final int count;
 }
 
 class _CatalogRow extends StatelessWidget {

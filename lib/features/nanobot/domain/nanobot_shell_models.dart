@@ -25,6 +25,7 @@ class NanobotCatalogItem {
     this.subtitle = '',
     this.details = '',
     this.status = '',
+    this.filterKeys = const [],
   });
 
   final String id;
@@ -32,6 +33,7 @@ class NanobotCatalogItem {
   final String subtitle;
   final String details;
   final String status;
+  final List<String> filterKeys;
 }
 
 class NanobotSkillDetail {

@@ -188,6 +188,70 @@ void main() {
     expect(find.text('WeChat quiz'), findsOneWidget);
   });
 
+  testWidgets('automations surface filter chips narrow by status', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      automationItems: const [
+        NanobotCatalogItem(
+          id: 'active',
+          title: 'Active job',
+          status: 'enabled',
+          filterKeys: ['active'],
+        ),
+        NanobotCatalogItem(
+          id: 'paused',
+          title: 'Paused job',
+          status: 'disabled',
+          filterKeys: ['paused'],
+        ),
+        NanobotCatalogItem(
+          id: 'failed',
+          title: 'Failed job',
+          status: 'enabled',
+          filterKeys: ['failed'],
+        ),
+        NanobotCatalogItem(
+          id: 'system',
+          title: 'System job',
+          status: 'enabled',
+          filterKeys: ['system'],
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('All 4'), findsOneWidget);
+    expect(find.text('Active 1'), findsOneWidget);
+    expect(find.text('Paused 1'), findsOneWidget);
+    expect(find.text('Needs attention 1'), findsOneWidget);
+    expect(find.text('System 1'), findsOneWidget);
+
+    await tester.tap(find.text('Paused 1'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Paused job'), findsOneWidget);
+    expect(find.text('Active job'), findsNothing);
+    expect(find.text('Failed job'), findsNothing);
+
+    await tester.tap(find.text('Needs attention 1'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Failed job'), findsOneWidget);
+    expect(find.text('Paused job'), findsNothing);
+  });
+
   testWidgets('skills surface opens unavailable skill details', (tester) async {
     final repository = _FakeNanobotRepository(
       skillItems: const [
