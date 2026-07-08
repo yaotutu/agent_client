@@ -560,6 +560,53 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     }
   }
 
+  Future<void> forkFromMessage(int beforeUserIndex) async {
+    final sourceChatId = state.selectedChatId;
+    final sourceSession = state.selectedSession;
+    if (sourceChatId == null ||
+        sourceChatId.trim().isEmpty ||
+        beforeUserIndex < 0) {
+      return;
+    }
+    final workspaceScope = state.activeWorkspaceScope;
+    final sourceTitle = sourceSession == null
+        ? 'New Chat'
+        : state.displayTitleFor(sourceSession);
+    final title = 'Fork: $sourceTitle';
+    try {
+      final forkedChatId = await ref
+          .read(nanobotRepositoryProvider)
+          .forkChat(
+            sourceChatId: sourceChatId,
+            beforeUserIndex: beforeUserIndex,
+            title: title,
+          );
+      final session = NanobotSessionSummary(
+        key: 'websocket:$forkedChatId',
+        channel: 'websocket',
+        chatId: forkedChatId,
+        title: title,
+        preview: '',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        workspaceScope: workspaceScope,
+      );
+      state = state.copyWith(
+        sessions: [
+          session,
+          for (final existing in state.sessions)
+            if (existing.key != session.key) existing,
+        ],
+        activeView: NanobotShellView.chat,
+        clearError: true,
+        clearStreamError: true,
+      );
+      await selectSession(session);
+    } on Object catch (error) {
+      state = state.copyWith(errorMessage: _friendlyError(error));
+    }
+  }
+
   Future<void> sendMessage(String input) async {
     final content = input.trim();
     if (content.isEmpty || !state.canSend) {

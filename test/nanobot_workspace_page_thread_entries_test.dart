@@ -10,6 +10,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:agent_client/features/nanobot/presentation/nanobot_workspace_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher_platform_interface/link.dart';
@@ -99,6 +100,99 @@ void main() {
     expect(find.text('lib/main.dart'), findsWidgets);
     expect(find.text('void main() {}'), findsOneWidget);
     expect(find.text('Preview truncated'), findsOneWidget);
+  });
+
+  testWidgets('assistant message footer copies replies', (tester) async {
+    final repository = _FakeNanobotRepository(
+      threadMessages: [
+        NanobotMessage(
+          id: 'user-1',
+          sessionKey: 'websocket:chat-1',
+          chatId: 'chat-1',
+          role: NanobotMessageRole.user,
+          content: 'question',
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+        ),
+        NanobotMessage(
+          id: 'assistant-1',
+          sessionKey: 'websocket:chat-1',
+          chatId: 'chat-1',
+          role: NanobotMessageRole.assistant,
+          content: 'copyable answer',
+          createdAt: DateTime.fromMillisecondsSinceEpoch(1),
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText = (call.arguments as Map<Object?, Object?>)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Copy reply'));
+    await tester.pump();
+
+    expect(copiedText, 'copyable answer');
+  });
+
+  testWidgets('assistant message footer forks from replies', (tester) async {
+    final repository = _FakeNanobotRepository(
+      threadMessages: [
+        NanobotMessage(
+          id: 'user-1',
+          sessionKey: 'websocket:chat-1',
+          chatId: 'chat-1',
+          role: NanobotMessageRole.user,
+          content: 'question',
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+        ),
+        NanobotMessage(
+          id: 'assistant-1',
+          sessionKey: 'websocket:chat-1',
+          chatId: 'chat-1',
+          role: NanobotMessageRole.assistant,
+          content: 'forkable answer',
+          createdAt: DateTime.fromMillisecondsSinceEpoch(1),
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Fork'));
+    await tester.pumpAndSettle();
+
+    expect(repository.forkSourceChatId, 'chat-1');
+    expect(repository.forkBeforeUserIndex, 1);
+    expect(repository.forkTitle, 'Fork: Chat chat-1');
+    expect(find.text('Fork: Chat chat-1'), findsWidgets);
   });
 
   testWidgets('message markdown file links open a file preview panel', (
@@ -1026,8 +1120,11 @@ void main() {
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
+  _FakeNanobotRepository({this.threadMessages = const []});
+
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
+  final List<NanobotMessage> threadMessages;
   final _sessions = [
     NanobotSessionSummary(
       key: 'websocket:chat-1',
@@ -1095,6 +1192,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   String? previewSessionKey;
   String? previewPath;
+  String? forkSourceChatId;
+  int? forkBeforeUserIndex;
+  String? forkTitle;
 
   @override
   Future<NanobotWorkspaceSnapshot> fetchWorkspacesSnapshot() async {
@@ -1119,7 +1219,10 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<List<NanobotMessage>> fetchThread(
     NanobotSessionSummary session,
   ) async {
-    return const [];
+    if (session.chatId == 'chat-fork') {
+      return const [];
+    }
+    return threadMessages;
   }
 
   @override
@@ -1151,6 +1254,18 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     List<NanobotCapabilityMention> cliApps = const [],
     List<NanobotCapabilityMention> mcpPresets = const [],
   }) async {}
+
+  @override
+  Future<String> forkChat({
+    required String sourceChatId,
+    required int beforeUserIndex,
+    String? title,
+  }) async {
+    forkSourceChatId = sourceChatId;
+    forkBeforeUserIndex = beforeUserIndex;
+    forkTitle = title;
+    return 'chat-fork';
+  }
 
   @override
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {

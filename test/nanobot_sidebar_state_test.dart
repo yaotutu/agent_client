@@ -297,6 +297,15 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }) async {}
 
   @override
+  Future<String> forkChat({
+    required String sourceChatId,
+    required int beforeUserIndex,
+    String? title,
+  }) async {
+    return 'chat-fork';
+  }
+
+  @override
   Future<NanobotSidebarState> fetchSidebarState() async {
     return const NanobotSidebarState(
       pinnedKeys: ['websocket:chat-2'],

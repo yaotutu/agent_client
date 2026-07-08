@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
@@ -83,6 +84,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onOpenFilePreview: controller.openFilePreview,
               onCloseFilePreview: controller.closeFilePreview,
               onDismissStreamError: controller.dismissStreamError,
+              onForkFromMessage: controller.forkFromMessage,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -726,6 +728,7 @@ class _ChatPane extends StatelessWidget {
     required this.onOpenFilePreview,
     required this.onCloseFilePreview,
     required this.onDismissStreamError,
+    required this.onForkFromMessage,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -742,6 +745,7 @@ class _ChatPane extends StatelessWidget {
   final ValueChanged<String> onOpenFilePreview;
   final VoidCallback onCloseFilePreview;
   final VoidCallback onDismissStreamError;
+  final Future<void> Function(int beforeUserIndex) onForkFromMessage;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -767,6 +771,7 @@ class _ChatPane extends StatelessWidget {
                     state: state,
                     onOpenFilePreview: onOpenFilePreview,
                     onCloseFilePreview: onCloseFilePreview,
+                    onForkFromMessage: onForkFromMessage,
                   )
                 : _SecondarySurface(state: state),
           ),
@@ -1136,11 +1141,13 @@ class _ChatMessageArea extends StatelessWidget {
     required this.state,
     required this.onOpenFilePreview,
     required this.onCloseFilePreview,
+    required this.onForkFromMessage,
   });
 
   final NanobotWorkspaceState state;
   final ValueChanged<String> onOpenFilePreview;
   final VoidCallback onCloseFilePreview;
+  final Future<void> Function(int beforeUserIndex) onForkFromMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -1151,6 +1158,7 @@ class _ChatMessageArea extends StatelessWidget {
           child: _MessageList(
             state: state,
             onOpenFilePreview: onOpenFilePreview,
+            onForkFromMessage: onForkFromMessage,
           ),
         ),
         if (previewPath != null)
@@ -1168,10 +1176,15 @@ class _ChatMessageArea extends StatelessWidget {
 }
 
 class _MessageList extends StatelessWidget {
-  const _MessageList({required this.state, required this.onOpenFilePreview});
+  const _MessageList({
+    required this.state,
+    required this.onOpenFilePreview,
+    required this.onForkFromMessage,
+  });
 
   final NanobotWorkspaceState state;
   final ValueChanged<String> onOpenFilePreview;
+  final Future<void> Function(int beforeUserIndex) onForkFromMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -1193,12 +1206,19 @@ class _MessageList extends StatelessWidget {
         addSemanticIndexes: false,
         itemCount: threadEntries.length,
         itemBuilder: (context, index) {
-          final entry = threadEntries[threadEntries.length - 1 - index];
+          final entryIndex = threadEntries.length - 1 - index;
+          final entry = threadEntries[entryIndex];
+          final forkIndex = _assistantActionsVisible(threadEntries, entryIndex)
+              ? _userCountBeforeThreadEntry(threadEntries, entryIndex)
+              : null;
           return RepaintBoundary(
             key: ValueKey(entry.id),
             child: _ThreadEntryBubble(
               entry: entry,
               onOpenFilePreview: onOpenFilePreview,
+              onForkFromHere: forkIndex == null
+                  ? null
+                  : () => onForkFromMessage(forkIndex),
             ),
           );
         },
@@ -1233,11 +1253,20 @@ class _MessageList extends StatelessWidget {
         final offset = hasActivity ? 1 : 0;
         final messageIndex = state.messages.length - 1 - (index - offset);
         final message = state.messages[messageIndex];
+        final forkIndex = _assistantMessageActionsVisible(
+          state.messages,
+          messageIndex,
+        )
+            ? _userCountBeforeMessage(state.messages, messageIndex)
+            : null;
         return RepaintBoundary(
           key: ValueKey(message.id),
           child: _MessageBubble(
             message: message,
             onOpenFilePreview: onOpenFilePreview,
+            onForkFromHere: forkIndex == null
+                ? null
+                : () => onForkFromMessage(forkIndex),
           ),
         );
       },
@@ -1376,14 +1405,77 @@ class _FilePreviewPanelBody extends StatelessWidget {
   }
 }
 
+bool _assistantActionsVisible(List<NanobotThreadEntry> entries, int index) {
+  final entry = entries[index];
+  if (!_showsAssistantActions(
+    role: entry.role,
+    isStreaming: entry.isStreaming,
+    content: entry.content,
+  )) {
+    return false;
+  }
+  if (index + 1 >= entries.length) {
+    return true;
+  }
+  return entries[index + 1].role == NanobotThreadRole.user;
+}
+
+int _userCountBeforeThreadEntry(List<NanobotThreadEntry> entries, int index) {
+  var count = 0;
+  for (var i = 0; i < index; i += 1) {
+    if (entries[i].role == NanobotThreadRole.user) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+bool _assistantMessageActionsVisible(List<NanobotMessage> messages, int index) {
+  final message = messages[index];
+  if (!_showsAssistantActions(
+    role: message.role,
+    isStreaming: message.status == NanobotMessageStatus.streaming,
+    content: message.content,
+  )) {
+    return false;
+  }
+  if (index + 1 >= messages.length) {
+    return true;
+  }
+  return messages[index + 1].role == NanobotMessageRole.user;
+}
+
+int _userCountBeforeMessage(List<NanobotMessage> messages, int index) {
+  var count = 0;
+  for (var i = 0; i < index; i += 1) {
+    if (messages[i].role == NanobotMessageRole.user) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+bool _showsAssistantActions({
+  required Object role,
+  required bool isStreaming,
+  required String content,
+}) {
+  final isAssistant =
+      role == NanobotThreadRole.assistant ||
+      role == NanobotMessageRole.assistant;
+  return isAssistant && !isStreaming && content.trim().isNotEmpty;
+}
+
 class _ThreadEntryBubble extends StatelessWidget {
   const _ThreadEntryBubble({
     required this.entry,
     required this.onOpenFilePreview,
+    this.onForkFromHere,
   });
 
   final NanobotThreadEntry entry;
   final ValueChanged<String> onOpenFilePreview;
+  final Future<void> Function()? onForkFromHere;
 
   @override
   Widget build(BuildContext context) {
@@ -1391,6 +1483,7 @@ class _ThreadEntryBubble extends StatelessWidget {
       NanobotThreadEntryKind.message => _ThreadMessageBubble(
         entry: entry,
         onOpenFilePreview: onOpenFilePreview,
+        onForkFromHere: onForkFromHere,
       ),
       NanobotThreadEntryKind.trace => _ThreadTraceBubble(entry: entry),
       NanobotThreadEntryKind.fileEdit => _ThreadFileEditBubble(
@@ -1405,10 +1498,12 @@ class _ThreadMessageBubble extends StatelessWidget {
   const _ThreadMessageBubble({
     required this.entry,
     required this.onOpenFilePreview,
+    this.onForkFromHere,
   });
 
   final NanobotThreadEntry entry;
   final ValueChanged<String> onOpenFilePreview;
+  final Future<void> Function()? onForkFromHere;
 
   @override
   Widget build(BuildContext context) {
@@ -1453,6 +1548,17 @@ class _ThreadMessageBubble extends StatelessWidget {
                     entry.reasoning?.trim().isNotEmpty == true)
                   const SizedBox(height: 8),
                 _MessageMediaRow(media: entry.media),
+              ],
+              if (_showsAssistantActions(
+                role: entry.role,
+                isStreaming: entry.isStreaming,
+                content: entry.content,
+              )) ...[
+                const SizedBox(height: 8),
+                _AssistantMessageActions(
+                  content: entry.content,
+                  onForkFromHere: onForkFromHere,
+                ),
               ],
             ],
           ),
@@ -3243,10 +3349,12 @@ class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.message,
     required this.onOpenFilePreview,
+    this.onForkFromHere,
   });
 
   final NanobotMessage message;
   final ValueChanged<String> onOpenFilePreview;
+  final Future<void> Function()? onForkFromHere;
 
   @override
   Widget build(BuildContext context) {
@@ -3301,11 +3409,83 @@ class _MessageBubble extends StatelessWidget {
                   const SizedBox(height: 8),
                 _MessageMediaRow(media: message.media),
               ],
+              if (_showsAssistantActions(
+                role: message.role,
+                isStreaming: message.status == NanobotMessageStatus.streaming,
+                content: message.content,
+              )) ...[
+                const SizedBox(height: 8),
+                _AssistantMessageActions(
+                  content: message.content,
+                  onForkFromHere: onForkFromHere,
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _AssistantMessageActions extends StatefulWidget {
+  const _AssistantMessageActions({
+    required this.content,
+    required this.onForkFromHere,
+  });
+
+  final String content;
+  final Future<void> Function()? onForkFromHere;
+
+  @override
+  State<_AssistantMessageActions> createState() =>
+      _AssistantMessageActionsState();
+}
+
+class _AssistantMessageActionsState extends State<_AssistantMessageActions> {
+  var _copied = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 32,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: _copied ? 'Copied reply' : 'Copy reply',
+            visualDensity: VisualDensity.compact,
+            iconSize: 18,
+            color: AppThemeTokens.mutedText,
+            onPressed: () {
+              unawaited(_copyReply());
+            },
+            icon: Icon(_copied ? Icons.check : Icons.copy),
+          ),
+          if (widget.onForkFromHere != null)
+            IconButton(
+              tooltip: 'Fork',
+              visualDensity: VisualDensity.compact,
+              iconSize: 18,
+              color: AppThemeTokens.mutedText,
+              onPressed: () {
+                unawaited(widget.onForkFromHere!());
+              },
+              icon: const Icon(Icons.call_split),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _copyReply() async {
+    await Clipboard.setData(ClipboardData(text: widget.content));
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _copied = true;
+    });
   }
 }
 

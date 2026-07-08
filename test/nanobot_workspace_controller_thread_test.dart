@@ -225,6 +225,45 @@ void main() {
     );
     expect(state.isStreaming, isFalse);
   });
+
+  test('workspace controller forks from an assistant message', () async {
+    final repository = _FakeNanobotRepository(
+      sessions: [
+        NanobotSessionSummary(
+          key: 'websocket:chat-1',
+          channel: 'websocket',
+          chatId: 'chat-1',
+          title: 'Original task',
+          preview: '',
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+        ),
+      ],
+    );
+    final container = ProviderContainer(
+      overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    addTearDown(repository.dispose);
+
+    final controller = container.read(
+      nanobotWorkspaceControllerProvider.notifier,
+    );
+    container.read(nanobotWorkspaceControllerProvider);
+    await pumpEventQueue();
+
+    await controller.forkFromMessage(2);
+
+    final state = container.read(nanobotWorkspaceControllerProvider);
+    expect(repository.forkSourceChatId, 'chat-1');
+    expect(repository.forkBeforeUserIndex, 2);
+    expect(repository.forkTitle, 'Fork: Original task');
+    expect(repository.attachedChatIds, contains('chat-fork'));
+    expect(state.selectedChatId, 'chat-fork');
+    expect(state.selectedSessionKey, 'websocket:chat-fork');
+    expect(state.threadState?.chatId, 'chat-fork');
+    expect(state.sessions.first.title, 'Fork: Original task');
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -248,6 +287,10 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Map<String, Object?>? newChatWorkspaceScope;
   String? sentChatId;
   String? sentContent;
+  String? forkSourceChatId;
+  int? forkBeforeUserIndex;
+  String? forkTitle;
+  final attachedChatIds = <String>[];
   List<NanobotCapabilityMention> sentCliApps = const [];
   List<NanobotCapabilityMention> sentMcpPresets = const [];
 
@@ -345,7 +388,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }) async {}
 
   @override
-  Future<void> attach(String chatId) async {}
+  Future<void> attach(String chatId) async {
+    attachedChatIds.add(chatId);
+  }
 
   @override
   Future<List<NanobotMessage>> fetchThread(
@@ -387,6 +432,18 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     sentContent = content;
     sentCliApps = cliApps;
     sentMcpPresets = mcpPresets;
+  }
+
+  @override
+  Future<String> forkChat({
+    required String sourceChatId,
+    required int beforeUserIndex,
+    String? title,
+  }) async {
+    forkSourceChatId = sourceChatId;
+    forkBeforeUserIndex = beforeUserIndex;
+    forkTitle = title;
+    return 'chat-fork';
   }
 
   @override

@@ -182,6 +182,15 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }) async {}
 
   @override
+  Future<String> forkChat({
+    required String sourceChatId,
+    required int beforeUserIndex,
+    String? title,
+  }) async {
+    return 'chat-fork';
+  }
+
+  @override
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
     return const NanobotSettingsSnapshot(
       model: 'MiniMax-M3',

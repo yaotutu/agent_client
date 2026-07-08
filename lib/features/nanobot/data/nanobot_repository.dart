@@ -45,6 +45,14 @@ abstract class NanobotRepositoryPort {
     List<NanobotCapabilityMention> mcpPresets = const [],
   });
 
+  Future<String> forkChat({
+    required String sourceChatId,
+    required int beforeUserIndex,
+    String? title,
+  }) {
+    throw UnimplementedError('forkChat');
+  }
+
   Future<NanobotSidebarState> fetchSidebarState() {
     throw UnimplementedError('fetchSidebarState');
   }
@@ -330,6 +338,7 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
+  @override
   Future<String> forkChat({
     required String sourceChatId,
     required int beforeUserIndex,
