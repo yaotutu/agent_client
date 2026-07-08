@@ -2779,7 +2779,8 @@ class _AutomationActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (item.filterKeys.contains('system')) {
+    final canManage = !item.isProtected && !item.filterKeys.contains('system');
+    if (!canManage) {
       return const Text(
         'Protected',
         style: TextStyle(color: AppThemeTokens.mutedText, fontSize: 12),
@@ -2787,6 +2788,12 @@ class _AutomationActionButtons extends StatelessWidget {
     }
     final paused =
         item.filterKeys.contains('paused') || item.status == 'Paused';
+    final hasLinkedChat =
+        (item.originSessionKey?.trim().isNotEmpty ?? false) ||
+        item.originLabel.trim().isNotEmpty;
+    final localTrigger = item.isLocalTriggerAutomation;
+    final canRun = hasLinkedChat && !paused && !item.isPending && !localTrigger;
+    final canToggle = !paused || hasLinkedChat;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -2813,12 +2820,14 @@ class _AutomationActionButtons extends StatelessWidget {
           constraints: const BoxConstraints.tightFor(width: 36, height: 36),
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
-          onPressed: () => onAction(
-            paused
-                ? NanobotAutomationAction.enable
-                : NanobotAutomationAction.disable,
-            item,
-          ),
+          onPressed: canToggle
+              ? () => onAction(
+                  paused
+                      ? NanobotAutomationAction.enable
+                      : NanobotAutomationAction.disable,
+                  item,
+                )
+              : null,
           icon: Icon(
             paused ? Icons.play_circle_outline : Icons.pause_circle_outline,
           ),
@@ -2836,11 +2845,12 @@ class _AutomationActionButtons extends StatelessWidget {
             await onAction(action, item);
           },
           itemBuilder: (context) => [
-            PopupMenuItem(
-              value: NanobotAutomationAction.run,
-              enabled: !paused,
-              child: const Text('Run now'),
-            ),
+            if (!localTrigger)
+              PopupMenuItem(
+                value: NanobotAutomationAction.run,
+                enabled: canRun,
+                child: const Text('Run now'),
+              ),
             const PopupMenuItem(
               value: NanobotAutomationAction.delete,
               child: Text('Delete'),

@@ -445,6 +445,131 @@ void main() {
     ]);
   });
 
+  testWidgets('automations action buttons mirror webui availability rules', (
+    tester,
+  ) async {
+    Future<_FakeNanobotRepository> pumpAutomations(
+      List<NanobotCatalogItem> items,
+    ) async {
+      final repository = _FakeNanobotRepository(automationItems: items);
+      addTearDown(repository.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: NanobotWorkspacePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Automations'));
+      await tester.pumpAndSettle();
+      return repository;
+    }
+
+    final protectedRepository = await pumpAutomations(const [
+      NanobotCatalogItem(
+        id: 'protected',
+        title: 'Protected job',
+        status: 'System',
+        filterKeys: ['active'],
+        isProtected: true,
+      ),
+    ]);
+
+    expect(find.text('Protected'), findsWidgets);
+    expect(find.byTooltip('Edit'), findsNothing);
+    expect(find.byTooltip('Pause'), findsNothing);
+    expect(find.byTooltip('Automation actions'), findsNothing);
+    expect(protectedRepository.actionRequests, isEmpty);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    final localTriggerRepository = await pumpAutomations(const [
+      NanobotCatalogItem(
+        id: 'local',
+        title: 'Local trigger',
+        status: 'Active',
+        filterKeys: ['active'],
+        originLabel: 'Chat',
+        originSessionKey: 'websocket:chat-1',
+        isLocalTriggerAutomation: true,
+      ),
+    ]);
+
+    await tester.tap(find.byTooltip('Automation actions').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Run now'), findsNothing);
+    expect(find.text('Delete'), findsOneWidget);
+    expect(localTriggerRepository.actionRequests, isEmpty);
+
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    final unlinkedRepository = await pumpAutomations(const [
+      NanobotCatalogItem(
+        id: 'unlinked',
+        title: 'Unlinked job',
+        status: 'Active',
+        filterKeys: ['active'],
+      ),
+    ]);
+
+    await tester.tap(find.byTooltip('Automation actions').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run now').last);
+    await tester.pumpAndSettle();
+
+    expect(unlinkedRepository.actionRequests, isEmpty);
+
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    final pendingRepository = await pumpAutomations(const [
+      NanobotCatalogItem(
+        id: 'pending',
+        title: 'Pending job',
+        status: 'Running now',
+        filterKeys: ['active'],
+        originLabel: 'Chat',
+        originSessionKey: 'websocket:chat-1',
+        isPending: true,
+      ),
+    ]);
+
+    await tester.tap(find.byTooltip('Automation actions').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run now').last);
+    await tester.pumpAndSettle();
+
+    expect(pendingRepository.actionRequests, isEmpty);
+
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    final pausedRepository = await pumpAutomations(const [
+      NanobotCatalogItem(
+        id: 'paused',
+        title: 'Paused job',
+        status: 'Paused',
+        filterKeys: ['paused'],
+      ),
+    ]);
+
+    await tester.tap(find.byTooltip('Resume').last);
+    await tester.pumpAndSettle();
+
+    expect(pausedRepository.actionRequests, isEmpty);
+  });
+
   testWidgets('automations edit dialog updates name message and interval', (
     tester,
   ) async {
