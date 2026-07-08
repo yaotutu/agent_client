@@ -190,6 +190,60 @@ void main() {
     expect(find.text('WeChat quiz'), findsOneWidget);
   });
 
+  testWidgets('automations search supports webui field prefixes', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      automationItems: const [
+        NanobotCatalogItem(
+          id: 'paused',
+          title: 'Paused job',
+          subtitle: 'every',
+          details: 'Release prep',
+          status: 'disabled',
+          filterKeys: ['paused'],
+        ),
+        NanobotCatalogItem(
+          id: 'cron',
+          title: 'Cron job',
+          subtitle: 'cron',
+          details: 'WeChat',
+          status: 'enabled',
+          filterKeys: ['active'],
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    final search = find.widgetWithText(
+      TextField,
+      'Search task, message, linked chat, or schedule',
+    );
+
+    await tester.enterText(search, 'status:paused');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Paused job'), findsOneWidget);
+    expect(find.text('Cron job'), findsNothing);
+
+    await tester.enterText(search, 'schedule:cron');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Paused job'), findsNothing);
+    expect(find.text('Cron job'), findsOneWidget);
+  });
+
   testWidgets('automations surface filter chips narrow by status', (
     tester,
   ) async {

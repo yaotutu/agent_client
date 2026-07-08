@@ -2034,17 +2034,40 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
   }
 
   bool _matches(NanobotCatalogItem item, String query) {
-    final haystack = [
-      item.title,
-      item.subtitle,
-      item.details,
-      item.status,
-    ].join('\n').toLowerCase();
     final tokens = query
         .toLowerCase()
         .split(RegExp(r'\s+'))
         .where((token) => token.isNotEmpty);
-    return tokens.every(haystack.contains);
+    return tokens.every((token) => _matchesSearchToken(item, token));
+  }
+
+  bool _matchesSearchToken(NanobotCatalogItem item, String token) {
+    final separator = token.indexOf(':');
+    if (separator <= 0 || separator == token.length - 1) {
+      return _searchTextFor(item, null).contains(token);
+    }
+    final field = token.substring(0, separator);
+    final value = token.substring(separator + 1);
+    return _searchTextFor(item, field).contains(value);
+  }
+
+  String _searchTextFor(NanobotCatalogItem item, String? field) {
+    final parts = switch (field) {
+      'task' || 'title' || 'name' => [item.title, item.id],
+      'message' => [item.subtitle],
+      'origin' || 'chat' || 'linked' => [item.details],
+      'schedule' => [item.subtitle],
+      'status' => [item.status, ...item.filterKeys],
+      _ => [
+        item.title,
+        item.id,
+        item.subtitle,
+        item.details,
+        item.status,
+        ...item.filterKeys,
+      ],
+    };
+    return parts.join('\n').toLowerCase();
   }
 
   List<NanobotCatalogItem> _sortItems(
