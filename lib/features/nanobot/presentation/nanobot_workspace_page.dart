@@ -758,6 +758,7 @@ class _ChatPane extends StatelessWidget {
               canSend: state.canSend,
               isStreaming: state.isStreaming,
               slashCommands: state.slashCommands,
+              skills: state.skillItems,
               workspaceScope: state.activeWorkspaceScope,
               defaultWorkspaceScope: state.workspacesSnapshot?.defaultScope,
               workspaceError: state.workspaceError,
@@ -1782,6 +1783,7 @@ class _InputBar extends StatefulWidget {
     required this.canSend,
     required this.isStreaming,
     required this.slashCommands,
+    required this.skills,
     required this.workspaceScope,
     required this.defaultWorkspaceScope,
     required this.workspaceError,
@@ -1798,6 +1800,7 @@ class _InputBar extends StatefulWidget {
   final bool canSend;
   final bool isStreaming;
   final List<NanobotSlashCommand> slashCommands;
+  final List<NanobotCatalogItem> skills;
   final NanobotWorkspaceScope? workspaceScope;
   final NanobotWorkspaceScope? defaultWorkspaceScope;
   final String? workspaceError;
@@ -1847,14 +1850,22 @@ class _InputBarState extends State<_InputBar> {
                     valueListenable: widget.controller,
                     builder: (context, value, _) {
                       final commands = _filteredSlashCommands(value.text);
-                      if (commands.isEmpty ||
-                          _dismissedSlashText == value.text) {
-                        return const SizedBox.shrink();
+                      if (commands.isNotEmpty &&
+                          _dismissedSlashText != value.text) {
+                        return _SlashCommandPalette(
+                          commands: commands,
+                          onSelected: _chooseSlashCommand,
+                        );
                       }
-                      return _SlashCommandPalette(
-                        commands: commands,
-                        onSelected: _chooseSlashCommand,
-                      );
+                      final query = _skillQuery(value);
+                      final skills = _filteredSkills(query);
+                      if (query != null && skills.isNotEmpty) {
+                        return _SkillMentionPalette(
+                          skills: skills,
+                          onSelected: (skill) => _chooseSkill(skill, query),
+                        );
+                      }
+                      return const SizedBox.shrink();
                     },
                   ),
                   TextField(
@@ -1949,6 +1960,157 @@ class _InputBarState extends State<_InputBar> {
       );
     });
     widget.focusNode.requestFocus();
+  }
+
+  _SkillMentionQuery? _skillQuery(TextEditingValue value) {
+    final caret = value.selection.isValid
+        ? value.selection.baseOffset.clamp(0, value.text.length)
+        : value.text.length;
+    final beforeCaret = value.text.substring(0, caret);
+    final match = RegExp(r'\$([A-Za-z0-9_-]*)$').firstMatch(beforeCaret);
+    if (match == null) {
+      return null;
+    }
+    return _SkillMentionQuery(
+      start: match.start,
+      end: caret,
+      text: match.group(1)!.toLowerCase(),
+    );
+  }
+
+  List<NanobotCatalogItem> _filteredSkills(_SkillMentionQuery? query) {
+    if (query == null) {
+      return const [];
+    }
+    return widget.skills
+        .where((skill) => skill.status != 'unavailable')
+        .where((skill) {
+          if (query.text.isEmpty) {
+            return true;
+          }
+          final haystack = [
+            skill.id,
+            skill.title,
+            skill.subtitle,
+          ].join(' ').toLowerCase();
+          return haystack.contains(query.text);
+        })
+        .take(8)
+        .toList();
+  }
+
+  void _chooseSkill(NanobotCatalogItem skill, _SkillMentionQuery query) {
+    final value = widget.controller.value;
+    final suffix = value.text.substring(query.end);
+    final name = skill.id.trim().isNotEmpty ? skill.id : skill.title;
+    final mention = '\$$name${suffix.startsWith(' ') ? '' : ' '}';
+    final next = '${value.text.substring(0, query.start)}$mention$suffix';
+    final cursor = query.start + mention.length;
+    widget.controller.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: cursor),
+    );
+    widget.focusNode.requestFocus();
+  }
+}
+
+class _SkillMentionQuery {
+  const _SkillMentionQuery({
+    required this.start,
+    required this.end,
+    required this.text,
+  });
+
+  final int start;
+  final int end;
+  final String text;
+}
+
+class _SkillMentionPalette extends StatelessWidget {
+  const _SkillMentionPalette({required this.skills, required this.onSelected});
+
+  final List<NanobotCatalogItem> skills;
+  final ValueChanged<NanobotCatalogItem> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      constraints: const BoxConstraints(maxHeight: 260),
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspaceAlt,
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        border: Border.all(color: AppThemeTokens.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1F000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        itemCount: skills.length,
+        itemBuilder: (context, index) {
+          final skill = skills[index];
+          final name = skill.id.trim().isNotEmpty ? skill.id : skill.title;
+          return InkWell(
+            onTap: () => onSelected(skill),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.psychology_outlined,
+                    size: 18,
+                    color: AppThemeTokens.mutedText,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          skill.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppThemeTokens.headingText,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (skill.subtitle.trim().isNotEmpty)
+                          Text(
+                            skill.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppThemeTokens.mutedText,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '\$$name',
+                    style: const TextStyle(
+                      color: AppThemeTokens.mutedText,
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 

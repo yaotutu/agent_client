@@ -64,11 +64,16 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       if (!_isActive(generation)) {
         return;
       }
+      final skills = await _loadSkillItems(repository);
+      if (!_isActive(generation)) {
+        return;
+      }
       state = state.copyWith(
         sessions: sessions,
         sidebarState: sidebarState,
         workspacesSnapshot: workspacesSnapshot,
         slashCommands: slashCommands,
+        skillItems: skills,
         modelName: bootstrap.modelName,
         isBootstrapping: false,
         socketStatus: repository.currentStatus,
@@ -122,6 +127,16 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
   ) async {
     try {
       return await repository.listSlashCommands();
+    } on Object {
+      return const [];
+    }
+  }
+
+  Future<List<NanobotCatalogItem>> _loadSkillItems(
+    NanobotRepositoryPort repository,
+  ) async {
+    try {
+      return await repository.fetchSkillItems();
     } on Object {
       return const [];
     }

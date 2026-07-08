@@ -41,6 +41,34 @@ void main() {
     final input = tester.widget<TextField>(find.byType(TextField).last);
     expect(input.controller?.text, '/stop');
   });
+
+  testWidgets('composer skill palette inserts a selected skill mention', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, r'$');
+    await tester.pumpAndSettle();
+
+    expect(find.text('browser'), findsOneWidget);
+    expect(find.text('Search and inspect pages.'), findsOneWidget);
+    expect(find.text(r'$browser'), findsOneWidget);
+
+    await tester.tap(find.text('browser'));
+    await tester.pumpAndSettle();
+
+    final input = tester.widget<TextField>(find.byType(TextField).last);
+    expect(input.controller?.text, r'$browser ');
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -177,7 +205,14 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<List<NanobotCatalogItem>> fetchSkillItems() async {
-    return const [];
+    return const [
+      NanobotCatalogItem(
+        id: 'browser',
+        title: 'browser',
+        subtitle: 'Search and inspect pages.',
+        status: 'available',
+      ),
+    ];
   }
 
   @override
