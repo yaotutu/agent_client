@@ -1598,7 +1598,8 @@ class _MessageContentText extends ConsumerWidget {
     final blocks = _messageContentBlocks(text);
     if (blocks.length == 1 &&
         blocks.single.code == null &&
-        blocks.single.heading == null) {
+        blocks.single.heading == null &&
+        blocks.single.quote == null) {
       return _buildInlineContent(text, ref);
     }
     return Column(
@@ -1608,6 +1609,11 @@ class _MessageContentText extends ConsumerWidget {
         for (final block in blocks) ...[
           if (block.heading != null)
             _MessageHeading(text: block.heading!, level: block.headingLevel)
+          else if (block.quote != null)
+            _MessageQuoteBlock(
+              quote: block.quote!,
+              itemBuilder: (line) => _buildInlineSegments(line, ref),
+            )
           else if (block.code == null)
             _buildInlineContent(block.text, ref)
           else
@@ -1689,6 +1695,36 @@ class _MessageHeading extends StatelessWidget {
         fontSize: fontSize,
         fontWeight: FontWeight.w700,
         height: 1.25,
+      ),
+    );
+  }
+}
+
+class _MessageQuoteBlock extends StatelessWidget {
+  const _MessageQuoteBlock({required this.quote, required this.itemBuilder});
+
+  final String quote;
+  final Widget Function(String line) itemBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = quote.split('\n').where((line) => line.isNotEmpty).toList();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: const BoxDecoration(
+        border: Border(
+          left: BorderSide(color: AppThemeTokens.strongBorder, width: 3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final line in lines) ...[
+            itemBuilder(line),
+            if (line != lines.last) const SizedBox(height: 4),
+          ],
+        ],
       ),
     );
   }
@@ -1949,23 +1985,33 @@ class _MessageContentBlock {
     : language = null,
       code = null,
       heading = null,
-      headingLevel = 0;
+      headingLevel = 0,
+      quote = null;
   const _MessageContentBlock.code({required this.language, required this.code})
     : text = '',
       heading = null,
-      headingLevel = 0;
+      headingLevel = 0,
+      quote = null;
   const _MessageContentBlock.heading({
     required this.heading,
     required this.headingLevel,
   }) : text = '',
        language = null,
-       code = null;
+       code = null,
+       quote = null;
+  const _MessageContentBlock.quote({required this.quote})
+    : text = '',
+      language = null,
+      code = null,
+      heading = null,
+      headingLevel = 0;
 
   final String text;
   final String? language;
   final String? code;
   final String? heading;
   final int headingLevel;
+  final String? quote;
 }
 
 class _MarkdownBulletList {
@@ -2026,22 +2072,47 @@ List<_MessageContentBlock> _markdownTextBlocks(String text) {
     buffer.clear();
   }
 
-  for (final line in lines) {
+  var index = 0;
+  while (index < lines.length) {
+    final line = lines[index];
     final heading = RegExp(r'^(#{1,3})\s+(.+)$').firstMatch(line.trimRight());
-    if (heading == null) {
-      buffer.add(line);
+    if (heading != null) {
+      flushBuffer();
+      blocks.add(
+        _MessageContentBlock.heading(
+          heading: heading.group(2)!.trim(),
+          headingLevel: heading.group(1)!.length,
+        ),
+      );
+      index += 1;
       continue;
     }
-    flushBuffer();
-    blocks.add(
-      _MessageContentBlock.heading(
-        heading: heading.group(2)!.trim(),
-        headingLevel: heading.group(1)!.length,
-      ),
-    );
+
+    if (_isMarkdownQuoteLine(line)) {
+      flushBuffer();
+      final quoteLines = <String>[];
+      while (index < lines.length && _isMarkdownQuoteLine(lines[index])) {
+        quoteLines.add(_quoteLineText(lines[index]));
+        index += 1;
+      }
+      blocks.add(_MessageContentBlock.quote(quote: quoteLines.join('\n')));
+      continue;
+    }
+
+    buffer.add(line);
+    index += 1;
   }
   flushBuffer();
   return blocks.isEmpty ? [_MessageContentBlock.text(text)] : blocks;
+}
+
+bool _isMarkdownQuoteLine(String line) {
+  return line.trimLeft().startsWith('>');
+}
+
+String _quoteLineText(String line) {
+  final trimmedLeft = line.trimLeft();
+  return trimmedLeft.replaceFirst(RegExp(r'^>\s?'), '').trimRight();
 }
 
 String _trimBlockText(String text) {

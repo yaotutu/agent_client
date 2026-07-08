@@ -294,6 +294,34 @@ void main() {
     expect(find.textContaining('[ ]'), findsNothing);
   });
 
+  testWidgets('message markdown blockquotes render quote blocks', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': '> Important\n> Check `gateway` first.',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('>'), findsNothing);
+    expect(find.text('Important\nCheck gateway first.'), findsNothing);
+    expect(find.text('Important'), findsOneWidget);
+    expect(_richTextWithCodeSpan('gateway'), findsOneWidget);
+    expect(_containerWithLeftBorder(), findsOneWidget);
+  });
+
   testWidgets('message markdown headings render heading text', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
@@ -714,5 +742,19 @@ Finder _checkboxWithValue(bool value) {
     return widget is Checkbox &&
         widget.value == value &&
         widget.onChanged == null;
+  });
+}
+
+Finder _containerWithLeftBorder() {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! Container) {
+      return false;
+    }
+    final decoration = widget.decoration;
+    if (decoration is! BoxDecoration) {
+      return false;
+    }
+    final border = decoration.border;
+    return border is Border && border.left.width >= 3;
   });
 }
