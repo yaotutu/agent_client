@@ -616,7 +616,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     List<NanobotSendMedia> media = const [],
   }) async {
     final content = input.trim();
-    if (content.isEmpty || !state.canSend) {
+    if ((content.isEmpty && media.isEmpty) || !state.canSend) {
       return;
     }
 

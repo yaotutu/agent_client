@@ -160,7 +160,7 @@ class NanobotWsClient {
   }) async {
     final trimmedChatId = chatId.trim();
     final trimmedContent = content.trim();
-    if (trimmedChatId.isEmpty || trimmedContent.isEmpty) {
+    if (trimmedChatId.isEmpty || (trimmedContent.isEmpty && media.isEmpty)) {
       return;
     }
     _knownChats.add(trimmedChatId);

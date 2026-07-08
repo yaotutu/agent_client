@@ -81,6 +81,31 @@ void main() {
     expect(frame['turn_id'], 'turn-1');
   });
 
+  test('sends media-only message frames', () async {
+    final ws = client();
+    addTearDown(ws.dispose);
+
+    await ws.sendMessage(
+      chatId: 'chat-1',
+      content: '',
+      media: const [
+        NanobotOutboundMedia(
+          dataUrl: 'data:image/png;base64,abc',
+          name: 'screen.png',
+        ),
+      ],
+    );
+
+    expect(await harness.nextFrame(), {'type': 'attach', 'chat_id': 'chat-1'});
+    final frame = await harness.nextFrame();
+    expect(frame['type'], 'message');
+    expect(frame['content'], '');
+    expect((frame['media'] as List).single, {
+      'data_url': 'data:image/png;base64,abc',
+      'name': 'screen.png',
+    });
+  });
+
   test('supports fork chat and resolves on attached', () async {
     final ws = client();
     addTearDown(ws.dispose);

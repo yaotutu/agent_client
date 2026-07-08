@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agent_client/features/nanobot/data/nanobot_providers.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_repository.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
+import 'package:agent_client/features/nanobot/application/nanobot_image_attachment_picker.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_media_attachment.dart';
@@ -1202,6 +1203,46 @@ void main() {
     expect(find.text('Short summary for strip'), findsWidgets);
     expect(find.text(objective), findsOneWidget);
   });
+
+  testWidgets('composer sends selected image attachments and clears chips', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    final picker = _FakeNanobotImageAttachmentPicker([
+      const NanobotSendMedia(
+        dataUrl: 'data:image/png;base64,abc',
+        name: 'screen.png',
+      ),
+    ]);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          nanobotRepositoryProvider.overrideWithValue(repository),
+          nanobotImageAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Attach image'));
+    await tester.pumpAndSettle();
+
+    const chipKey = ValueKey('composer-image-screen.png-0');
+    expect(find.byKey(chipKey), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, 'describe this');
+    await tester.tap(find.byTooltip('Send'));
+    await tester.pumpAndSettle();
+
+    expect(repository.sentContent, 'describe this');
+    expect(repository.sentMedia, hasLength(1));
+    expect(repository.sentMedia.single.dataUrl, 'data:image/png;base64,abc');
+    expect(repository.sentMedia.single.name, 'screen.png');
+    expect(find.byKey(chipKey), findsNothing);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -1284,6 +1325,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   String? forkSourceChatId;
   int? forkBeforeUserIndex;
   String? forkTitle;
+  String? sentContent;
+  List<NanobotSendMedia> sentMedia = const [];
 
   @override
   Future<NanobotWorkspaceSnapshot> fetchWorkspacesSnapshot() async {
@@ -1355,7 +1398,10 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     List<NanobotSendMedia> media = const [],
     List<NanobotCapabilityMention> cliApps = const [],
     List<NanobotCapabilityMention> mcpPresets = const [],
-  }) async {}
+  }) async {
+    sentContent = content;
+    sentMedia = media;
+  }
 
   @override
   Future<String> forkChat({
@@ -1398,6 +1444,18 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<void> dispose() async {
     await _events.close();
     await _status.close();
+  }
+}
+
+class _FakeNanobotImageAttachmentPicker
+    implements NanobotImageAttachmentPicker {
+  const _FakeNanobotImageAttachmentPicker(this.result);
+
+  final List<NanobotSendMedia> result;
+
+  @override
+  Future<List<NanobotSendMedia>> pickImages() async {
+    return result;
   }
 }
 

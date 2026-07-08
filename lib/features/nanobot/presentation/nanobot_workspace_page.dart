@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:agent_client/features/nanobot/application/nanobot_image_attachment_picker.dart';
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_controller.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_state.dart';
@@ -27,8 +28,12 @@ class NanobotWorkspacePage extends ConsumerStatefulWidget {
 }
 
 class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
+  static const _maxImageAttachments = 4;
+
   final _inputController = TextEditingController();
   final _focusNode = FocusNode();
+  final _attachedImages = <NanobotSendMedia>[];
+  var _isPickingImages = false;
 
   @override
   void dispose() {
@@ -77,8 +82,12 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               state: state,
               inputController: _inputController,
               focusNode: _focusNode,
+              attachedImages: _attachedImages,
+              isPickingImages: _isPickingImages,
               onSend: () => _send(controller),
               onStop: controller.stopActiveTurn,
+              onAttachImages: _pickImageAttachments,
+              onRemoveAttachedImage: _removeImageAttachment,
               onWorkspaceAccessMode: controller.applyWorkspaceAccessMode,
               onWorkspaceProjectPath: controller.applyWorkspaceProjectPath,
               onOpenFilePreview: controller.openFilePreview,
@@ -127,12 +136,53 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
 
   void _send(NanobotWorkspaceController controller) {
     final input = _inputController.text;
-    if (input.trim().isEmpty) {
+    if (input.trim().isEmpty && _attachedImages.isEmpty) {
       return;
     }
+    final media = List<NanobotSendMedia>.unmodifiable(_attachedImages);
     _inputController.clear();
-    controller.sendMessage(input);
+    setState(_attachedImages.clear);
+    unawaited(controller.sendMessage(input, media: media));
     _focusNode.requestFocus();
+  }
+
+  Future<void> _pickImageAttachments() async {
+    if (_isPickingImages || _attachedImages.length >= _maxImageAttachments) {
+      return;
+    }
+    setState(() => _isPickingImages = true);
+    try {
+      final picked = await ref
+          .read(nanobotImageAttachmentPickerProvider)
+          .pickImages();
+      if (!mounted || picked.isEmpty) {
+        return;
+      }
+      setState(() {
+        final remaining = _maxImageAttachments - _attachedImages.length;
+        _attachedImages.addAll(picked.take(remaining));
+      });
+    } on Object catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to attach image: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingImages = false);
+      }
+    }
+  }
+
+  void _removeImageAttachment(int index) {
+    if (index < 0 || index >= _attachedImages.length) {
+      return;
+    }
+    setState(() {
+      _attachedImages.removeAt(index);
+    });
   }
 }
 
@@ -721,8 +771,12 @@ class _ChatPane extends StatelessWidget {
     required this.state,
     required this.inputController,
     required this.focusNode,
+    required this.attachedImages,
+    required this.isPickingImages,
     required this.onSend,
     required this.onStop,
+    required this.onAttachImages,
+    required this.onRemoveAttachedImage,
     required this.onWorkspaceAccessMode,
     required this.onWorkspaceProjectPath,
     required this.onOpenFilePreview,
@@ -737,8 +791,12 @@ class _ChatPane extends StatelessWidget {
   final NanobotWorkspaceState state;
   final TextEditingController inputController;
   final FocusNode focusNode;
+  final List<NanobotSendMedia> attachedImages;
+  final bool isPickingImages;
   final VoidCallback onSend;
   final VoidCallback onStop;
+  final VoidCallback onAttachImages;
+  final ValueChanged<int> onRemoveAttachedImage;
   final ValueChanged<String> onWorkspaceAccessMode;
   final Future<void> Function(String path, {String? projectName})
   onWorkspaceProjectPath;
@@ -791,6 +849,8 @@ class _ChatPane extends StatelessWidget {
               isStreaming: state.isStreaming,
               runStartedAt: state.threadState?.runStartedAt,
               goalState: state.threadState?.goalState,
+              attachedImages: attachedImages,
+              isPickingImages: isPickingImages,
               slashCommands: state.slashCommands,
               skills: state.skillItems,
               capabilityMentions: state.capabilityMentions,
@@ -803,6 +863,8 @@ class _ChatPane extends StatelessWidget {
               canUseFullAccess: state.canUseFullWorkspaceAccess,
               onSend: onSend,
               onStop: onStop,
+              onAttachImages: onAttachImages,
+              onRemoveAttachedImage: onRemoveAttachedImage,
               onWorkspaceAccessMode: onWorkspaceAccessMode,
               onWorkspaceProjectPath: onWorkspaceProjectPath,
             ),
@@ -4404,6 +4466,8 @@ class _InputBar extends StatefulWidget {
     required this.isStreaming,
     required this.runStartedAt,
     required this.goalState,
+    required this.attachedImages,
+    required this.isPickingImages,
     required this.slashCommands,
     required this.skills,
     required this.capabilityMentions,
@@ -4414,6 +4478,8 @@ class _InputBar extends StatefulWidget {
     required this.canUseFullAccess,
     required this.onSend,
     required this.onStop,
+    required this.onAttachImages,
+    required this.onRemoveAttachedImage,
     required this.onWorkspaceAccessMode,
     required this.onWorkspaceProjectPath,
   });
@@ -4424,6 +4490,8 @@ class _InputBar extends StatefulWidget {
   final bool isStreaming;
   final int? runStartedAt;
   final Map<String, Object?>? goalState;
+  final List<NanobotSendMedia> attachedImages;
+  final bool isPickingImages;
   final List<NanobotSlashCommand> slashCommands;
   final List<NanobotCatalogItem> skills;
   final List<NanobotCapabilityMention> capabilityMentions;
@@ -4434,6 +4502,8 @@ class _InputBar extends StatefulWidget {
   final bool canUseFullAccess;
   final VoidCallback onSend;
   final VoidCallback onStop;
+  final VoidCallback onAttachImages;
+  final ValueChanged<int> onRemoveAttachedImage;
   final ValueChanged<String> onWorkspaceAccessMode;
   final Future<void> Function(String path, {String? projectName})
   onWorkspaceProjectPath;
@@ -4477,6 +4547,11 @@ class _InputBarState extends State<_InputBar> {
                     startedAt: widget.runStartedAt,
                     goalState: widget.goalState,
                   ),
+                  if (widget.attachedImages.isNotEmpty)
+                    _ComposerImageChipRow(
+                      images: widget.attachedImages,
+                      onRemove: widget.onRemoveAttachedImage,
+                    ),
                   ValueListenableBuilder<TextEditingValue>(
                     valueListenable: widget.controller,
                     builder: (context, value, _) {
@@ -4515,21 +4590,47 @@ class _InputBarState extends State<_InputBar> {
                   ),
                   Focus(
                     onKeyEvent: _handleKeyEvent,
-                    child: TextField(
-                      controller: widget.controller,
-                      focusNode: widget.focusNode,
-                      minLines: 1,
-                      maxLines: 5,
-                      textInputAction: TextInputAction.newline,
-                      decoration: const InputDecoration(
-                        hintText: 'Message nanobot',
-                        fillColor: AppThemeTokens.panelMuted,
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          tooltip: 'Attach image',
+                          onPressed:
+                              widget.isPickingImages ||
+                                  widget.attachedImages.length >=
+                                      _NanobotWorkspacePageState
+                                          ._maxImageAttachments
+                              ? null
+                              : widget.onAttachImages,
+                          icon: widget.isPickingImages
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.add),
                         ),
-                      ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: TextField(
+                            controller: widget.controller,
+                            focusNode: widget.focusNode,
+                            minLines: 1,
+                            maxLines: 5,
+                            textInputAction: TextInputAction.newline,
+                            decoration: const InputDecoration(
+                              hintText: 'Message nanobot',
+                              fillColor: AppThemeTokens.panelMuted,
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -4795,6 +4896,96 @@ class _InputBarState extends State<_InputBar> {
   }
 }
 
+class _ComposerImageChipRow extends StatelessWidget {
+  const _ComposerImageChipRow({required this.images, required this.onRemove});
+
+  final List<NanobotSendMedia> images;
+  final ValueChanged<int> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var index = 0; index < images.length; index += 1)
+              _ComposerImageChip(
+                key: ValueKey('composer-image-${images[index].name}-$index'),
+                media: images[index],
+                onRemove: () => onRemove(index),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerImageChip extends StatelessWidget {
+  const _ComposerImageChip({
+    super.key,
+    required this.media,
+    required this.onRemove,
+  });
+
+  final NanobotSendMedia media;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = media.name?.trim().isNotEmpty == true
+        ? media.name!.trim()
+        : 'Image attachment';
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppThemeTokens.panelMuted,
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        border: Border.all(color: AppThemeTokens.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.image_outlined,
+              size: 18,
+              color: AppThemeTokens.mutedText,
+            ),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 160),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppThemeTokens.text,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Remove $label',
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+              onPressed: onRemove,
+              icon: const Icon(Icons.close, size: 16),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _RunGoalStrip extends StatefulWidget {
   const _RunGoalStrip({required this.startedAt, required this.goalState});
 
@@ -5056,9 +5247,7 @@ String? _goalStripPreview(Map<String, Object?>? goalState) {
   }
   final objective = _stringFrom(goalState?['objective']).trim();
   if (objective.isNotEmpty) {
-    return objective.length > 72
-        ? '${objective.substring(0, 72)}…'
-        : objective;
+    return objective.length > 72 ? '${objective.substring(0, 72)}…' : objective;
   }
   return 'Goal';
 }
