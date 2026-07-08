@@ -1600,7 +1600,8 @@ class _MessageContentText extends ConsumerWidget {
         blocks.single.code == null &&
         blocks.single.heading == null &&
         blocks.single.quote == null &&
-        blocks.single.table == null) {
+        blocks.single.table == null &&
+        !blocks.single.horizontalRule) {
       return _buildInlineContent(text, ref);
     }
     return Column(
@@ -1614,6 +1615,12 @@ class _MessageContentText extends ConsumerWidget {
             _MessageTableBlock(
               table: block.table!,
               cellBuilder: (cell) => _buildInlineSegments(cell, ref),
+            )
+          else if (block.horizontalRule)
+            const Divider(
+              key: ValueKey('nanobot-markdown-horizontal-rule'),
+              color: AppThemeTokens.border,
+              height: 18,
             )
           else if (block.quote != null)
             _MessageQuoteBlock(
@@ -2051,13 +2058,15 @@ class _MessageContentBlock {
       heading = null,
       headingLevel = 0,
       quote = null,
-      table = null;
+      table = null,
+      horizontalRule = false;
   const _MessageContentBlock.code({required this.language, required this.code})
     : text = '',
       heading = null,
       headingLevel = 0,
       quote = null,
-      table = null;
+      table = null,
+      horizontalRule = false;
   const _MessageContentBlock.heading({
     required this.heading,
     required this.headingLevel,
@@ -2065,21 +2074,33 @@ class _MessageContentBlock {
        language = null,
        code = null,
        quote = null,
-       table = null;
+       table = null,
+       horizontalRule = false;
   const _MessageContentBlock.quote({required this.quote})
     : text = '',
       language = null,
       code = null,
       heading = null,
       headingLevel = 0,
-      table = null;
+      table = null,
+      horizontalRule = false;
   const _MessageContentBlock.table({required this.table})
     : text = '',
       language = null,
       code = null,
       heading = null,
       headingLevel = 0,
-      quote = null;
+      quote = null,
+      horizontalRule = false;
+  const _MessageContentBlock.horizontalRule()
+    : text = '',
+      language = null,
+      code = null,
+      heading = null,
+      headingLevel = 0,
+      quote = null,
+      table = null,
+      horizontalRule = true;
 
   final String text;
   final String? language;
@@ -2088,6 +2109,7 @@ class _MessageContentBlock {
   final int headingLevel;
   final String? quote;
   final _MarkdownTable? table;
+  final bool horizontalRule;
 }
 
 class _MarkdownTable {
@@ -2158,6 +2180,13 @@ List<_MessageContentBlock> _markdownTextBlocks(String text) {
   var index = 0;
   while (index < lines.length) {
     final line = lines[index];
+    if (_isMarkdownHorizontalRule(line)) {
+      flushBuffer();
+      blocks.add(const _MessageContentBlock.horizontalRule());
+      index += 1;
+      continue;
+    }
+
     final table = _markdownTableAt(lines, index);
     if (table != null) {
       flushBuffer();
@@ -2195,6 +2224,14 @@ List<_MessageContentBlock> _markdownTextBlocks(String text) {
   }
   flushBuffer();
   return blocks.isEmpty ? [_MessageContentBlock.text(text)] : blocks;
+}
+
+bool _isMarkdownHorizontalRule(String line) {
+  final compact = line.trim().replaceAll(' ', '');
+  return compact.length >= 3 &&
+      (compact.split('').every((char) => char == '-') ||
+          compact.split('').every((char) => char == '*') ||
+          compact.split('').every((char) => char == '_'));
 }
 
 ({_MarkdownTable table, int nextIndex})? _markdownTableAt(

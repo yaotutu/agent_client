@@ -384,6 +384,36 @@ void main() {
     expect(find.textContaining('| Name |'), findsNothing);
   });
 
+  testWidgets('message markdown horizontal rules render dividers', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Before\n\n---\n\nAfter',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Before'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('nanobot-markdown-horizontal-rule')),
+      findsOneWidget,
+    );
+    expect(find.text('After'), findsOneWidget);
+    expect(find.text('---'), findsNothing);
+  });
+
   testWidgets('message markdown headings render heading text', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
