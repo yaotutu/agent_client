@@ -4,6 +4,7 @@ import 'package:agent_client/features/nanobot/data/nanobot_providers.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_repository.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_image_attachment_picker.dart';
+import 'package:agent_client/features/nanobot/application/nanobot_voice_input_recorder.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_media_attachment.dart';
@@ -1474,6 +1475,42 @@ void main() {
 
     expect(repository.sentContents, ['second queued']);
   });
+
+  testWidgets('composer voice input transcribes audio and appends text', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    final recorder = _FakeNanobotVoiceInputRecorder(
+      const NanobotRecordedAudio(
+        dataUrl: 'data:audio/webm;base64,abc',
+        durationMs: 1200,
+      ),
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          nanobotRepositoryProvider.overrideWithValue(repository),
+          nanobotVoiceInputRecorderProvider.overrideWithValue(recorder),
+        ],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, 'Existing draft');
+    await tester.tap(find.byTooltip('Voice input'));
+    await tester.pumpAndSettle();
+
+    expect(recorder.recorded, isTrue);
+    expect(repository.transcribeDataUrl, 'data:audio/webm;base64,abc');
+    expect(repository.transcribeDurationMs, 1200);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).controller?.text,
+      'Existing draft transcribed text',
+    );
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -1558,6 +1595,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   String? forkTitle;
   String? sentContent;
   final sentContents = <String>[];
+  String? transcribeRequestId;
+  String? transcribeDataUrl;
+  int? transcribeDurationMs;
   List<NanobotSendMedia> sentMedia = const [];
 
   @override
@@ -1649,6 +1689,18 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<String> transcribeAudio({
+    required String requestId,
+    required String dataUrl,
+    int? durationMs,
+  }) async {
+    transcribeRequestId = requestId;
+    transcribeDataUrl = dataUrl;
+    transcribeDurationMs = durationMs;
+    return 'transcribed text';
+  }
+
+  @override
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
     return const NanobotSettingsSnapshot();
   }
@@ -1688,6 +1740,19 @@ class _FakeNanobotImageAttachmentPicker
 
   @override
   Future<List<NanobotSendMedia>> pickImages() async {
+    return result;
+  }
+}
+
+class _FakeNanobotVoiceInputRecorder implements NanobotVoiceInputRecorder {
+  _FakeNanobotVoiceInputRecorder(this.result);
+
+  final NanobotRecordedAudio result;
+  var recorded = false;
+
+  @override
+  Future<NanobotRecordedAudio?> record() async {
+    recorded = true;
     return result;
   }
 }

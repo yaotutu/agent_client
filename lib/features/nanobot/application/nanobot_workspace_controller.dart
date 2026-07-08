@@ -23,6 +23,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
   StreamSubscription<Object?>? _statusSubscription;
   var _loadGeneration = 0;
   var _filePreviewGeneration = 0;
+  var _voiceRequestCounter = 0;
 
   @override
   NanobotWorkspaceState build() {
@@ -695,6 +696,31 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         isStreaming: false,
         errorMessage: _friendlyError(error),
       );
+    }
+  }
+
+  Future<String> transcribeAudio(String dataUrl, {int? durationMs}) async {
+    final trimmed = dataUrl.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    _voiceRequestCounter += 1;
+    final requestId =
+        'flutter-voice-${DateTime.now().microsecondsSinceEpoch}-$_voiceRequestCounter';
+    try {
+      final text = await ref
+          .read(nanobotRepositoryProvider)
+          .transcribeAudio(
+            requestId: requestId,
+            dataUrl: trimmed,
+            durationMs: durationMs,
+          );
+      state = state.copyWith(clearError: true);
+      return text;
+    } on Object catch (error) {
+      final message = _friendlyError(error);
+      state = state.copyWith(errorMessage: message);
+      rethrow;
     }
   }
 

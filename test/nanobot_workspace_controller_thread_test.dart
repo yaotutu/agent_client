@@ -303,6 +303,31 @@ void main() {
     expect(state.threadState?.chatId, 'chat-fork');
     expect(state.sessions.first.title, 'Fork: Original task');
   });
+
+  test('workspace controller transcribes audio through repository', () async {
+    final repository = _FakeNanobotRepository();
+    final container = ProviderContainer(
+      overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    addTearDown(repository.dispose);
+
+    final controller = container.read(
+      nanobotWorkspaceControllerProvider.notifier,
+    );
+    container.read(nanobotWorkspaceControllerProvider);
+    await pumpEventQueue();
+
+    final text = await controller.transcribeAudio(
+      'data:audio/webm;base64,abc',
+      durationMs: 1234,
+    );
+
+    expect(text, 'transcribed text');
+    expect(repository.transcribeRequestId, startsWith('flutter-voice-'));
+    expect(repository.transcribeDataUrl, 'data:audio/webm;base64,abc');
+    expect(repository.transcribeDurationMs, 1234);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -329,6 +354,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   String? forkSourceChatId;
   int? forkBeforeUserIndex;
   String? forkTitle;
+  String? transcribeRequestId;
+  String? transcribeDataUrl;
+  int? transcribeDurationMs;
   final attachedChatIds = <String>[];
   List<NanobotSendMedia> sentMedia = const [];
   List<NanobotCapabilityMention> sentCliApps = const [];
@@ -495,6 +523,18 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     forkBeforeUserIndex = beforeUserIndex;
     forkTitle = title;
     return 'chat-fork';
+  }
+
+  @override
+  Future<String> transcribeAudio({
+    required String requestId,
+    required String dataUrl,
+    int? durationMs,
+  }) async {
+    transcribeRequestId = requestId;
+    transcribeDataUrl = dataUrl;
+    transcribeDurationMs = durationMs;
+    return 'transcribed text';
   }
 
   @override

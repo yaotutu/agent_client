@@ -318,6 +318,15 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<String> transcribeAudio({
+    required String requestId,
+    required String dataUrl,
+    int? durationMs,
+  }) async {
+    return '';
+  }
+
+  @override
   Future<NanobotSidebarState> fetchSidebarState() async {
     return const NanobotSidebarState(
       pinnedKeys: ['websocket:chat-2'],

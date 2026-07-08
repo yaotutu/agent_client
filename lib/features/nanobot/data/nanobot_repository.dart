@@ -54,6 +54,14 @@ abstract class NanobotRepositoryPort {
     List<NanobotCapabilityMention> mcpPresets = const [],
   });
 
+  Future<String> transcribeAudio({
+    required String requestId,
+    required String dataUrl,
+    int? durationMs,
+  }) {
+    throw UnimplementedError('transcribeAudio');
+  }
+
   Future<String> forkChat({
     required String sourceChatId,
     required int beforeUserIndex,
@@ -386,6 +394,7 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
+  @override
   Future<String> transcribeAudio({
     required String requestId,
     required String dataUrl,

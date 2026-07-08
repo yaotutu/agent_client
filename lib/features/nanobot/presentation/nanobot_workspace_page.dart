@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:agent_client/features/nanobot/application/nanobot_image_attachment_picker.dart';
+import 'package:agent_client/features/nanobot/application/nanobot_voice_input_recorder.dart';
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_controller.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_state.dart';
@@ -35,6 +36,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
   final _attachedImages = <NanobotSendMedia>[];
   final _queuedPrompts = <_QueuedPrompt>[];
   var _isPickingImages = false;
+  var _isTranscribingVoice = false;
   var _queuedPromptCounter = 0;
   String? _composerInlineError;
 
@@ -49,6 +51,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
   Widget build(BuildContext context) {
     final state = ref.watch(nanobotWorkspaceControllerProvider);
     final controller = ref.read(nanobotWorkspaceControllerProvider.notifier);
+    final voiceRecorder = ref.watch(nanobotVoiceInputRecorderProvider);
 
     return Scaffold(
       backgroundColor: AppThemeTokens.workspace,
@@ -88,6 +91,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               attachedImages: _attachedImages,
               queuedPrompts: _queuedPrompts,
               isPickingImages: _isPickingImages,
+              isTranscribingVoice: _isTranscribingVoice,
               composerInlineError: _composerInlineError,
               onSend: () => _send(controller),
               onStop: controller.stopActiveTurn,
@@ -98,6 +102,9 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onEditQueuedPrompt: _editQueuedPrompt,
               onDeleteQueuedPrompt: _deleteQueuedPrompt,
               onReorderQueuedPrompts: _reorderQueuedPrompts,
+              onTranscribeVoice: voiceRecorder == null
+                  ? null
+                  : () => _transcribeVoice(controller),
               onAttachImages: _pickImageAttachments,
               onRemoveAttachedImage: _removeImageAttachment,
               onWorkspaceAccessMode: controller.applyWorkspaceAccessMode,
@@ -240,6 +247,51 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
       final prompt = _queuedPrompts.removeAt(oldIndex);
       _queuedPrompts.insert(targetIndex, prompt);
     });
+  }
+
+  Future<void> _transcribeVoice(NanobotWorkspaceController controller) async {
+    if (_isTranscribingVoice) {
+      return;
+    }
+    final recorder = ref.read(nanobotVoiceInputRecorderProvider);
+    if (recorder == null) {
+      return;
+    }
+    setState(() {
+      _isTranscribingVoice = true;
+      _composerInlineError = null;
+    });
+    try {
+      final recorded = await recorder.record();
+      if (recorded == null) {
+        return;
+      }
+      final transcript = (await controller.transcribeAudio(
+        recorded.dataUrl,
+        durationMs: recorded.durationMs,
+      )).trim();
+      if (transcript.isEmpty) {
+        return;
+      }
+      final current = _inputController.text;
+      final separator =
+          current.trim().isEmpty || RegExp(r'[\s\n]$').hasMatch(current)
+          ? ''
+          : ' ';
+      _inputController.text = '$current$separator$transcript';
+      _inputController.selection = TextSelection.collapsed(
+        offset: _inputController.text.length,
+      );
+    } on Object catch (error) {
+      if (mounted) {
+        setState(() => _composerInlineError = 'Voice input failed: $error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isTranscribingVoice = false);
+        _focusNode.requestFocus();
+      }
+    }
   }
 
   Future<void> _pickImageAttachments() async {
@@ -886,6 +938,7 @@ class _ChatPane extends StatelessWidget {
     required this.attachedImages,
     required this.queuedPrompts,
     required this.isPickingImages,
+    required this.isTranscribingVoice,
     required this.composerInlineError,
     required this.onSend,
     required this.onStop,
@@ -895,6 +948,7 @@ class _ChatPane extends StatelessWidget {
     required this.onEditQueuedPrompt,
     required this.onDeleteQueuedPrompt,
     required this.onReorderQueuedPrompts,
+    required this.onTranscribeVoice,
     required this.onAttachImages,
     required this.onRemoveAttachedImage,
     required this.onWorkspaceAccessMode,
@@ -914,6 +968,7 @@ class _ChatPane extends StatelessWidget {
   final List<NanobotSendMedia> attachedImages;
   final List<_QueuedPrompt> queuedPrompts;
   final bool isPickingImages;
+  final bool isTranscribingVoice;
   final String? composerInlineError;
   final VoidCallback onSend;
   final VoidCallback onStop;
@@ -923,6 +978,7 @@ class _ChatPane extends StatelessWidget {
   final ValueChanged<_QueuedPrompt> onEditQueuedPrompt;
   final ValueChanged<String> onDeleteQueuedPrompt;
   final void Function(int oldIndex, int newIndex) onReorderQueuedPrompts;
+  final VoidCallback? onTranscribeVoice;
   final VoidCallback onAttachImages;
   final ValueChanged<int> onRemoveAttachedImage;
   final ValueChanged<String> onWorkspaceAccessMode;
@@ -980,6 +1036,7 @@ class _ChatPane extends StatelessWidget {
               attachedImages: attachedImages,
               queuedPrompts: queuedPrompts,
               isPickingImages: isPickingImages,
+              isTranscribingVoice: isTranscribingVoice,
               inlineError: composerInlineError,
               slashCommands: state.slashCommands,
               skills: state.skillItems,
@@ -999,6 +1056,7 @@ class _ChatPane extends StatelessWidget {
               onEditQueuedPrompt: onEditQueuedPrompt,
               onDeleteQueuedPrompt: onDeleteQueuedPrompt,
               onReorderQueuedPrompts: onReorderQueuedPrompts,
+              onTranscribeVoice: onTranscribeVoice,
               onAttachImages: onAttachImages,
               onRemoveAttachedImage: onRemoveAttachedImage,
               onWorkspaceAccessMode: onWorkspaceAccessMode,
@@ -4408,44 +4466,51 @@ class _WorkspaceScopeBar extends StatelessWidget {
               ),
             ),
           ),
-          PopupMenuButton<String>(
-            tooltip: 'Workspace access mode',
-            onSelected: onAccessMode,
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'restricted',
-                child: Text('Default Permission'),
-              ),
-              PopupMenuItem(
-                value: 'full',
-                enabled: canUseFullAccess,
-                child: const Text('Full Access'),
-              ),
-            ],
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  scope.isFullAccess
-                      ? Icons.warning_amber_outlined
-                      : Icons.pan_tool_alt_outlined,
-                  size: 16,
-                  color: scope.isFullAccess
-                      ? AppThemeTokens.warning
-                      : AppThemeTokens.mutedText,
+          Flexible(
+            fit: FlexFit.loose,
+            child: PopupMenuButton<String>(
+              tooltip: 'Workspace access mode',
+              onSelected: onAccessMode,
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'restricted',
+                  child: Text('Default Permission'),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  modeLabel,
-                  style: TextStyle(
+                PopupMenuItem(
+                  value: 'full',
+                  enabled: canUseFullAccess,
+                  child: const Text('Full Access'),
+                ),
+              ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    scope.isFullAccess
+                        ? Icons.warning_amber_outlined
+                        : Icons.pan_tool_alt_outlined,
+                    size: 16,
                     color: scope.isFullAccess
                         ? AppThemeTokens.warning
-                        : AppThemeTokens.text,
-                    fontWeight: FontWeight.w700,
+                        : AppThemeTokens.mutedText,
                   ),
-                ),
-                const Icon(Icons.arrow_drop_down, size: 18),
-              ],
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      modeLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: scope.isFullAccess
+                            ? AppThemeTokens.warning
+                            : AppThemeTokens.text,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, size: 18),
+                ],
+              ),
             ),
           ),
         ],
@@ -4772,6 +4837,7 @@ class _InputBar extends StatefulWidget {
     required this.attachedImages,
     required this.queuedPrompts,
     required this.isPickingImages,
+    required this.isTranscribingVoice,
     required this.inlineError,
     required this.slashCommands,
     required this.skills,
@@ -4789,6 +4855,7 @@ class _InputBar extends StatefulWidget {
     required this.onEditQueuedPrompt,
     required this.onDeleteQueuedPrompt,
     required this.onReorderQueuedPrompts,
+    required this.onTranscribeVoice,
     required this.onAttachImages,
     required this.onRemoveAttachedImage,
     required this.onWorkspaceAccessMode,
@@ -4804,6 +4871,7 @@ class _InputBar extends StatefulWidget {
   final List<NanobotSendMedia> attachedImages;
   final List<_QueuedPrompt> queuedPrompts;
   final bool isPickingImages;
+  final bool isTranscribingVoice;
   final String? inlineError;
   final List<NanobotSlashCommand> slashCommands;
   final List<NanobotCatalogItem> skills;
@@ -4821,6 +4889,7 @@ class _InputBar extends StatefulWidget {
   final ValueChanged<_QueuedPrompt> onEditQueuedPrompt;
   final ValueChanged<String> onDeleteQueuedPrompt;
   final void Function(int oldIndex, int newIndex) onReorderQueuedPrompts;
+  final VoidCallback? onTranscribeVoice;
   final VoidCallback onAttachImages;
   final ValueChanged<int> onRemoveAttachedImage;
   final ValueChanged<String> onWorkspaceAccessMode;
@@ -5009,6 +5078,23 @@ class _InputBarState extends State<_InputBar> {
               ),
             ),
             const SizedBox(width: 8),
+            if (widget.onTranscribeVoice != null) ...[
+              IconButton(
+                tooltip: widget.isTranscribingVoice
+                    ? 'Transcribing voice'
+                    : 'Voice input',
+                onPressed: widget.isTranscribingVoice
+                    ? null
+                    : widget.onTranscribeVoice,
+                icon: widget.isTranscribingVoice
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.mic_none),
+              ),
+              const SizedBox(width: 4),
+            ],
             IconButton.filled(
               tooltip: widget.isStreaming ? 'Stop' : 'Send',
               onPressed: widget.isStreaming

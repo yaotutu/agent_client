@@ -203,6 +203,15 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<String> transcribeAudio({
+    required String requestId,
+    required String dataUrl,
+    int? durationMs,
+  }) async {
+    return '';
+  }
+
+  @override
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
     return const NanobotSettingsSnapshot(
       model: 'MiniMax-M3',
