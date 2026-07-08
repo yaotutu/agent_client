@@ -12,6 +12,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
@@ -1603,6 +1604,7 @@ class _MessageContentText extends ConsumerWidget {
         blocks.single.quote == null &&
         blocks.single.table == null &&
         blocks.single.details == null &&
+        blocks.single.math == null &&
         !blocks.single.horizontalRule) {
       return _buildInlineContent(text, ref);
     }
@@ -1647,6 +1649,9 @@ class _MessageContentText extends ConsumerWidget {
         itemBuilder: (nestedBlock) => _buildContentBlock(nestedBlock, ref),
       );
     }
+    if (block.math != null) {
+      return _MessageMathBlock(math: block.math!);
+    }
     if (block.code != null) {
       return _MessageCodeBlock(
         language: block.language,
@@ -1681,6 +1686,20 @@ class _MessageContentText extends ConsumerWidget {
   }
 
   Widget _buildInlineSegments(String value, WidgetRef ref) {
+    final mathParts = _inlineMathParts(value);
+    if (mathParts != null) {
+      return Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (final part in mathParts)
+            if (part.math != null)
+              _InlineMath(expression: part.math!)
+            else if (part.text.isNotEmpty)
+              _InlineFormattedText(text: part.text, color: textColor),
+        ],
+      );
+    }
+
     final segments = _messageContentSegments(value);
     if (segments.length == 1 && segments.single.isPlainText) {
       return _InlineFormattedText(text: value, color: textColor);
@@ -1709,6 +1728,32 @@ class _MessageContentText extends ConsumerWidget {
           else
             _InlineFormattedText(text: segment.text, color: textColor),
       ],
+    );
+  }
+}
+
+class _MessageMathBlock extends StatelessWidget {
+  const _MessageMathBlock({required this.math});
+
+  final _MarkdownMath math;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      key: const ValueKey('nanobot-markdown-display-math'),
+      scrollDirection: Axis.horizontal,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Math.tex(
+          math.expression,
+          mathStyle: MathStyle.display,
+          textStyle: const TextStyle(color: AppThemeTokens.text, fontSize: 16),
+          onErrorFallback: (error) => Text(
+            math.expression,
+            style: const TextStyle(color: AppThemeTokens.text, height: 1.4),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2027,6 +2072,29 @@ class _CompactLinkPreviewRow extends StatelessWidget {
   }
 }
 
+class _InlineMath extends StatelessWidget {
+  const _InlineMath({required this.expression});
+
+  final String expression;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const ValueKey('nanobot-markdown-inline-math'),
+      padding: const EdgeInsets.symmetric(horizontal: 1),
+      child: Math.tex(
+        expression,
+        mathStyle: MathStyle.text,
+        textStyle: const TextStyle(color: AppThemeTokens.text, fontSize: 14),
+        onErrorFallback: (error) => Text(
+          expression,
+          style: const TextStyle(color: AppThemeTokens.text, height: 1.4),
+        ),
+      ),
+    );
+  }
+}
+
 class _InlineFormattedText extends StatelessWidget {
   const _InlineFormattedText({required this.text, required this.color});
 
@@ -2224,6 +2292,7 @@ class _MessageContentBlock {
       quote = null,
       table = null,
       details = null,
+      math = null,
       horizontalRule = false;
   const _MessageContentBlock.code({required this.language, required this.code})
     : text = '',
@@ -2232,6 +2301,7 @@ class _MessageContentBlock {
       quote = null,
       table = null,
       details = null,
+      math = null,
       horizontalRule = false;
   const _MessageContentBlock.heading({
     required this.heading,
@@ -2242,6 +2312,7 @@ class _MessageContentBlock {
        quote = null,
        table = null,
        details = null,
+       math = null,
        horizontalRule = false;
   const _MessageContentBlock.quote({required this.quote})
     : text = '',
@@ -2251,6 +2322,7 @@ class _MessageContentBlock {
       headingLevel = 0,
       table = null,
       details = null,
+      math = null,
       horizontalRule = false;
   const _MessageContentBlock.table({required this.table})
     : text = '',
@@ -2260,6 +2332,7 @@ class _MessageContentBlock {
       headingLevel = 0,
       quote = null,
       details = null,
+      math = null,
       horizontalRule = false;
   const _MessageContentBlock.details({required this.details})
     : text = '',
@@ -2269,6 +2342,17 @@ class _MessageContentBlock {
       headingLevel = 0,
       quote = null,
       table = null,
+      math = null,
+      horizontalRule = false;
+  const _MessageContentBlock.math({required this.math})
+    : text = '',
+      language = null,
+      code = null,
+      heading = null,
+      headingLevel = 0,
+      quote = null,
+      table = null,
+      details = null,
       horizontalRule = false;
   const _MessageContentBlock.horizontalRule()
     : text = '',
@@ -2279,6 +2363,7 @@ class _MessageContentBlock {
       quote = null,
       table = null,
       details = null,
+      math = null,
       horizontalRule = true;
 
   final String text;
@@ -2289,6 +2374,7 @@ class _MessageContentBlock {
   final String? quote;
   final _MarkdownTable? table;
   final _MarkdownDetails? details;
+  final _MarkdownMath? math;
   final bool horizontalRule;
 }
 
@@ -2297,6 +2383,12 @@ class _MarkdownDetails {
 
   final String summary;
   final String body;
+}
+
+class _MarkdownMath {
+  const _MarkdownMath({required this.expression});
+
+  final String expression;
 }
 
 class _MarkdownTable {
@@ -2379,6 +2471,14 @@ List<_MessageContentBlock> _markdownTextBlocks(String text) {
   var index = 0;
   while (index < lines.length) {
     final line = lines[index];
+    final math = _markdownDisplayMathAt(lines, index);
+    if (math != null) {
+      flushBuffer();
+      blocks.add(_MessageContentBlock.math(math: math.math));
+      index = math.nextIndex;
+      continue;
+    }
+
     final details = _markdownDetailsAt(lines, index);
     if (details != null) {
       flushBuffer();
@@ -2431,6 +2531,56 @@ List<_MessageContentBlock> _markdownTextBlocks(String text) {
   }
   flushBuffer();
   return blocks.isEmpty ? [_MessageContentBlock.text(text)] : blocks;
+}
+
+({_MarkdownMath math, int nextIndex})? _markdownDisplayMathAt(
+  List<String> lines,
+  int index,
+) {
+  final line = lines[index].trim();
+  final texBracket = RegExp(r'^\\\[([\s\S]+)\\\]$').firstMatch(line);
+  if (texBracket != null) {
+    return (
+      math: _MarkdownMath(expression: texBracket.group(1)!.trim()),
+      nextIndex: index + 1,
+    );
+  }
+  final dollarBlock = RegExp(r'^\$\$([\s\S]+)\$\$$').firstMatch(line);
+  if (dollarBlock != null) {
+    return (
+      math: _MarkdownMath(expression: dollarBlock.group(1)!.trim()),
+      nextIndex: index + 1,
+    );
+  }
+  if (line == r'\[') {
+    final body = <String>[];
+    var cursor = index + 1;
+    while (cursor < lines.length) {
+      if (lines[cursor].trim() == r'\]') {
+        return (
+          math: _MarkdownMath(expression: _trimBlockText(body.join('\n'))),
+          nextIndex: cursor + 1,
+        );
+      }
+      body.add(lines[cursor]);
+      cursor += 1;
+    }
+  }
+  if (line == r'$$') {
+    final body = <String>[];
+    var cursor = index + 1;
+    while (cursor < lines.length) {
+      if (lines[cursor].trim() == r'$$') {
+        return (
+          math: _MarkdownMath(expression: _trimBlockText(body.join('\n'))),
+          nextIndex: cursor + 1,
+        );
+      }
+      body.add(lines[cursor]);
+      cursor += 1;
+    }
+  }
+  return null;
 }
 
 ({_MarkdownDetails details, int nextIndex})? _markdownDetailsAt(
@@ -2681,6 +2831,119 @@ String _cleanCompactLinkText(String value) {
       .replaceAll(RegExp(r'\s+'), ' ')
       .replaceAll(RegExp(r'^[\s"“”‘’]+|[\s"“”‘’]+$'), '')
       .trim();
+}
+
+class _InlineMathPart {
+  const _InlineMathPart.text(this.text) : math = null;
+  const _InlineMathPart.math(this.math) : text = '';
+
+  final String text;
+  final String? math;
+}
+
+List<_InlineMathPart>? _inlineMathParts(String text) {
+  final parts = <_InlineMathPart>[];
+  var scan = 0;
+  var textStart = 0;
+  var foundMath = false;
+
+  while (scan < text.length) {
+    final codeRange = _inlineCodeRangeAt(text, scan);
+    if (codeRange != null) {
+      scan = codeRange.end;
+      continue;
+    }
+
+    final math = _inlineMathAt(text, scan);
+    if (math == null) {
+      scan += 1;
+      continue;
+    }
+
+    if (scan > textStart) {
+      parts.add(_InlineMathPart.text(text.substring(textStart, scan)));
+    }
+    parts.add(_InlineMathPart.math(math.expression));
+    foundMath = true;
+    scan = math.end;
+    textStart = scan;
+  }
+
+  if (!foundMath) {
+    return null;
+  }
+  if (textStart < text.length) {
+    parts.add(_InlineMathPart.text(text.substring(textStart)));
+  }
+  return parts;
+}
+
+({int end})? _inlineCodeRangeAt(String text, int start) {
+  if (text.codeUnitAt(start) != 0x60) {
+    return null;
+  }
+  final end = text.indexOf('`', start + 1);
+  if (end < 0) {
+    return null;
+  }
+  return (end: end + 1);
+}
+
+({String expression, int end})? _inlineMathAt(String text, int start) {
+  return _texInlineMathAt(text, start) ?? _singleDollarMathAt(text, start);
+}
+
+({String expression, int end})? _texInlineMathAt(String text, int start) {
+  if (start + 1 >= text.length ||
+      text.codeUnitAt(start) != 0x5c ||
+      text.codeUnitAt(start + 1) != 0x28) {
+    return null;
+  }
+  final end = text.indexOf(r'\)', start + 2);
+  if (end < 0) {
+    return null;
+  }
+  final expression = text.substring(start + 2, end).trim();
+  if (expression.isEmpty) {
+    return null;
+  }
+  return (expression: expression, end: end + 2);
+}
+
+({String expression, int end})? _singleDollarMathAt(String text, int start) {
+  if (text.codeUnitAt(start) != 0x24 ||
+      (start > 0 && text.codeUnitAt(start - 1) == 0x5c) ||
+      (start + 1 < text.length && text.codeUnitAt(start + 1) == 0x24)) {
+    return null;
+  }
+  final end = text.indexOf(r'$', start + 1);
+  if (end < 0 || end == start + 1) {
+    return null;
+  }
+  if (end + 1 < text.length && text.codeUnitAt(end + 1) == 0x24) {
+    return null;
+  }
+  final expression = text.substring(start + 1, end).trim();
+  if (!_looksLikeGuardedMath(expression)) {
+    return null;
+  }
+  return (expression: expression, end: end + 1);
+}
+
+bool _looksLikeGuardedMath(String expression) {
+  if (expression.isEmpty) {
+    return false;
+  }
+  if (RegExp(r'^\d+(?:[.,]\d+)?(?:\s|[-–]\d)').hasMatch(expression)) {
+    return false;
+  }
+  if (RegExp(r'^[A-Za-z]$').hasMatch(expression)) {
+    return true;
+  }
+  if (RegExp(r'[\\^_{}=]').hasMatch(expression)) {
+    return true;
+  }
+  return false;
 }
 
 List<InlineSpan>? _inlineMarkdownSpans(String text, Color color) {

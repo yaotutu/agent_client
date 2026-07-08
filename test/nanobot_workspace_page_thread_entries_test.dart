@@ -633,6 +633,126 @@ void main() {
     expect(find.text('•'), findsNothing);
   });
 
+  testWidgets('message markdown keeps dollar amounts literal', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text':
+          'VBeats mentions \$24 million, while Globe states a total of '
+          '\$130.6 million since founding.',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('\$24 million'), findsOneWidget);
+    expect(find.textContaining('\$130.6 million'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('nanobot-markdown-inline-math')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('message markdown renders guarded inline math', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text':
+          'Variables \$x\$ and powers \$2^n\$ render inline, while a price '
+          'range \$10-20\$ stays literal.',
+    });
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('nanobot-markdown-inline-math')),
+      findsNWidgets(2),
+    );
+    expect(find.textContaining('\$x\$'), findsNothing);
+    expect(find.textContaining('\$2^n\$'), findsNothing);
+    expect(find.textContaining('\$10-20\$'), findsOneWidget);
+  });
+
+  testWidgets('message markdown renders tex inline math delimiters', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': r'Einstein wrote \(E = mc^2\) for mass-energy equivalence.',
+    });
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('nanobot-markdown-inline-math')),
+      findsOneWidget,
+    );
+    expect(find.textContaining(r'\('), findsNothing);
+    expect(find.textContaining(r'\)'), findsNothing);
+  });
+
+  testWidgets('message markdown renders display math delimiters', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': r'\[x^2 + y^2 = z^2\]'
+          '\n\n'
+          r'$$a^2 + b^2 = c^2$$',
+    });
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('nanobot-markdown-display-math')),
+      findsNWidgets(2),
+    );
+    expect(find.textContaining(r'\['), findsNothing);
+    expect(find.textContaining(r'\]'), findsNothing);
+    expect(find.textContaining(r'$$'), findsNothing);
+  });
+
   testWidgets('message fenced code blocks render code panels', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
