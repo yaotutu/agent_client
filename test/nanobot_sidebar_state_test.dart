@@ -13,6 +13,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_thread_page.dart';
 import 'package:agent_client/features/nanobot/presentation/nanobot_workspace_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -191,6 +192,33 @@ void main() {
       container.read(nanobotWorkspaceControllerProvider).selectedSessionKey,
       'websocket:chat-2',
     );
+  });
+
+  testWidgets('session search opens from ctrl k keyboard shortcut', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recent'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'road');
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(ListTile, 'Pinned Roadmap'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Active Chat'), findsNothing);
   });
 }
 

@@ -37,11 +37,19 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
   final _queuedPrompts = <_QueuedPrompt>[];
   var _isPickingImages = false;
   var _isTranscribingVoice = false;
+  var _isSearchDialogOpen = false;
   var _queuedPromptCounter = 0;
   String? _composerInlineError;
 
   @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleGlobalKeyEvent);
+  }
+
+  @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleGlobalKeyEvent);
     _inputController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -151,6 +159,46 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
         ),
       ),
     );
+  }
+
+  bool _handleGlobalKeyEvent(KeyEvent event) {
+    if (!mounted || event is! KeyDownEvent) {
+      return false;
+    }
+    if (event.logicalKey != LogicalKeyboardKey.keyK) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    final commandOrControl = keyboard.isMetaPressed || keyboard.isControlPressed;
+    if (!commandOrControl || keyboard.isAltPressed || keyboard.isShiftPressed) {
+      return false;
+    }
+    final state = ref.read(nanobotWorkspaceControllerProvider);
+    final controller = ref.read(nanobotWorkspaceControllerProvider.notifier);
+    unawaited(_openSessionSearch(state, controller));
+    return true;
+  }
+
+  Future<void> _openSessionSearch(
+    NanobotWorkspaceState state,
+    NanobotWorkspaceController controller,
+  ) async {
+    if (_isSearchDialogOpen) {
+      return;
+    }
+    _isSearchDialogOpen = true;
+    try {
+      final selected = await showDialog<NanobotSessionSummary>(
+        context: context,
+        builder: (context) => _SessionSearchDialog(state: state),
+      );
+      if (!mounted || selected == null) {
+        return;
+      }
+      controller.selectSession(selected);
+    } finally {
+      _isSearchDialogOpen = false;
+    }
   }
 
   void _send(NanobotWorkspaceController controller) {
