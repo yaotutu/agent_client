@@ -56,9 +56,14 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       if (!_isActive(generation)) {
         return;
       }
+      final workspacesSnapshot = await _loadWorkspacesSnapshot(repository);
+      if (!_isActive(generation)) {
+        return;
+      }
       state = state.copyWith(
         sessions: sessions,
         sidebarState: sidebarState,
+        workspacesSnapshot: workspacesSnapshot,
         modelName: bootstrap.modelName,
         isBootstrapping: false,
         socketStatus: repository.currentStatus,
@@ -94,6 +99,16 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       return await repository.fetchSidebarState();
     } on Object {
       return const NanobotSidebarState();
+    }
+  }
+
+  Future<NanobotWorkspaceSnapshot?> _loadWorkspacesSnapshot(
+    NanobotRepositoryPort repository,
+  ) async {
+    try {
+      return await repository.fetchWorkspacesSnapshot();
+    } on Object {
+      return null;
     }
   }
 
@@ -221,6 +236,30 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     return _updateSidebarState(
       state.sidebarState.copyWith(titleOverrides: overrides),
     );
+  }
+
+  Future<void> applyWorkspaceAccessMode(String accessMode) async {
+    final current = state.activeWorkspaceScope;
+    if (current == null) {
+      return;
+    }
+    if (accessMode == 'full' && !state.canUseFullWorkspaceAccess) {
+      return;
+    }
+    final next = current.withAccessMode(accessMode);
+    final chatId = state.selectedChatId;
+    state = _stateWithWorkspaceScope(next).copyWith(clearWorkspaceError: true);
+    if (chatId == null || chatId.trim().isEmpty) {
+      state = state.copyWith(draftWorkspaceScope: next);
+      return;
+    }
+    try {
+      await ref
+          .read(nanobotRepositoryProvider)
+          .setWorkspaceScope(chatId: chatId, workspaceScope: next);
+    } on Object catch (error) {
+      state = state.copyWith(errorMessage: _friendlyError(error));
+    }
   }
 
   Future<void> deleteSession(String key) async {
@@ -481,6 +520,9 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       case NanobotEventKind.runtimeModelUpdated:
         state = state.copyWith(modelName: event.modelName);
       case NanobotEventKind.sessionUpdated:
+        if (event.workspaceScope != null && event.chatId != null) {
+          _applyWorkspaceScopeMap(event.chatId!, event.workspaceScope!);
+        }
         unawaited(refreshSessions());
       case NanobotEventKind.reasoningDelta:
       case NanobotEventKind.reasoningEnd:
@@ -497,6 +539,16 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
           }
         }
       case NanobotEventKind.error:
+        if (event.detail == 'workspace_scope_rejected') {
+          state = state.copyWith(
+            workspaceError:
+                'Workspace scope was rejected. Choose another project.',
+            errorMessage:
+                event.reason ??
+                'Workspace scope was rejected. Choose another project.',
+          );
+          break;
+        }
         state = state.copyWith(
           isStreaming: false,
           errorMessage: event.reason ?? event.detail ?? 'nanobot error',
@@ -546,6 +598,53 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       return messages;
     }
     return messages.sublist(messages.length - maxInitialMessages);
+  }
+
+  NanobotWorkspaceState _stateWithWorkspaceScope(NanobotWorkspaceScope scope) {
+    final selectedKey = state.selectedSessionKey;
+    if (selectedKey == null) {
+      return state.copyWith(draftWorkspaceScope: scope);
+    }
+    return state.copyWith(
+      sessions: [
+        for (final session in state.sessions)
+          if (session.key == selectedKey)
+            session.copyWith(workspaceScope: scope)
+          else
+            session,
+      ],
+      draftWorkspaceScope: scope,
+    );
+  }
+
+  void _applyWorkspaceScopeMap(
+    String chatId,
+    Map<String, Object?> workspaceScope,
+  ) {
+    final projectPath = workspaceScope['project_path'] as String?;
+    if (projectPath == null || projectPath.trim().isEmpty) {
+      return;
+    }
+    final scope = NanobotWorkspaceScope(
+      projectPath: projectPath,
+      projectName: workspaceScope['project_name'] as String?,
+      accessMode: workspaceScope['access_mode'] as String? ?? 'restricted',
+      restrictToWorkspace: workspaceScope['restrict_to_workspace'] as bool?,
+      sandboxStatus: workspaceScope['sandbox_status'] is Map
+          ? Map<String, Object?>.from(workspaceScope['sandbox_status'] as Map)
+          : null,
+    );
+    state = state.copyWith(
+      sessions: [
+        for (final session in state.sessions)
+          if (session.chatId == chatId)
+            session.copyWith(workspaceScope: scope)
+          else
+            session,
+      ],
+      draftWorkspaceScope: scope,
+      clearWorkspaceError: true,
+    );
   }
 
   String _newMessageId(String prefix) {

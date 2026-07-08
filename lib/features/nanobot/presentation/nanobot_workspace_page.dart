@@ -70,6 +70,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               focusNode: _focusNode,
               onSend: () => _send(controller),
               onStop: controller.stopActiveTurn,
+              onWorkspaceAccessMode: controller.applyWorkspaceAccessMode,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -708,6 +709,7 @@ class _ChatPane extends StatelessWidget {
     required this.focusNode,
     required this.onSend,
     required this.onStop,
+    required this.onWorkspaceAccessMode,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -718,6 +720,7 @@ class _ChatPane extends StatelessWidget {
   final FocusNode focusNode;
   final VoidCallback onSend;
   final VoidCallback onStop;
+  final ValueChanged<String> onWorkspaceAccessMode;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -750,8 +753,12 @@ class _ChatPane extends StatelessWidget {
               focusNode: focusNode,
               canSend: state.canSend,
               isStreaming: state.isStreaming,
+              workspaceScope: state.activeWorkspaceScope,
+              workspaceError: state.workspaceError,
+              canUseFullAccess: state.canUseFullWorkspaceAccess,
               onSend: onSend,
               onStop: onStop,
+              onWorkspaceAccessMode: onWorkspaceAccessMode,
             ),
         ],
       ),
@@ -1485,22 +1492,135 @@ class _InlineError extends StatelessWidget {
   }
 }
 
+class _WorkspaceScopeBar extends StatelessWidget {
+  const _WorkspaceScopeBar({
+    required this.scope,
+    required this.canUseFullAccess,
+    required this.onAccessMode,
+    this.error,
+  });
+
+  final NanobotWorkspaceScope scope;
+  final bool canUseFullAccess;
+  final ValueChanged<String> onAccessMode;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final modeLabel = scope.isFullAccess ? 'Full Access' : 'Default Permission';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppThemeTokens.panelMuted,
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        border: Border.all(color: AppThemeTokens.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.folder_outlined,
+            size: 18,
+            color: AppThemeTokens.mutedText,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  scope.projectLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppThemeTokens.text,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (error?.trim().isNotEmpty == true)
+                  Text(
+                    error!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppThemeTokens.dangerText,
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Workspace access mode',
+            onSelected: onAccessMode,
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'restricted',
+                child: Text('Default Permission'),
+              ),
+              PopupMenuItem(
+                value: 'full',
+                enabled: canUseFullAccess,
+                child: const Text('Full Access'),
+              ),
+            ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  scope.isFullAccess
+                      ? Icons.warning_amber_outlined
+                      : Icons.pan_tool_alt_outlined,
+                  size: 16,
+                  color: scope.isFullAccess
+                      ? AppThemeTokens.warning
+                      : AppThemeTokens.mutedText,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  modeLabel,
+                  style: TextStyle(
+                    color: scope.isFullAccess
+                        ? AppThemeTokens.warning
+                        : AppThemeTokens.text,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down, size: 18),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InputBar extends StatelessWidget {
   const _InputBar({
     required this.controller,
     required this.focusNode,
     required this.canSend,
     required this.isStreaming,
+    required this.workspaceScope,
+    required this.workspaceError,
+    required this.canUseFullAccess,
     required this.onSend,
     required this.onStop,
+    required this.onWorkspaceAccessMode,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool canSend;
   final bool isStreaming;
+  final NanobotWorkspaceScope? workspaceScope;
+  final String? workspaceError;
+  final bool canUseFullAccess;
   final VoidCallback onSend;
   final VoidCallback onStop;
+  final ValueChanged<String> onWorkspaceAccessMode;
 
   @override
   Widget build(BuildContext context) {
@@ -1516,21 +1636,33 @@ class _InputBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: TextField(
-                controller: controller,
-                focusNode: focusNode,
-                minLines: 1,
-                maxLines: 5,
-                textInputAction: TextInputAction.newline,
-                decoration: const InputDecoration(
-                  hintText: 'Message nanobot',
-                  fillColor: AppThemeTokens.panelMuted,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (workspaceScope != null)
+                    _WorkspaceScopeBar(
+                      scope: workspaceScope!,
+                      error: workspaceError,
+                      canUseFullAccess: canUseFullAccess,
+                      onAccessMode: onWorkspaceAccessMode,
+                    ),
+                  TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    minLines: 1,
+                    maxLines: 5,
+                    textInputAction: TextInputAction.newline,
+                    decoration: const InputDecoration(
+                      hintText: 'Message nanobot',
+                      fillColor: AppThemeTokens.panelMuted,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
             const SizedBox(width: 8),

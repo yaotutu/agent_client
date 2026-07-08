@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
-  testWidgets('renders persisted trace and file edit thread entries', (
+  testWidgets('composer workspace scope mirrors webui access controls', (
     tester,
   ) async {
     final repository = _FakeNanobotRepository();
@@ -28,53 +28,45 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    repository.emit({
-      'event': 'delta',
-      'chat_id': 'chat-1',
-      'text': 'answer',
-      'turn_id': 'turn-1',
-    });
-    repository.emit({
-      'event': 'message',
-      'chat_id': 'chat-1',
-      'kind': 'tool_hint',
-      'text': 'read file',
-      'tool_events': [
-        {'name': 'read_file', 'phase': 'start'},
-      ],
-    });
-    repository.emit({
-      'event': 'file_edit',
-      'chat_id': 'chat-1',
-      'edits': [
-        {
-          'call_id': 'call-1',
-          'tool': 'write_file',
-          'path': 'lib/main.dart',
-          'added': 3,
-          'deleted': 1,
-          'status': 'done',
-        },
-      ],
-    });
-    repository.emit({'event': 'turn_end', 'chat_id': 'chat-1'});
+    expect(find.text('nanobot'), findsOneWidget);
+    expect(find.text('Default Permission'), findsOneWidget);
+
+    await tester.tap(find.text('Default Permission'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Full Access').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('answer'), findsOneWidget);
-    expect(find.text('read file'), findsOneWidget);
-    expect(find.text('lib/main.dart'), findsOneWidget);
-    expect(find.text('+3 -1'), findsOneWidget);
+    expect(repository.workspaceChatId, 'chat-1');
+    expect(repository.workspaceScope?['access_mode'], 'full');
+    expect(repository.workspaceScope?['restrict_to_workspace'], isFalse);
+    expect(find.text('Full Access'), findsOneWidget);
+
+    repository.emit({
+      'event': 'error',
+      'detail': 'workspace_scope_rejected',
+      'reason': 'outside workspace',
+    });
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Workspace scope was rejected. Choose another project.'),
+      findsOneWidget,
+    );
   });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
+  String? workspaceChatId;
+  Map<String, Object?>? workspaceScope;
+
   final _sessions = [
     NanobotSessionSummary(
       key: 'websocket:chat-1',
       channel: 'websocket',
       chatId: 'chat-1',
+      title: 'Workspace Chat',
       preview: '',
       createdAt: DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
@@ -98,9 +90,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<NanobotBootstrap> bootstrap({bool forceRefresh = false}) async {
     return NanobotBootstrap(
       token: 'token',
-      wsPath: '/ws',
+      wsPath: '/',
       expiresAt: DateTime.now().add(const Duration(minutes: 5)),
-      modelName: 'model',
+      modelName: 'MiniMax-M3',
     );
   }
 
@@ -109,6 +101,28 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<List<NanobotSessionSummary>> listSessions() async => _sessions;
+
+  @override
+  Future<NanobotWorkspaceSnapshot> fetchWorkspacesSnapshot() async {
+    return const NanobotWorkspaceSnapshot(
+      defaultScope: NanobotWorkspaceScope(
+        projectPath: '/home/yaotutu/Desktop/code/nanobot',
+        projectName: 'nanobot',
+        accessMode: 'restricted',
+        restrictToWorkspace: true,
+      ),
+      controls: {'can_change_project': true, 'can_use_full_access': true},
+    );
+  }
+
+  @override
+  Future<void> setWorkspaceScope({
+    required String chatId,
+    required NanobotWorkspaceScope workspaceScope,
+  }) async {
+    workspaceChatId = chatId;
+    this.workspaceScope = workspaceScope.toJson();
+  }
 
   @override
   Future<NanobotSidebarState> fetchSidebarState() async {
@@ -131,25 +145,6 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
-  Future<NanobotWorkspaceSnapshot> fetchWorkspacesSnapshot() async {
-    return const NanobotWorkspaceSnapshot(
-      defaultScope: NanobotWorkspaceScope(
-        projectPath: '/tmp/project',
-        accessMode: 'restricted',
-      ),
-    );
-  }
-
-  @override
-  Future<void> setWorkspaceScope({
-    required String chatId,
-    required NanobotWorkspaceScope workspaceScope,
-  }) async {}
-
-  @override
-  Future<void> attach(String chatId) async {}
-
-  @override
   Future<List<NanobotMessage>> fetchThread(
     NanobotSessionSummary session,
   ) async {
@@ -158,6 +153,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<String> newChat() async => 'chat-1';
+
+  @override
+  Future<void> attach(String chatId) async {}
 
   @override
   Future<void> sendMessage({

@@ -123,6 +123,22 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotWorkspaceSnapshot> fetchWorkspacesSnapshot() async {
+    return const NanobotWorkspaceSnapshot(
+      defaultScope: NanobotWorkspaceScope(
+        projectPath: '/tmp/project',
+        accessMode: 'restricted',
+      ),
+    );
+  }
+
+  @override
+  Future<void> setWorkspaceScope({
+    required String chatId,
+    required NanobotWorkspaceScope workspaceScope,
+  }) async {}
+
+  @override
   Future<List<NanobotMessage>> fetchThread(
     NanobotSessionSummary session,
   ) async {

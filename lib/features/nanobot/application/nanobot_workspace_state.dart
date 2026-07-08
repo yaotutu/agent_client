@@ -18,6 +18,9 @@ class NanobotWorkspaceState {
     this.skillItems = const [],
     this.isLoadingSurface = false,
     this.sidebarState = const NanobotSidebarState(),
+    this.workspacesSnapshot,
+    this.draftWorkspaceScope,
+    this.workspaceError,
     this.modelName,
     this.socketStatus = NanobotSocketStatus.idle,
     this.isBootstrapping = false,
@@ -40,6 +43,9 @@ class NanobotWorkspaceState {
   final List<NanobotCatalogItem> skillItems;
   final bool isLoadingSurface;
   final NanobotSidebarState sidebarState;
+  final NanobotWorkspaceSnapshot? workspacesSnapshot;
+  final NanobotWorkspaceScope? draftWorkspaceScope;
+  final String? workspaceError;
   final String? modelName;
   final NanobotSocketStatus socketStatus;
   final bool isBootstrapping;
@@ -64,6 +70,16 @@ class NanobotWorkspaceState {
 
   bool get canSend {
     return !isBootstrapping && !isLoadingThread;
+  }
+
+  NanobotWorkspaceScope? get activeWorkspaceScope {
+    return selectedSession?.workspaceScope ??
+        draftWorkspaceScope ??
+        workspacesSnapshot?.defaultScope;
+  }
+
+  bool get canUseFullWorkspaceAccess {
+    return workspacesSnapshot?.canUseFullAccess ?? true;
   }
 
   List<NanobotSessionSummary> get visibleSessions {
@@ -111,6 +127,9 @@ class NanobotWorkspaceState {
     List<NanobotCatalogItem>? skillItems,
     bool? isLoadingSurface,
     NanobotSidebarState? sidebarState,
+    NanobotWorkspaceSnapshot? workspacesSnapshot,
+    NanobotWorkspaceScope? draftWorkspaceScope,
+    String? workspaceError,
     String? modelName,
     NanobotSocketStatus? socketStatus,
     bool? isBootstrapping,
@@ -123,6 +142,8 @@ class NanobotWorkspaceState {
     bool clearThreadState = false,
     bool clearSettingsSnapshot = false,
     bool clearSurfaceItems = false,
+    bool clearDraftWorkspaceScope = false,
+    bool clearWorkspaceError = false,
     bool clearModelName = false,
     bool clearReasoning = false,
     bool clearActivity = false,
@@ -149,6 +170,13 @@ class NanobotWorkspaceState {
       skillItems: clearSurfaceItems ? const [] : skillItems ?? this.skillItems,
       isLoadingSurface: isLoadingSurface ?? this.isLoadingSurface,
       sidebarState: sidebarState ?? this.sidebarState,
+      workspacesSnapshot: workspacesSnapshot ?? this.workspacesSnapshot,
+      draftWorkspaceScope: clearDraftWorkspaceScope
+          ? null
+          : draftWorkspaceScope ?? this.draftWorkspaceScope,
+      workspaceError: clearWorkspaceError
+          ? null
+          : workspaceError ?? this.workspaceError,
       modelName: clearModelName ? null : modelName ?? this.modelName,
       socketStatus: socketStatus ?? this.socketStatus,
       isBootstrapping: isBootstrapping ?? this.isBootstrapping,

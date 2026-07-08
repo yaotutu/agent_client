@@ -44,6 +44,17 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('deleteSession');
   }
 
+  Future<NanobotWorkspaceSnapshot> fetchWorkspacesSnapshot() {
+    throw UnimplementedError('fetchWorkspacesSnapshot');
+  }
+
+  Future<void> setWorkspaceScope({
+    required String chatId,
+    required NanobotWorkspaceScope workspaceScope,
+  }) {
+    throw UnimplementedError('setWorkspaceScope');
+  }
+
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() {
     throw UnimplementedError('fetchSettingsSnapshot');
   }
@@ -117,6 +128,16 @@ class NanobotRepository implements NanobotRepositoryPort {
   }
 
   Future<NanobotWorkspacesDto> fetchWorkspaces() => api.fetchWorkspaces();
+
+  @override
+  Future<NanobotWorkspaceSnapshot> fetchWorkspacesSnapshot() async {
+    final dto = await api.fetchWorkspaces();
+    return NanobotWorkspaceSnapshot(
+      defaultScope: _workspaceScopeFromDto(dto.defaultScope),
+      controls: dto.controls,
+      recent: [for (final scope in dto.recent) _workspaceScopeFromDto(scope)],
+    );
+  }
 
   Future<List<NanobotSlashCommandDto>> listSlashCommands() {
     return api.listSlashCommands();
@@ -230,11 +251,15 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
+  @override
   Future<void> setWorkspaceScope({
     required String chatId,
-    required Map<String, Object?> workspaceScope,
+    required NanobotWorkspaceScope workspaceScope,
   }) {
-    return ws.setWorkspaceScope(chatId: chatId, workspaceScope: workspaceScope);
+    return ws.setWorkspaceScope(
+      chatId: chatId,
+      workspaceScope: workspaceScope.toJson(),
+    );
   }
 
   Future<String> transcribeAudio({
@@ -326,6 +351,16 @@ class NanobotRepository implements NanobotRepositoryPort {
         sort: state.sort,
         showArchived: state.showArchived,
       ),
+    );
+  }
+
+  NanobotWorkspaceScope _workspaceScopeFromDto(NanobotWorkspaceScopeDto dto) {
+    return NanobotWorkspaceScope(
+      projectPath: dto.projectPath,
+      projectName: dto.projectName,
+      accessMode: dto.accessMode,
+      restrictToWorkspace: dto.restrictToWorkspace,
+      sandboxStatus: dto.sandboxStatus,
     );
   }
 }

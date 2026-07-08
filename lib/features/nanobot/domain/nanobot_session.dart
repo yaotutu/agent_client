@@ -1,3 +1,5 @@
+import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
+
 class NanobotSessionSummary {
   const NanobotSessionSummary({
     required this.key,
@@ -8,6 +10,7 @@ class NanobotSessionSummary {
     this.createdAt,
     this.updatedAt,
     this.runStartedAt,
+    this.workspaceScope,
   });
 
   final String key;
@@ -18,6 +21,7 @@ class NanobotSessionSummary {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final int? runStartedAt;
+  final NanobotWorkspaceScope? workspaceScope;
 
   String get displayTitle {
     final trimmedTitle = title?.trim();
@@ -45,6 +49,21 @@ class NanobotSessionSummary {
       runStartedAt: json['run_started_at'] is num
           ? (json['run_started_at'] as num).toInt()
           : null,
+      workspaceScope: _parseWorkspaceScope(json['workspace_scope']),
+    );
+  }
+
+  NanobotSessionSummary copyWith({NanobotWorkspaceScope? workspaceScope}) {
+    return NanobotSessionSummary(
+      key: key,
+      channel: channel,
+      chatId: chatId,
+      title: title,
+      preview: preview,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      runStartedAt: runStartedAt,
+      workspaceScope: workspaceScope ?? this.workspaceScope,
     );
   }
 
@@ -61,5 +80,25 @@ class NanobotSessionSummary {
       return null;
     }
     return DateTime.tryParse(value);
+  }
+
+  static NanobotWorkspaceScope? _parseWorkspaceScope(Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+    final json = Map<String, Object?>.from(value);
+    final projectPath = json['project_path'] as String?;
+    if (projectPath == null || projectPath.trim().isEmpty) {
+      return null;
+    }
+    return NanobotWorkspaceScope(
+      projectPath: projectPath,
+      projectName: json['project_name'] as String?,
+      accessMode: json['access_mode'] as String? ?? 'restricted',
+      restrictToWorkspace: json['restrict_to_workspace'] as bool?,
+      sandboxStatus: json['sandbox_status'] is Map
+          ? Map<String, Object?>.from(json['sandbox_status'] as Map)
+          : null,
+    );
   }
 }

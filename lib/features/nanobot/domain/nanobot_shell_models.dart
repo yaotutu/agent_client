@@ -42,6 +42,71 @@ class NanobotSessionDeleteResult {
   final List<Map<String, Object?>> automations;
 }
 
+class NanobotWorkspaceScope {
+  const NanobotWorkspaceScope({
+    required this.projectPath,
+    required this.accessMode,
+    this.projectName,
+    this.restrictToWorkspace,
+    this.sandboxStatus,
+  });
+
+  final String projectPath;
+  final String? projectName;
+  final String accessMode;
+  final bool? restrictToWorkspace;
+  final Map<String, Object?>? sandboxStatus;
+
+  String get projectLabel {
+    final name = projectName?.trim();
+    if (name != null && name.isNotEmpty) {
+      return name;
+    }
+    final normalized = projectPath
+        .replaceAll('\\', '/')
+        .replaceAll(RegExp(r'/+$'), '');
+    final parts = normalized.split('/').where((part) => part.isNotEmpty);
+    return parts.isEmpty ? projectPath : parts.last;
+  }
+
+  bool get isFullAccess => accessMode == 'full';
+
+  NanobotWorkspaceScope withAccessMode(String nextAccessMode) {
+    return NanobotWorkspaceScope(
+      projectPath: projectPath,
+      projectName: projectName,
+      accessMode: nextAccessMode,
+      restrictToWorkspace: nextAccessMode == 'restricted',
+      sandboxStatus: sandboxStatus,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'project_path': projectPath,
+      if (projectName != null) 'project_name': projectName,
+      'access_mode': accessMode,
+      if (restrictToWorkspace != null)
+        'restrict_to_workspace': restrictToWorkspace,
+      if (sandboxStatus != null) 'sandbox_status': sandboxStatus,
+    };
+  }
+}
+
+class NanobotWorkspaceSnapshot {
+  const NanobotWorkspaceSnapshot({
+    required this.defaultScope,
+    this.controls,
+    this.recent = const [],
+  });
+
+  final NanobotWorkspaceScope defaultScope;
+  final Map<String, Object?>? controls;
+  final List<NanobotWorkspaceScope> recent;
+
+  bool get canUseFullAccess => controls?['can_use_full_access'] != false;
+}
+
 class NanobotSidebarState {
   const NanobotSidebarState({
     this.pinnedKeys = const [],
