@@ -369,6 +369,38 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
+  Future<List<NanobotCatalogItem>> runCliAppAction({
+    required String action,
+    required String name,
+  }) async {
+    final payload = await api.runCliAppAction(action: action, name: name);
+    return [for (final row in payload.apps) _cliCatalogItem(row)];
+  }
+
+  Future<List<NanobotCatalogItem>> runNanobotFeatureAction({
+    required String action,
+    required String name,
+  }) async {
+    final payload = await api.runNanobotFeatureAction(
+      action: action,
+      name: name,
+    );
+    return [for (final row in payload.features) _featureCatalogItem(row)];
+  }
+
+  Future<List<NanobotCatalogItem>> runMcpPresetAction({
+    required String action,
+    required String name,
+    Map<String, Object?> values = const {},
+  }) async {
+    final payload = await api.runMcpPresetAction(
+      action: action,
+      name: name,
+      values: values,
+    );
+    return [for (final row in payload.presets) _mcpCatalogItem(row)];
+  }
+
   @override
   Future<List<NanobotCatalogItem>> fetchAutomationItems() async {
     final payload = await api.fetchAutomations();

@@ -140,6 +140,82 @@ void main() {
     },
   );
 
+  test('repository maps apps action results by catalog kind', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings/cli-apps/test?name=gimp': {
+        'apps': [
+          {
+            'name': 'gimp',
+            'display_name': 'GIMP',
+            'description': 'Image editor',
+            'installed': true,
+          },
+        ],
+      },
+      'GET /api/settings/nanobot-features/disable?name=matrix': {
+        'features': [
+          {
+            'name': 'matrix',
+            'display_name': 'Matrix',
+            'type': 'channel',
+            'enabled': false,
+            'ready': false,
+            'installed': true,
+          },
+        ],
+      },
+      'GET /api/settings/mcp-presets/enable?name=browserbase': {
+        'presets': [
+          {
+            'name': 'browserbase',
+            'display_name': 'Browserbase',
+            'description': 'Cloud browser automation',
+            'installed': true,
+            'configured': true,
+            'status': 'configured',
+          },
+        ],
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final cli = await repository.runCliAppAction(action: 'test', name: 'gimp');
+    final feature = await repository.runNanobotFeatureAction(
+      action: 'disable',
+      name: 'matrix',
+    );
+    final mcp = await repository.runMcpPresetAction(
+      action: 'enable',
+      name: 'browserbase',
+      values: const {'browserbase_api_key': 'bb_live_key'},
+    );
+
+    expect(cli.single.id, 'cli:gimp');
+    expect(cli.single.status, 'CLI');
+    expect(cli.single.filterKeys, containsAll(['cli', 'ready']));
+    expect(feature.single.id, 'nanobot:matrix');
+    expect(feature.single.subtitle, 'Channel is disabled');
+    expect(feature.single.filterKeys, containsAll(['nanobot', 'unavailable']));
+    expect(mcp.single.id, 'mcp:browserbase');
+    expect(mcp.single.status, 'Configured');
+    expect(mcp.single.filterKeys, containsAll(['mcp', 'ready']));
+  });
+
   test(
     'repository maps unavailable skill reasons for catalog display',
     () async {

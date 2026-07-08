@@ -171,6 +171,132 @@ void main() {
     expect(messages, isEmpty);
   });
 
+  test(
+    'api client sends apps action endpoints and mcp values header',
+    () async {
+      final adapter = _RouteAdapter({
+        'GET /webui/bootstrap': {
+          'token': 'token-1',
+          'ws_path': '/',
+          'expires_in': 300,
+        },
+        'GET /api/settings/cli-apps/test?name=gimp': {
+          'apps': [
+            {'name': 'gimp', 'installed': true},
+          ],
+        },
+        'GET /api/settings/nanobot-features/enable?name=matrix': {
+          'features': [
+            {'name': 'matrix', 'enabled': true},
+          ],
+        },
+        'GET /api/settings/mcp-presets/enable?name=browserbase': {
+          'presets': [
+            {'name': 'browserbase', 'configured': true},
+          ],
+        },
+        'GET /api/settings/mcp-presets/custom': {
+          'presets': [
+            {'name': 'custom-server'},
+          ],
+        },
+        'GET /api/settings/mcp-presets/import': {
+          'presets': [
+            {'name': 'imported-server'},
+          ],
+        },
+        'GET /api/settings/mcp-presets/tools': {
+          'presets': [
+            {
+              'name': 'browserbase',
+              'enabled_tools': ['navigate'],
+            },
+          ],
+        },
+      });
+      final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+      dio.httpClientAdapter = adapter;
+      final client = NanobotApiClient(
+        config: const NanobotConfig(
+          baseUrl: 'https://nanobot.test',
+          secret: 'redhat',
+        ),
+        dio: dio,
+      );
+
+      expect(
+        (await client.runCliAppAction(
+          action: 'test',
+          name: 'gimp',
+        )).apps.single['installed'],
+        true,
+      );
+      expect(
+        (await client.runNanobotFeatureAction(
+          action: 'enable',
+          name: 'matrix',
+        )).features.single['enabled'],
+        true,
+      );
+      expect(
+        (await client.runMcpPresetAction(
+          action: 'enable',
+          name: 'browserbase',
+          values: {'browserbase_api_key': ' bb_live_key ', 'empty': ''},
+        )).presets.single['configured'],
+        true,
+      );
+      expect(
+        (await client.saveCustomMcpServer({
+          'name': 'custom-server',
+          'command': 'npx server',
+        })).presets.single['name'],
+        'custom-server',
+      );
+      expect(
+        (await client.importMcpConfig(
+          '{"mcpServers":{}}',
+        )).presets.single['name'],
+        'imported-server',
+      );
+      expect(
+        (await client.updateMcpServerTools(
+          name: 'browserbase',
+          enabledTools: const ['navigate'],
+        )).presets.single['enabled_tools'],
+        ['navigate'],
+      );
+
+      final mcpEnableCall = adapter.calls.firstWhere(
+        (options) => options.uri.path == '/api/settings/mcp-presets/enable',
+      );
+      expect(
+        jsonDecode(mcpEnableCall.headers['X-Nanobot-MCP-Values'] as String),
+        {'browserbase_api_key': 'bb_live_key'},
+      );
+      final customCall = adapter.calls.firstWhere(
+        (options) => options.uri.path == '/api/settings/mcp-presets/custom',
+      );
+      expect(jsonDecode(customCall.headers['X-Nanobot-MCP-Values'] as String), {
+        'name': 'custom-server',
+        'command': 'npx server',
+      });
+      final importCall = adapter.calls.firstWhere(
+        (options) => options.uri.path == '/api/settings/mcp-presets/import',
+      );
+      expect(jsonDecode(importCall.headers['X-Nanobot-MCP-Values'] as String), {
+        'config': '{"mcpServers":{}}',
+      });
+      final toolsCall = adapter.calls.firstWhere(
+        (options) => options.uri.path == '/api/settings/mcp-presets/tools',
+      );
+      expect(jsonDecode(toolsCall.headers['X-Nanobot-MCP-Values'] as String), {
+        'name': 'browserbase',
+        'enabled_tools': ['navigate'],
+      });
+    },
+  );
+
   test('api client serializes automation actions and updates', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

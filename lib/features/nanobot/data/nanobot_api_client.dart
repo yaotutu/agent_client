@@ -235,6 +235,72 @@ class NanobotApiClient {
     return NanobotMcpPresetsDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotCliAppsDto> runCliAppAction({
+    required String action,
+    required String name,
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/cli-apps/$action',
+      queryParameters: {'name': name},
+      options: await _authOptions(),
+    );
+    return NanobotCliAppsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotFeaturesDto> runNanobotFeatureAction({
+    required String action,
+    required String name,
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/nanobot-features/$action',
+      queryParameters: {'name': name},
+      options: await _authOptions(),
+    );
+    return NanobotFeaturesDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotMcpPresetsDto> runMcpPresetAction({
+    required String action,
+    required String name,
+    Map<String, Object?> values = const {},
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/mcp-presets/$action',
+      queryParameters: {'name': name},
+      options: await _mcpOptions(values),
+    );
+    return NanobotMcpPresetsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotMcpPresetsDto> saveCustomMcpServer(
+    Map<String, Object?> values,
+  ) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/mcp-presets/custom',
+      options: await _mcpOptions(values),
+    );
+    return NanobotMcpPresetsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotMcpPresetsDto> importMcpConfig(String config) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/mcp-presets/import',
+      options: await _mcpOptions({'config': config}),
+    );
+    return NanobotMcpPresetsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotMcpPresetsDto> updateMcpServerTools({
+    required String name,
+    required List<String> enabledTools,
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/mcp-presets/tools',
+      options: await _mcpOptions({'name': name, 'enabled_tools': enabledTools}),
+    );
+    return NanobotMcpPresetsDto.fromJson(_asMap(response.data));
+  }
+
   Future<NanobotProviderModelsDto> fetchProviderModels(String provider) async {
     final response = await _dio.get<Object?>(
       '/api/settings/provider-models',
@@ -313,6 +379,17 @@ class NanobotApiClient {
     return Options(headers: {'Authorization': 'Bearer $token'});
   }
 
+  Future<Options> _mcpOptions(Map<String, Object?> values) async {
+    final authOptions = await _authOptions();
+    final mcpValues = _encodedMcpValues(values);
+    if (mcpValues == null) {
+      return authOptions;
+    }
+    return authOptions.copyWith(
+      headers: {...?authOptions.headers, 'X-Nanobot-MCP-Values': mcpValues},
+    );
+  }
+
   Map<String, Object?> _asMap(Object? value) {
     if (value is Map<String, Object?>) {
       return value;
@@ -343,5 +420,27 @@ class NanobotApiClient {
       return null;
     }
     return Uri.encodeComponent(jsonEncode(payload));
+  }
+
+  String? _encodedMcpValues(Map<String, Object?> values) {
+    final payload = <String, Object?>{};
+    for (final entry in values.entries) {
+      final value = entry.value;
+      if (value == null) {
+        continue;
+      }
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isNotEmpty) {
+          payload[entry.key] = trimmed;
+        }
+        continue;
+      }
+      payload[entry.key] = value;
+    }
+    if (payload.isEmpty) {
+      return null;
+    }
+    return jsonEncode(payload);
   }
 }
