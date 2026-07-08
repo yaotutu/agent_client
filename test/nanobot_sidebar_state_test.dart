@@ -136,6 +136,22 @@ void main() {
     expect(find.text('5m ago'), findsOneWidget);
   });
 
+  testWidgets('session list uses webui empty sessions copy', (tester) async {
+    final repository = _FakeNanobotRepository(sessions: []);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No sessions yet.'), findsOneWidget);
+    expect(find.text('No sessions'), findsNothing);
+  });
+
   testWidgets('session action menu persists pin archive and rename', (
     tester,
   ) async {

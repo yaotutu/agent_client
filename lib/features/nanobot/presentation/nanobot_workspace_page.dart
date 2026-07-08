@@ -543,7 +543,7 @@ class _SessionList extends StatelessWidget {
                     child: Padding(
                       padding: EdgeInsets.all(24),
                       child: Text(
-                        'No sessions',
+                        'No sessions yet.',
                         style: TextStyle(color: AppThemeTokens.mutedText),
                       ),
                     ),
