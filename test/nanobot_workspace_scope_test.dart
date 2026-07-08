@@ -209,6 +209,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<void> sendMessage({
     required String chatId,
     required String content,
+    List<NanobotCapabilityMention> cliApps = const [],
+    List<NanobotCapabilityMention> mcpPresets = const [],
   }) async {}
 
   @override
@@ -228,6 +230,11 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<List<NanobotCatalogItem>> fetchSkillItems() async {
+    return const [];
+  }
+
+  @override
+  Future<List<NanobotCapabilityMention>> fetchCapabilityMentions() async {
     return const [];
   }
 

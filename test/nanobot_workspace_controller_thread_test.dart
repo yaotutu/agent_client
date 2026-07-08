@@ -103,6 +103,44 @@ void main() {
       expect(repository.sentContent, 'hello');
     },
   );
+
+  test('workspace controller sends capability mention metadata', () async {
+    final repository = _FakeNanobotRepository();
+    final container = ProviderContainer(
+      overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    addTearDown(repository.dispose);
+
+    final controller = container.read(
+      nanobotWorkspaceControllerProvider.notifier,
+    );
+    container.read(nanobotWorkspaceControllerProvider);
+    await pumpEventQueue();
+
+    await controller.sendMessage('use @gimp with @browserbase and @gimp');
+
+    expect(repository.sentContent, 'use @gimp with @browserbase and @gimp');
+    expect(repository.sentCliApps, hasLength(1));
+    expect(repository.sentCliApps.single.name, 'gimp');
+    expect(repository.sentCliApps.single.displayName, 'GIMP');
+    expect(repository.sentCliApps.single.category, 'image');
+    expect(repository.sentCliApps.single.entryPoint, 'cli-anything-gimp');
+    expect(repository.sentCliApps.single.status, 'installed');
+    expect(repository.sentCliApps.single.brandColor, '#5C5543');
+    expect(repository.sentMcpPresets, hasLength(1));
+    expect(repository.sentMcpPresets.single.name, 'browserbase');
+    expect(repository.sentMcpPresets.single.displayName, 'Browserbase');
+    expect(repository.sentMcpPresets.single.category, 'browser');
+    expect(repository.sentMcpPresets.single.transport, 'streamableHttp');
+    expect(repository.sentMcpPresets.single.status, 'configured');
+    expect(repository.sentMcpPresets.single.configured, isTrue);
+    expect(
+      repository.sentMcpPresets.single.logoUrl,
+      'https://example.invalid/browserbase.svg',
+    );
+    expect(repository.sentMcpPresets.single.brandColor, '#111827');
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -126,6 +164,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Map<String, Object?>? newChatWorkspaceScope;
   String? sentChatId;
   String? sentContent;
+  List<NanobotCapabilityMention> sentCliApps = const [];
+  List<NanobotCapabilityMention> sentMcpPresets = const [];
 
   @override
   Stream<NanobotEvent> get events => _events.stream;
@@ -217,9 +257,13 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<void> sendMessage({
     required String chatId,
     required String content,
+    List<NanobotCapabilityMention> cliApps = const [],
+    List<NanobotCapabilityMention> mcpPresets = const [],
   }) async {
     sentChatId = chatId;
     sentContent = content;
+    sentCliApps = cliApps;
+    sentMcpPresets = mcpPresets;
   }
 
   @override
@@ -240,6 +284,47 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   @override
   Future<List<NanobotCatalogItem>> fetchSkillItems() async {
     return const [];
+  }
+
+  @override
+  Future<List<NanobotCapabilityMention>> fetchCapabilityMentions() async {
+    return const [
+      NanobotCapabilityMention(
+        kind: NanobotCapabilityMentionKind.cli,
+        name: 'gimp',
+        displayName: 'GIMP',
+        category: 'image',
+        description: 'Image editing',
+        entryPoint: 'cli-anything-gimp',
+        installed: true,
+        status: 'installed',
+        brandColor: '#5C5543',
+      ),
+      NanobotCapabilityMention(
+        kind: NanobotCapabilityMentionKind.mcp,
+        name: 'browserbase',
+        displayName: 'Browserbase',
+        category: 'browser',
+        description: 'Cloud browser automation',
+        transport: 'streamableHttp',
+        installed: true,
+        configured: true,
+        status: 'configured',
+        logoUrl: 'https://example.invalid/browserbase.svg',
+        brandColor: '#111827',
+      ),
+      NanobotCapabilityMention(
+        kind: NanobotCapabilityMentionKind.mcp,
+        name: 'figma',
+        displayName: 'Figma',
+        category: 'design',
+        description: 'Design context',
+        transport: 'streamableHttp',
+        installed: true,
+        configured: false,
+        status: 'missing_credentials',
+      ),
+    ];
   }
 
   @override

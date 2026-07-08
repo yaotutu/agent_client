@@ -68,12 +68,17 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       if (!_isActive(generation)) {
         return;
       }
+      final capabilityMentions = await _loadCapabilityMentions(repository);
+      if (!_isActive(generation)) {
+        return;
+      }
       state = state.copyWith(
         sessions: sessions,
         sidebarState: sidebarState,
         workspacesSnapshot: workspacesSnapshot,
         slashCommands: slashCommands,
         skillItems: skills,
+        capabilityMentions: capabilityMentions,
         modelName: bootstrap.modelName,
         isBootstrapping: false,
         socketStatus: repository.currentStatus,
@@ -137,6 +142,16 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
   ) async {
     try {
       return await repository.fetchSkillItems();
+    } on Object {
+      return const [];
+    }
+  }
+
+  Future<List<NanobotCapabilityMention>> _loadCapabilityMentions(
+    NanobotRepositoryPort repository,
+  ) async {
+    try {
+      return await repository.fetchCapabilityMentions();
     } on Object {
       return const [];
     }
@@ -533,9 +548,15 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     );
 
     try {
+      final mentions = _capabilityMentionsForContent(content);
       await ref
           .read(nanobotRepositoryProvider)
-          .sendMessage(chatId: chatId, content: content);
+          .sendMessage(
+            chatId: chatId,
+            content: content,
+            cliApps: mentions.cliApps,
+            mcpPresets: mentions.mcpPresets,
+          );
     } on Object catch (error) {
       state = state.copyWith(
         messages: [
@@ -554,6 +575,51 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         errorMessage: _friendlyError(error),
       );
     }
+  }
+
+  _ResolvedCapabilityMentions _capabilityMentionsForContent(String content) {
+    final cliByName = <String, NanobotCapabilityMention>{};
+    final mcpByName = <String, NanobotCapabilityMention>{};
+    for (final item in state.capabilityMentions) {
+      if (!item.canMention) {
+        continue;
+      }
+      final key = item.name.toLowerCase();
+      if (item.kind == NanobotCapabilityMentionKind.cli) {
+        cliByName[key] = item;
+      } else {
+        mcpByName[key] = item;
+      }
+    }
+    final cliApps = <NanobotCapabilityMention>[];
+    final mcpPresets = <NanobotCapabilityMention>[];
+    final seenCli = <String>{};
+    final seenMcp = <String>{};
+    final mentionRe = RegExp(
+      r'(^|[\s([{])@([a-z0-9_-]+)\b',
+      caseSensitive: false,
+    );
+    for (final match in mentionRe.allMatches(content)) {
+      final name = match.group(2)?.toLowerCase();
+      if (name == null) {
+        continue;
+      }
+      final app = cliByName[name];
+      if (app != null) {
+        if (seenCli.add(name)) {
+          cliApps.add(app);
+        }
+        continue;
+      }
+      final preset = mcpByName[name];
+      if (preset != null && seenMcp.add(name)) {
+        mcpPresets.add(preset);
+      }
+    }
+    return _ResolvedCapabilityMentions(
+      cliApps: cliApps,
+      mcpPresets: mcpPresets,
+    );
   }
 
   Future<void> stopActiveTurn() async {
@@ -871,4 +937,14 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     final text = error.toString();
     return text.startsWith('Exception: ') ? text.substring(11) : text;
   }
+}
+
+class _ResolvedCapabilityMentions {
+  const _ResolvedCapabilityMentions({
+    required this.cliApps,
+    required this.mcpPresets,
+  });
+
+  final List<NanobotCapabilityMention> cliApps;
+  final List<NanobotCapabilityMention> mcpPresets;
 }

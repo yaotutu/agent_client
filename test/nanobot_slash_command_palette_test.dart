@@ -69,6 +69,36 @@ void main() {
     final input = tester.widget<TextField>(find.byType(TextField).last);
     expect(input.controller?.text, r'$browser ');
   });
+
+  testWidgets('composer capability palette inserts a selected CLI mention', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, '@g');
+    await tester.pumpAndSettle();
+
+    expect(find.text('GIMP'), findsOneWidget);
+    expect(find.text('Image editing'), findsOneWidget);
+    expect(find.text('@gimp'), findsOneWidget);
+    expect(find.text('CLI'), findsOneWidget);
+    expect(find.text('Krita'), findsNothing);
+
+    await tester.tap(find.text('GIMP'));
+    await tester.pumpAndSettle();
+
+    final input = tester.widget<TextField>(find.byType(TextField).last);
+    expect(input.controller?.text, '@gimp ');
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -186,6 +216,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<void> sendMessage({
     required String chatId,
     required String content,
+    List<NanobotCapabilityMention> cliApps = const [],
+    List<NanobotCapabilityMention> mcpPresets = const [],
   }) async {}
 
   @override
@@ -211,6 +243,33 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
         title: 'browser',
         subtitle: 'Search and inspect pages.',
         status: 'available',
+      ),
+    ];
+  }
+
+  @override
+  Future<List<NanobotCapabilityMention>> fetchCapabilityMentions() async {
+    return const [
+      NanobotCapabilityMention(
+        kind: NanobotCapabilityMentionKind.cli,
+        name: 'gimp',
+        displayName: 'GIMP',
+        category: 'image',
+        description: 'Image editing',
+        entryPoint: 'cli-anything-gimp',
+        installed: true,
+        status: 'installed',
+        brandColor: '#5C5543',
+      ),
+      NanobotCapabilityMention(
+        kind: NanobotCapabilityMentionKind.cli,
+        name: 'krita',
+        displayName: 'Krita',
+        category: 'image',
+        description: 'Painting',
+        entryPoint: 'cli-anything-krita',
+        installed: false,
+        status: 'not_installed',
       ),
     ];
   }

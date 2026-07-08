@@ -1,5 +1,7 @@
 enum NanobotShellView { chat, settings, apps, automations, skills }
 
+enum NanobotCapabilityMentionKind { cli, mcp }
+
 class NanobotSettingsSnapshot {
   const NanobotSettingsSnapshot({
     this.model,
@@ -28,6 +30,43 @@ class NanobotCatalogItem {
   final String title;
   final String subtitle;
   final String status;
+}
+
+class NanobotCapabilityMention {
+  const NanobotCapabilityMention({
+    required this.kind,
+    required this.name,
+    required this.displayName,
+    this.category = '',
+    this.description = '',
+    this.entryPoint,
+    this.transport,
+    this.installed = false,
+    this.configured = false,
+    this.status = '',
+    this.logoUrl,
+    this.brandColor,
+  });
+
+  final NanobotCapabilityMentionKind kind;
+  final String name;
+  final String displayName;
+  final String category;
+  final String description;
+  final String? entryPoint;
+  final String? transport;
+  final bool installed;
+  final bool configured;
+  final String status;
+  final String? logoUrl;
+  final String? brandColor;
+
+  bool get canMention {
+    return switch (kind) {
+      NanobotCapabilityMentionKind.cli => installed,
+      NanobotCapabilityMentionKind.mcp => installed && configured,
+    };
+  }
 }
 
 class NanobotSlashCommand {

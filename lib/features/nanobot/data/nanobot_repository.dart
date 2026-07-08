@@ -31,7 +31,12 @@ abstract class NanobotRepositoryPort {
 
   Future<void> attach(String chatId);
 
-  Future<void> sendMessage({required String chatId, required String content});
+  Future<void> sendMessage({
+    required String chatId,
+    required String content,
+    List<NanobotCapabilityMention> cliApps = const [],
+    List<NanobotCapabilityMention> mcpPresets = const [],
+  });
 
   Future<NanobotSidebarState> fetchSidebarState() {
     throw UnimplementedError('fetchSidebarState');
@@ -73,6 +78,10 @@ abstract class NanobotRepositoryPort {
 
   Future<List<NanobotCatalogItem>> fetchSkillItems() {
     throw UnimplementedError('fetchSkillItems');
+  }
+
+  Future<List<NanobotCapabilityMention>> fetchCapabilityMentions() {
+    throw UnimplementedError('fetchCapabilityMentions');
   }
 
   Future<void> dispose();
@@ -246,6 +255,42 @@ class NanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<List<NanobotCapabilityMention>> fetchCapabilityMentions() async {
+    final apps = await api.fetchCliApps();
+    final mcpPresets = await api.fetchMcpPresets();
+    return [
+      for (final row in apps.apps)
+        NanobotCapabilityMention(
+          kind: NanobotCapabilityMentionKind.cli,
+          name: _stringValue(row, 'name'),
+          displayName: _stringValue(row, 'display_name', fallbackKey: 'name'),
+          category: _stringValue(row, 'category'),
+          description: _stringValue(row, 'description'),
+          entryPoint: _nullableStringValue(row, 'entry_point'),
+          installed: row['installed'] == true,
+          configured: row['configured'] == true,
+          status: _stringValue(row, 'status'),
+          logoUrl: _nullableStringValue(row, 'logo_url'),
+          brandColor: _nullableStringValue(row, 'brand_color'),
+        ),
+      for (final row in mcpPresets.presets)
+        NanobotCapabilityMention(
+          kind: NanobotCapabilityMentionKind.mcp,
+          name: _stringValue(row, 'name'),
+          displayName: _stringValue(row, 'display_name', fallbackKey: 'name'),
+          category: _stringValue(row, 'category'),
+          description: _stringValue(row, 'description'),
+          transport: _nullableStringValue(row, 'transport'),
+          installed: row['installed'] == true,
+          configured: row['configured'] == true,
+          status: _stringValue(row, 'status'),
+          logoUrl: _nullableStringValue(row, 'logo_url'),
+          brandColor: _nullableStringValue(row, 'brand_color'),
+        ),
+    ];
+  }
+
+  @override
   Future<String> newChat({NanobotWorkspaceScope? workspaceScope}) {
     return ws.newChat(workspaceScope: workspaceScope?.toJson());
   }
@@ -254,8 +299,18 @@ class NanobotRepository implements NanobotRepositoryPort {
   Future<void> attach(String chatId) => ws.attach(chatId);
 
   @override
-  Future<void> sendMessage({required String chatId, required String content}) {
-    return ws.sendMessage(chatId: chatId, content: content);
+  Future<void> sendMessage({
+    required String chatId,
+    required String content,
+    List<NanobotCapabilityMention> cliApps = const [],
+    List<NanobotCapabilityMention> mcpPresets = const [],
+  }) {
+    return ws.sendMessage(
+      chatId: chatId,
+      content: content,
+      cliApps: [for (final item in cliApps) _outboundMention(item)],
+      mcpPresets: [for (final item in mcpPresets) _outboundMention(item)],
+    );
   }
 
   Future<String> forkChat({
@@ -332,6 +387,30 @@ class NanobotRepository implements NanobotRepositoryPort {
       return fallbackValue;
     }
     return '';
+  }
+
+  String? _nullableStringValue(Map<String, Object?> row, String key) {
+    final value = row[key];
+    if (value is String && value.trim().isNotEmpty) {
+      return value;
+    }
+    return null;
+  }
+
+  NanobotOutboundMention _outboundMention(NanobotCapabilityMention item) {
+    return NanobotOutboundMention(
+      name: item.name,
+      displayName: item.displayName,
+      category: item.category,
+      entryPoint: item.entryPoint,
+      transport: item.transport,
+      status: item.status,
+      configured: item.kind == NanobotCapabilityMentionKind.mcp
+          ? item.configured
+          : null,
+      logoUrl: item.logoUrl,
+      brandColor: item.brandColor,
+    );
   }
 
   String _automationSubtitle(Map<String, Object?> row) {

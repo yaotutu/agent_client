@@ -759,6 +759,7 @@ class _ChatPane extends StatelessWidget {
               isStreaming: state.isStreaming,
               slashCommands: state.slashCommands,
               skills: state.skillItems,
+              capabilityMentions: state.capabilityMentions,
               workspaceScope: state.activeWorkspaceScope,
               defaultWorkspaceScope: state.workspacesSnapshot?.defaultScope,
               workspaceError: state.workspaceError,
@@ -1784,6 +1785,7 @@ class _InputBar extends StatefulWidget {
     required this.isStreaming,
     required this.slashCommands,
     required this.skills,
+    required this.capabilityMentions,
     required this.workspaceScope,
     required this.defaultWorkspaceScope,
     required this.workspaceError,
@@ -1801,6 +1803,7 @@ class _InputBar extends StatefulWidget {
   final bool isStreaming;
   final List<NanobotSlashCommand> slashCommands;
   final List<NanobotCatalogItem> skills;
+  final List<NanobotCapabilityMention> capabilityMentions;
   final NanobotWorkspaceScope? workspaceScope;
   final NanobotWorkspaceScope? defaultWorkspaceScope;
   final String? workspaceError;
@@ -1863,6 +1866,17 @@ class _InputBarState extends State<_InputBar> {
                         return _SkillMentionPalette(
                           skills: skills,
                           onSelected: (skill) => _chooseSkill(skill, query),
+                        );
+                      }
+                      final mentionQuery = _capabilityMentionQuery(value);
+                      final mentions = _filteredCapabilityMentions(
+                        mentionQuery,
+                      );
+                      if (mentionQuery != null && mentions.isNotEmpty) {
+                        return _CapabilityMentionPalette(
+                          mentions: mentions,
+                          onSelected: (mention) =>
+                              _chooseCapabilityMention(mention, mentionQuery),
                         );
                       }
                       return const SizedBox.shrink();
@@ -2012,6 +2026,64 @@ class _InputBarState extends State<_InputBar> {
     );
     widget.focusNode.requestFocus();
   }
+
+  _CapabilityMentionQuery? _capabilityMentionQuery(TextEditingValue value) {
+    final caret = value.selection.isValid
+        ? value.selection.baseOffset.clamp(0, value.text.length)
+        : value.text.length;
+    final beforeCaret = value.text.substring(0, caret);
+    final match = RegExp(r'(?:^|\s)@([A-Za-z0-9_-]*)$').firstMatch(beforeCaret);
+    if (match == null) {
+      return null;
+    }
+    return _CapabilityMentionQuery(
+      start: caret - match.group(1)!.length - 1,
+      end: caret,
+      text: match.group(1)!.toLowerCase(),
+    );
+  }
+
+  List<NanobotCapabilityMention> _filteredCapabilityMentions(
+    _CapabilityMentionQuery? query,
+  ) {
+    if (query == null) {
+      return const [];
+    }
+    return widget.capabilityMentions
+        .where((mention) => mention.canMention)
+        .where((mention) {
+          if (query.text.isEmpty) {
+            return true;
+          }
+          final haystack = [
+            mention.name,
+            mention.displayName,
+            mention.category,
+            mention.description,
+            mention.entryPoint,
+            mention.transport,
+          ].whereType<String>().join(' ').toLowerCase();
+          return haystack.contains(query.text);
+        })
+        .take(8)
+        .toList();
+  }
+
+  void _chooseCapabilityMention(
+    NanobotCapabilityMention mention,
+    _CapabilityMentionQuery query,
+  ) {
+    final value = widget.controller.value;
+    final suffix = value.text.substring(query.end);
+    final token = '@${mention.name}${suffix.startsWith(' ') ? '' : ' '}';
+    final next = '${value.text.substring(0, query.start)}$token$suffix';
+    final cursor = query.start + token.length;
+    widget.controller.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: cursor),
+    );
+    widget.focusNode.requestFocus();
+  }
 }
 
 class _SkillMentionQuery {
@@ -2024,6 +2096,183 @@ class _SkillMentionQuery {
   final int start;
   final int end;
   final String text;
+}
+
+class _CapabilityMentionQuery {
+  const _CapabilityMentionQuery({
+    required this.start,
+    required this.end,
+    required this.text,
+  });
+
+  final int start;
+  final int end;
+  final String text;
+}
+
+class _CapabilityMentionPalette extends StatelessWidget {
+  const _CapabilityMentionPalette({
+    required this.mentions,
+    required this.onSelected,
+  });
+
+  final List<NanobotCapabilityMention> mentions;
+  final ValueChanged<NanobotCapabilityMention> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      constraints: const BoxConstraints(maxHeight: 260),
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspaceAlt,
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        border: Border.all(color: AppThemeTokens.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1F000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        itemCount: mentions.length,
+        itemBuilder: (context, index) {
+          final mention = mentions[index];
+          final badge = mention.kind == NanobotCapabilityMentionKind.cli
+              ? 'CLI'
+              : 'MCP';
+          return InkWell(
+            onTap: () => onSelected(mention),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  _CapabilityMentionBadge(mention: mention),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          mention.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppThemeTokens.headingText,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (mention.description.trim().isNotEmpty)
+                          Text(
+                            mention.description,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppThemeTokens.mutedText,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '@${mention.name}',
+                    style: const TextStyle(
+                      color: AppThemeTokens.mutedText,
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: mention.kind == NanobotCapabilityMentionKind.cli
+                          ? const Color(0x1AFF8A00)
+                          : const Color(0x1A0EA5E9),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      badge,
+                      style: TextStyle(
+                        color: mention.kind == NanobotCapabilityMentionKind.cli
+                            ? const Color(0xFFC45A00)
+                            : const Color(0xFF0284C7),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CapabilityMentionBadge extends StatelessWidget {
+  const _CapabilityMentionBadge({required this.mention});
+
+  final NanobotCapabilityMention mention;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _capabilityColor(mention.brandColor);
+    return Container(
+      width: 22,
+      height: 22,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        _capabilityInitials(mention),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 8,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+Color _capabilityColor(String? value) {
+  final raw = value?.trim();
+  if (raw != null && RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(raw)) {
+    return Color(int.parse('FF${raw.substring(1)}', radix: 16));
+  }
+  return AppThemeTokens.accent;
+}
+
+String _capabilityInitials(NanobotCapabilityMention mention) {
+  final source = mention.displayName.trim().isNotEmpty
+      ? mention.displayName
+      : mention.name;
+  final parts = source
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .take(2)
+      .toList();
+  final initials = parts.map((part) => part[0].toUpperCase()).join();
+  return initials.isNotEmpty
+      ? initials
+      : mention.name
+            .substring(0, mention.name.length.clamp(0, 2))
+            .toUpperCase();
 }
 
 class _SkillMentionPalette extends StatelessWidget {
