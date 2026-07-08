@@ -220,6 +220,35 @@ void main() {
     expect(find.widgetWithText(ListTile, 'Pinned Roadmap'), findsOneWidget);
     expect(find.widgetWithText(ListTile, 'Active Chat'), findsNothing);
   });
+
+  testWidgets('new chat shortcut closes search and starts a chat', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+    expect(find.text('Recent'), findsOneWidget);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyO);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recent'), findsNothing);
+    expect(repository.newChatCount, 1);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -227,6 +256,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   final _status = StreamController<NanobotSocketStatus>.broadcast();
   NanobotSidebarState? persistedSidebarState;
   String? deletedSessionKey;
+  var newChatCount = 0;
 
   final _sessions = [
     NanobotSessionSummary(
@@ -321,8 +351,10 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
-  Future<String> newChat({NanobotWorkspaceScope? workspaceScope}) async =>
-      'chat-1';
+  Future<String> newChat({NanobotWorkspaceScope? workspaceScope}) async {
+    newChatCount += 1;
+    return 'chat-new-$newChatCount';
+  }
 
   @override
   Future<void> attach(String chatId) async {}

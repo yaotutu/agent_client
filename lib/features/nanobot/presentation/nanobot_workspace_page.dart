@@ -165,18 +165,32 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
     if (!mounted || event is! KeyDownEvent) {
       return false;
     }
-    if (event.logicalKey != LogicalKeyboardKey.keyK) {
-      return false;
-    }
     final keyboard = HardwareKeyboard.instance;
     final commandOrControl = keyboard.isMetaPressed || keyboard.isControlPressed;
-    if (!commandOrControl || keyboard.isAltPressed || keyboard.isShiftPressed) {
+    if (!commandOrControl || keyboard.isAltPressed) {
       return false;
     }
-    final state = ref.read(nanobotWorkspaceControllerProvider);
     final controller = ref.read(nanobotWorkspaceControllerProvider.notifier);
-    unawaited(_openSessionSearch(state, controller));
-    return true;
+    if (keyboard.isShiftPressed &&
+        event.logicalKey == LogicalKeyboardKey.keyO) {
+      _closeTopRouteIfPresent();
+      unawaited(controller.startNewSession());
+      return true;
+    }
+    if (!keyboard.isShiftPressed &&
+        event.logicalKey == LogicalKeyboardKey.keyK) {
+      final state = ref.read(nanobotWorkspaceControllerProvider);
+      unawaited(_openSessionSearch(state, controller));
+      return true;
+    }
+    return false;
+  }
+
+  void _closeTopRouteIfPresent() {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
   }
 
   Future<void> _openSessionSearch(
