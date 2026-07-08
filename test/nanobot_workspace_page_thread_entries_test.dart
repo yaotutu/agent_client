@@ -208,6 +208,32 @@ void main() {
     expect(repository.previewPath, isNull);
   });
 
+  testWidgets('message markdown bullet lists render list rows', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Found addresses:\n- **192.168.200.149**\n- `198.18.0.1`',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Found addresses:'), findsOneWidget);
+    expect(find.text('•'), findsNWidgets(2));
+    expect(_richTextWithBoldSpan('192.168.200.149'), findsOneWidget);
+    expect(_richTextWithCodeSpan('198.18.0.1'), findsOneWidget);
+    expect(find.textContaining('- **'), findsNothing);
+  });
+
   testWidgets('message markdown images render inline previews', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);

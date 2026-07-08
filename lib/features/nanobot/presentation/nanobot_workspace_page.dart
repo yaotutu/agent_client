@@ -1619,6 +1619,18 @@ class _MessageContentText extends ConsumerWidget {
   }
 
   Widget _buildInlineContent(String value, WidgetRef ref) {
+    final list = _markdownBulletList(value);
+    if (list != null) {
+      return _MessageBulletList(
+        prefix: list.prefix,
+        items: list.items,
+        itemBuilder: (item) => _buildInlineSegments(item, ref),
+      );
+    }
+    return _buildInlineSegments(value, ref);
+  }
+
+  Widget _buildInlineSegments(String value, WidgetRef ref) {
     final segments = _messageContentSegments(value);
     if (segments.length == 1 && segments.single.isPlainText) {
       return _InlineFormattedText(text: value, color: textColor);
@@ -1646,6 +1658,52 @@ class _MessageContentText extends ConsumerWidget {
             _InlineMarkdownLink(label: segment.text, href: segment.href!)
           else
             _InlineFormattedText(text: segment.text, color: textColor),
+      ],
+    );
+  }
+}
+
+class _MessageBulletList extends StatelessWidget {
+  const _MessageBulletList({
+    required this.prefix,
+    required this.items,
+    required this.itemBuilder,
+  });
+
+  final String prefix;
+  final List<String> items;
+  final Widget Function(String item) itemBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (prefix.trim().isNotEmpty) ...[
+          itemBuilder(prefix),
+          const SizedBox(height: 6),
+        ],
+        for (final item in items)
+          Padding(
+            padding: const EdgeInsets.only(top: 3, bottom: 3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(
+                  width: 18,
+                  child: Text(
+                    '•',
+                    style: TextStyle(
+                      color: AppThemeTokens.mutedText,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                Expanded(child: itemBuilder(item)),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -1849,6 +1907,13 @@ class _MessageContentBlock {
   final String? code;
 }
 
+class _MarkdownBulletList {
+  const _MarkdownBulletList({required this.prefix, required this.items});
+
+  final String prefix;
+  final List<String> items;
+}
+
 List<_MessageContentBlock> _messageContentBlocks(String text) {
   final matches = RegExp(
     r'```([^\n`]*)\n([\s\S]*?)(?:\n```|$)',
@@ -1884,6 +1949,37 @@ String _trimBlockText(String text) {
   return text
       .replaceAll(RegExp(r'^\s*\n'), '')
       .replaceAll(RegExp(r'\n\s*$'), '');
+}
+
+_MarkdownBulletList? _markdownBulletList(String text) {
+  final lines = text.split('\n');
+  final firstBullet = lines.indexWhere(
+    (line) => line.trimLeft().startsWith('- '),
+  );
+  if (firstBullet < 0) {
+    return null;
+  }
+  final items = <String>[];
+  for (var index = firstBullet; index < lines.length; index += 1) {
+    final trimmedLeft = lines[index].trimLeft();
+    if (trimmedLeft.isEmpty) {
+      continue;
+    }
+    if (!trimmedLeft.startsWith('- ')) {
+      return null;
+    }
+    final item = trimmedLeft.substring(2).trimRight();
+    if (item.isNotEmpty) {
+      items.add(item);
+    }
+  }
+  if (items.isEmpty) {
+    return null;
+  }
+  return _MarkdownBulletList(
+    prefix: lines.take(firstBullet).join('\n').trimRight(),
+    items: items,
+  );
 }
 
 List<InlineSpan>? _inlineMarkdownSpans(String text, Color color) {
