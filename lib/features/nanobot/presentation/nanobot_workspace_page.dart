@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 class NanobotWorkspacePage extends ConsumerStatefulWidget {
@@ -2036,38 +2037,46 @@ class _CompactLinkPreviewRow extends StatelessWidget {
       label: 'Open link: $label',
       link: true,
       container: true,
+      onTap: () => _launchExternalUrl(preview.href),
       child: Tooltip(
         message: preview.href,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: AppThemeTokens.workspace,
-                border: Border.all(color: AppThemeTokens.border),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: _CompactLinkFavicon(
-                key: ValueKey(
-                  'nanobot-compact-link-favicon:${_faviconUrls(host).first}',
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _launchExternalUrl(preview.href),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: AppThemeTokens.workspace,
+                    border: Border.all(color: AppThemeTokens.border),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: _CompactLinkFavicon(
+                    key: ValueKey(
+                      'nanobot-compact-link-favicon:${_faviconUrls(host).first}',
+                    ),
+                    host: host,
+                  ),
                 ),
-                host: host,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppThemeTokens.brandPressed,
-                  height: 1.4,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppThemeTokens.brandPressed,
+                      height: 1.4,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -2259,20 +2268,36 @@ class _InlineMarkdownLink extends StatelessWidget {
     return Semantics(
       link: true,
       label: label,
+      onTap: () => _launchExternalUrl(href),
       child: Tooltip(
         message: href,
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: AppThemeTokens.brandPressed,
-            decoration: TextDecoration.underline,
-            decorationColor: AppThemeTokens.brandPressed,
-            height: 1.4,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _launchExternalUrl(href),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppThemeTokens.brandPressed,
+                decoration: TextDecoration.underline,
+                decorationColor: AppThemeTokens.brandPressed,
+                height: 1.4,
+              ),
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+Future<void> _launchExternalUrl(String href) async {
+  final uri = Uri.tryParse(href);
+  if (uri == null) {
+    return;
+  }
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
 class _InlineFileReferenceChip extends StatelessWidget {

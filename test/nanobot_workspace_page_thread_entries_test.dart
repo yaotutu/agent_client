@@ -12,6 +12,8 @@ import 'package:agent_client/features/nanobot/presentation/nanobot_workspace_pag
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 void main() {
@@ -667,6 +669,86 @@ void main() {
     );
   });
 
+  testWidgets('message markdown links open external urls', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+    final launcher = _FakeUrlLauncherPlatform();
+    final previousLauncher = UrlLauncherPlatform.instance;
+    UrlLauncherPlatform.instance = launcher;
+    addTearDown(() {
+      UrlLauncherPlatform.instance = previousLauncher;
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Visit [local server](http://127.0.0.1:7891/)',
+    });
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('local server'));
+    await tester.pump();
+
+    expect(launcher.launchedUrls, ['http://127.0.0.1:7891/']);
+    expect(
+      launcher.launchOptions.single.mode,
+      PreferredLaunchMode.externalApplication,
+    );
+    expect(repository.previewPath, isNull);
+  });
+
+  testWidgets('message markdown compact link rows open external urls', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+    final launcher = _FakeUrlLauncherPlatform();
+    final previousLauncher = UrlLauncherPlatform.instance;
+    UrlLauncherPlatform.instance = launcher;
+    addTearDown(() {
+      UrlLauncherPlatform.instance = previousLauncher;
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text':
+          'Useful links:\n\n'
+          '- Polymarket — “When will GPT-5.6 be released?”\n'
+          '  https://polymarket.com/event/when-will-gpt-5pt6-be-released',
+    });
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.text('Polymarket — When will GPT-5.6 be released?'),
+    );
+    await tester.pump();
+
+    expect(launcher.launchedUrls, [
+      'https://polymarket.com/event/when-will-gpt-5pt6-be-released',
+    ]);
+    expect(
+      launcher.launchOptions.single.mode,
+      PreferredLaunchMode.externalApplication,
+    );
+  });
+
   testWidgets('message markdown keeps dollar amounts literal', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
@@ -1178,6 +1260,24 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
       stream.close();
     }
     streams.clear();
+  }
+}
+
+class _FakeUrlLauncherPlatform extends UrlLauncherPlatform {
+  final launchedUrls = <String>[];
+  final launchOptions = <LaunchOptions>[];
+
+  @override
+  LinkDelegate? get linkDelegate => null;
+
+  @override
+  Future<bool> canLaunch(String url) async => true;
+
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) async {
+    launchedUrls.add(url);
+    launchOptions.add(options);
+    return true;
   }
 }
 
