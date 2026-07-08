@@ -188,6 +188,31 @@ void main() {
     expect(find.text('Diagram'), findsNothing);
   });
 
+  testWidgets('message fenced code blocks render code panels', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Run this:\n\n```sh\nls -la\n```',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Run this:'), findsOneWidget);
+    expect(find.text('sh'), findsOneWidget);
+    expect(find.text('ls -la'), findsOneWidget);
+    expect(find.byTooltip('Copy code'), findsOneWidget);
+  });
+
   testWidgets('message media attachments render attachment tiles', (
     tester,
   ) async {

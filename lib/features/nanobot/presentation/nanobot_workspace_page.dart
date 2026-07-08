@@ -1595,9 +1595,33 @@ class _MessageContentText extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final segments = _messageContentSegments(text);
+    final blocks = _messageContentBlocks(text);
+    if (blocks.any((block) => block.code != null)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final block in blocks) ...[
+            if (block.code == null)
+              _buildInlineContent(block.text, ref)
+            else
+              _MessageCodeBlock(
+                language: block.language,
+                code: block.code!,
+                textColor: textColor,
+              ),
+            if (block != blocks.last) const SizedBox(height: 8),
+          ],
+        ],
+      );
+    }
+    return _buildInlineContent(text, ref);
+  }
+
+  Widget _buildInlineContent(String value, WidgetRef ref) {
+    final segments = _messageContentSegments(value);
     if (segments.length == 1 && segments.single.isPlainText) {
-      return Text(text, style: TextStyle(color: textColor, height: 1.4));
+      return Text(value, style: TextStyle(color: textColor, height: 1.4));
     }
     final mediaBaseUrl = ref.watch(nanobotConfigProvider).baseUrl;
     return Wrap(
@@ -1623,6 +1647,79 @@ class _MessageContentText extends ConsumerWidget {
           else
             Text(segment.text, style: TextStyle(color: textColor, height: 1.4)),
       ],
+    );
+  }
+}
+
+class _MessageCodeBlock extends StatelessWidget {
+  const _MessageCodeBlock({
+    required this.language,
+    required this.code,
+    required this.textColor,
+  });
+
+  final String? language;
+  final String code;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = language?.trim().isNotEmpty == true
+        ? language!.trim()
+        : 'text';
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspace,
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+            color: AppThemeTokens.panelMuted,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: AppThemeTokens.mutedText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Copy code',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: code));
+                  },
+                  icon: const Icon(Icons.copy, size: 16),
+                ),
+              ],
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.all(10),
+            child: Text(
+              code,
+              style: TextStyle(
+                color: textColor,
+                fontFamily: 'monospace',
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1721,6 +1818,53 @@ class _MessageContentSegment {
 
   bool get isPlainText =>
       filePath == null && href == null && attachment == null;
+}
+
+class _MessageContentBlock {
+  const _MessageContentBlock.text(this.text) : language = null, code = null;
+  const _MessageContentBlock.code({required this.language, required this.code})
+    : text = '';
+
+  final String text;
+  final String? language;
+  final String? code;
+}
+
+List<_MessageContentBlock> _messageContentBlocks(String text) {
+  final matches = RegExp(
+    r'```([^\n`]*)\n([\s\S]*?)(?:\n```|$)',
+    multiLine: true,
+  ).allMatches(text).toList();
+  if (matches.isEmpty) {
+    return [_MessageContentBlock.text(text)];
+  }
+
+  final blocks = <_MessageContentBlock>[];
+  var cursor = 0;
+  for (final match in matches) {
+    final prefix = _trimBlockText(text.substring(cursor, match.start));
+    if (prefix.isNotEmpty) {
+      blocks.add(_MessageContentBlock.text(prefix));
+    }
+    blocks.add(
+      _MessageContentBlock.code(
+        language: (match.group(1) ?? '').trim(),
+        code: match.group(2) ?? '',
+      ),
+    );
+    cursor = match.end;
+  }
+  final suffix = _trimBlockText(text.substring(cursor));
+  if (suffix.isNotEmpty) {
+    blocks.add(_MessageContentBlock.text(suffix));
+  }
+  return blocks.isEmpty ? [_MessageContentBlock.text(text)] : blocks;
+}
+
+String _trimBlockText(String text) {
+  return text
+      .replaceAll(RegExp(r'^\s*\n'), '')
+      .replaceAll(RegExp(r'\n\s*$'), '');
 }
 
 List<_MessageContentSegment> _messageContentSegments(String text) {
