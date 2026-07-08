@@ -1967,23 +1967,19 @@ class _MediaAttachmentTile extends StatelessWidget {
         (imageBytes != null || resolvedUrl != null)) {
       return _ImageAttachmentFrame(
         label: label,
-        child: imageBytes == null
-            ? Image.network(
-                resolvedUrl!,
-                excludeFromSemantics: true,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return _AttachmentLabelTile(attachment: attachment);
-                },
-              )
-            : Image.memory(
-                imageBytes,
-                excludeFromSemantics: true,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return _AttachmentLabelTile(attachment: attachment);
-                },
-              ),
+        image: _attachmentImage(
+          label: label,
+          imageBytes: imageBytes,
+          resolvedUrl: resolvedUrl,
+          fallback: _AttachmentLabelTile(attachment: attachment),
+        ),
+        dialogImage: _attachmentImage(
+          label: label,
+          imageBytes: imageBytes,
+          resolvedUrl: resolvedUrl,
+          fit: BoxFit.contain,
+          fallback: _AttachmentLabelTile(attachment: attachment),
+        ),
       );
     }
 
@@ -1992,24 +1988,127 @@ class _MediaAttachmentTile extends StatelessWidget {
 }
 
 class _ImageAttachmentFrame extends StatelessWidget {
-  const _ImageAttachmentFrame({required this.label, required this.child});
+  const _ImageAttachmentFrame({
+    required this.label,
+    required this.image,
+    required this.dialogImage,
+  });
 
   final String label;
-  final Widget child;
+  final Widget image;
+  final Widget dialogImage;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 520, maxHeight: 544),
+      constraints: const BoxConstraints(
+        minWidth: 80,
+        minHeight: 56,
+        maxWidth: 520,
+        maxHeight: 544,
+      ),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppThemeTokens.workspace,
         border: Border.all(color: AppThemeTokens.border),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Semantics(label: label, image: true, child: child),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showImagePreviewDialog(context, label, dialogImage),
+          child: Semantics(
+            label: label,
+            image: true,
+            button: true,
+            child: Center(child: image),
+          ),
+        ),
+      ),
     );
   }
+}
+
+Widget _attachmentImage({
+  required String label,
+  required Uint8List? imageBytes,
+  required String? resolvedUrl,
+  required Widget fallback,
+  BoxFit fit = BoxFit.contain,
+}) {
+  if (imageBytes != null) {
+    return Image.memory(
+      imageBytes,
+      excludeFromSemantics: true,
+      fit: fit,
+      errorBuilder: (context, error, stackTrace) => fallback,
+    );
+  }
+  return Image.network(
+    resolvedUrl!,
+    excludeFromSemantics: true,
+    fit: fit,
+    errorBuilder: (context, error, stackTrace) => fallback,
+  );
+}
+
+Future<void> _showImagePreviewDialog(
+  BuildContext context,
+  String label,
+  Widget image,
+) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        backgroundColor: AppThemeTokens.workspace,
+        insetPadding: const EdgeInsets.all(16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900, maxHeight: 720),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Image preview',
+                        style: TextStyle(
+                          color: AppThemeTokens.text,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Semantics(
+                    label: label,
+                    image: true,
+                    child: InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 5,
+                      child: image,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _AttachmentLabelTile extends StatelessWidget {

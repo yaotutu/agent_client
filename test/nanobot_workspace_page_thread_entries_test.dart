@@ -250,6 +250,45 @@ void main() {
     expect(find.bySemanticsLabel('Diagram'), findsOneWidget);
   });
 
+  testWidgets('image media previews open a larger preview dialog', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'See diagram',
+      'media_urls': [
+        {
+          'kind': 'image',
+          'url':
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
+              'AAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+          'name': 'Diagram',
+        },
+      ],
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Image), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Diagram'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Image preview'), findsOneWidget);
+    expect(find.bySemanticsLabel('Diagram'), findsNWidgets(2));
+  });
+
   testWidgets('message too large stream errors show a dismissible alert', (
     tester,
   ) async {
