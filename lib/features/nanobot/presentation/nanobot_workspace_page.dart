@@ -71,6 +71,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onSend: () => _send(controller),
               onStop: controller.stopActiveTurn,
               onWorkspaceAccessMode: controller.applyWorkspaceAccessMode,
+              onWorkspaceProjectPath: controller.applyWorkspaceProjectPath,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -710,6 +711,7 @@ class _ChatPane extends StatelessWidget {
     required this.onSend,
     required this.onStop,
     required this.onWorkspaceAccessMode,
+    required this.onWorkspaceProjectPath,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -721,6 +723,8 @@ class _ChatPane extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onStop;
   final ValueChanged<String> onWorkspaceAccessMode;
+  final Future<void> Function(String path, {String? projectName})
+  onWorkspaceProjectPath;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -754,11 +758,16 @@ class _ChatPane extends StatelessWidget {
               canSend: state.canSend,
               isStreaming: state.isStreaming,
               workspaceScope: state.activeWorkspaceScope,
+              defaultWorkspaceScope: state.workspacesSnapshot?.defaultScope,
               workspaceError: state.workspaceError,
+              canChangeProject:
+                  state.workspacesSnapshot?.controls?['can_change_project'] !=
+                  false,
               canUseFullAccess: state.canUseFullWorkspaceAccess,
               onSend: onSend,
               onStop: onStop,
               onWorkspaceAccessMode: onWorkspaceAccessMode,
+              onWorkspaceProjectPath: onWorkspaceProjectPath,
             ),
         ],
       ),
@@ -1495,19 +1504,26 @@ class _InlineError extends StatelessWidget {
 class _WorkspaceScopeBar extends StatelessWidget {
   const _WorkspaceScopeBar({
     required this.scope,
+    required this.defaultScope,
+    required this.canChangeProject,
     required this.canUseFullAccess,
     required this.onAccessMode,
+    required this.onProjectPath,
     this.error,
   });
 
   final NanobotWorkspaceScope scope;
+  final NanobotWorkspaceScope? defaultScope;
+  final bool canChangeProject;
   final bool canUseFullAccess;
   final ValueChanged<String> onAccessMode;
+  final Future<void> Function(String path, {String? projectName}) onProjectPath;
   final String? error;
 
   @override
   Widget build(BuildContext context) {
     final modeLabel = scope.isFullAccess ? 'Full Access' : 'Default Permission';
+    final canOpenProjectPicker = canChangeProject && defaultScope != null;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -1525,30 +1541,51 @@ class _WorkspaceScopeBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  scope.projectLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppThemeTokens.text,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (error?.trim().isNotEmpty == true)
-                  Text(
-                    error!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppThemeTokens.dangerText,
-                      fontSize: 12,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+              onTap: canOpenProjectPicker
+                  ? () => _openProjectPicker(context, defaultScope!)
+                  : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            scope.projectLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppThemeTokens.text,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (canOpenProjectPicker)
+                          const Icon(
+                            Icons.arrow_drop_down,
+                            size: 18,
+                            color: AppThemeTokens.mutedText,
+                          ),
+                      ],
                     ),
-                  ),
-              ],
+                    if (error?.trim().isNotEmpty == true)
+                      Text(
+                        error!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppThemeTokens.dangerText,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
           PopupMenuButton<String>(
@@ -1595,6 +1632,146 @@ class _WorkspaceScopeBar extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _openProjectPicker(
+    BuildContext context,
+    NanobotWorkspaceScope defaultScope,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => _WorkspaceProjectPickerDialog(
+        scope: scope,
+        defaultScope: defaultScope,
+        onProjectPath: onProjectPath,
+      ),
+    );
+  }
+}
+
+class _WorkspaceProjectPickerDialog extends StatefulWidget {
+  const _WorkspaceProjectPickerDialog({
+    required this.scope,
+    required this.defaultScope,
+    required this.onProjectPath,
+  });
+
+  final NanobotWorkspaceScope scope;
+  final NanobotWorkspaceScope defaultScope;
+  final Future<void> Function(String path, {String? projectName}) onProjectPath;
+
+  @override
+  State<_WorkspaceProjectPickerDialog> createState() =>
+      _WorkspaceProjectPickerDialogState();
+}
+
+class _WorkspaceProjectPickerDialogState
+    extends State<_WorkspaceProjectPickerDialog> {
+  late final TextEditingController _pathController;
+  String? _pathError;
+  bool _isApplying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pathController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _pathController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select project'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.folder_outlined),
+              title: const Text('Default workspace'),
+              subtitle: Text(
+                widget.defaultScope.projectPath,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: _isApplying
+                  ? null
+                  : () => _applyPath(
+                      widget.defaultScope.projectPath,
+                      projectName: widget.defaultScope.projectName,
+                    ),
+            ),
+            const Divider(),
+            TextField(
+              controller: _pathController,
+              enabled: !_isApplying,
+              decoration: InputDecoration(
+                labelText: 'Manual path',
+                hintText: '/path/to/project',
+                errorText: _pathError,
+              ),
+              onChanged: (_) {
+                if (_pathError == null) {
+                  return;
+                }
+                setState(() => _pathError = null);
+              },
+              onSubmitted: (_) => _applyManualPath(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isApplying ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isApplying ? null : _applyManualPath,
+          child: const Text('Use Path'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _applyManualPath() {
+    return _applyPath(_pathController.text);
+  }
+
+  Future<void> _applyPath(String projectPath, {String? projectName}) async {
+    final trimmed = projectPath.trim();
+    if (!_isAbsoluteWorkspacePath(trimmed)) {
+      setState(() {
+        _pathError = 'Enter an absolute folder path on this machine.';
+      });
+      return;
+    }
+    setState(() {
+      _isApplying = true;
+      _pathError = null;
+    });
+    await widget.onProjectPath(trimmed, projectName: projectName);
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pop();
+  }
+}
+
+bool _isAbsoluteWorkspacePath(String path) {
+  final trimmed = path.trim();
+  return trimmed == '~' ||
+      trimmed.startsWith('~/') ||
+      trimmed.startsWith(r'~\') ||
+      trimmed.startsWith('/') ||
+      RegExp(r'^[A-Za-z]:[\\/]').hasMatch(trimmed);
 }
 
 class _InputBar extends StatelessWidget {
@@ -1604,11 +1781,14 @@ class _InputBar extends StatelessWidget {
     required this.canSend,
     required this.isStreaming,
     required this.workspaceScope,
+    required this.defaultWorkspaceScope,
     required this.workspaceError,
+    required this.canChangeProject,
     required this.canUseFullAccess,
     required this.onSend,
     required this.onStop,
     required this.onWorkspaceAccessMode,
+    required this.onWorkspaceProjectPath,
   });
 
   final TextEditingController controller;
@@ -1616,11 +1796,15 @@ class _InputBar extends StatelessWidget {
   final bool canSend;
   final bool isStreaming;
   final NanobotWorkspaceScope? workspaceScope;
+  final NanobotWorkspaceScope? defaultWorkspaceScope;
   final String? workspaceError;
+  final bool canChangeProject;
   final bool canUseFullAccess;
   final VoidCallback onSend;
   final VoidCallback onStop;
   final ValueChanged<String> onWorkspaceAccessMode;
+  final Future<void> Function(String path, {String? projectName})
+  onWorkspaceProjectPath;
 
   @override
   Widget build(BuildContext context) {
@@ -1642,9 +1826,12 @@ class _InputBar extends StatelessWidget {
                   if (workspaceScope != null)
                     _WorkspaceScopeBar(
                       scope: workspaceScope!,
+                      defaultScope: defaultWorkspaceScope,
                       error: workspaceError,
+                      canChangeProject: canChangeProject,
                       canUseFullAccess: canUseFullAccess,
                       onAccessMode: onWorkspaceAccessMode,
+                      onProjectPath: onWorkspaceProjectPath,
                     ),
                   TextField(
                     controller: controller,

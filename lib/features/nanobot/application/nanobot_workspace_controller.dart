@@ -247,6 +247,33 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       return;
     }
     final next = current.withAccessMode(accessMode);
+    await _applyWorkspaceScope(next);
+  }
+
+  Future<void> applyWorkspaceProjectPath(
+    String projectPath, {
+    String? projectName,
+  }) async {
+    final base =
+        state.activeWorkspaceScope ?? state.workspacesSnapshot?.defaultScope;
+    if (base == null) {
+      return;
+    }
+    final trimmed = projectPath.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    final next = NanobotWorkspaceScope(
+      projectPath: trimmed,
+      projectName: projectName ?? _projectNameFromPath(trimmed),
+      accessMode: base.accessMode,
+      restrictToWorkspace: base.accessMode == 'restricted',
+      sandboxStatus: base.sandboxStatus,
+    );
+    await _applyWorkspaceScope(next);
+  }
+
+  Future<void> _applyWorkspaceScope(NanobotWorkspaceScope next) async {
     final chatId = state.selectedChatId;
     state = _stateWithWorkspaceScope(next).copyWith(clearWorkspaceError: true);
     if (chatId == null || chatId.trim().isEmpty) {
@@ -649,6 +676,14 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
 
   String _newMessageId(String prefix) {
     return '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  String _projectNameFromPath(String path) {
+    final normalized = path
+        .replaceAll('\\', '/')
+        .replaceAll(RegExp(r'/+$'), '');
+    final parts = normalized.split('/').where((part) => part.isNotEmpty);
+    return parts.isEmpty ? path : parts.last;
   }
 
   NanobotThreadState? _currentThreadState() {

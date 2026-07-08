@@ -53,6 +53,48 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('workspace project picker validates and applies manual paths', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('nanobot'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Default workspace'), findsOneWidget);
+    expect(find.text('/home/yaotutu/Desktop/code/nanobot'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, 'relative/path');
+    await tester.tap(find.text('Use Path'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Enter an absolute folder path on this machine.'),
+      findsOneWidget,
+    );
+    expect(repository.workspaceScope, isNull);
+
+    await tester.enterText(find.byType(TextField).last, '/tmp/nanobot-app');
+    await tester.tap(find.text('Use Path'));
+    await tester.pumpAndSettle();
+
+    expect(repository.workspaceChatId, 'chat-1');
+    expect(repository.workspaceScope?['project_path'], '/tmp/nanobot-app');
+    expect(repository.workspaceScope?['project_name'], 'nanobot-app');
+    expect(repository.workspaceScope?['access_mode'], 'restricted');
+    expect(repository.workspaceScope?['restrict_to_workspace'], isTrue);
+    expect(find.text('nanobot-app'), findsOneWidget);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
