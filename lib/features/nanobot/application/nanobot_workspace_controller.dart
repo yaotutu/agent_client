@@ -264,6 +264,10 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     state = state.copyWith(isLoadingFilePreview: false, clearFilePreview: true);
   }
 
+  void dismissStreamError() {
+    state = state.copyWith(clearStreamError: true);
+  }
+
   Future<void> toggleShowArchived() {
     return _updateSidebarState(
       state.sidebarState.copyWith(
@@ -474,6 +478,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       clearReasoning: true,
       clearActivity: true,
       clearError: true,
+      clearStreamError: true,
     );
     try {
       final repository = ref.read(nanobotRepositoryProvider);
@@ -493,6 +498,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         ),
         isLoadingThread: false,
         clearError: true,
+        clearStreamError: true,
       );
     } on Object catch (error) {
       if (!_isActive(generation)) {
@@ -517,6 +523,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       clearReasoning: true,
       clearActivity: true,
       clearError: true,
+      clearStreamError: true,
     );
     try {
       final workspaceScope = state.activeWorkspaceScope;
@@ -542,6 +549,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         ),
         isLoadingThread: false,
         clearError: true,
+        clearStreamError: true,
       );
       unawaited(refreshSessions());
     } on Object catch (error) {
@@ -749,6 +757,16 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
           }
         }
       case NanobotEventKind.error:
+        if (event.detail == 'message_too_big') {
+          state = state.copyWith(
+            isStreaming: false,
+            streamError: const NanobotStreamError(
+              kind: NanobotStreamErrorKind.messageTooBig,
+            ),
+            clearError: true,
+          );
+          break;
+        }
         if (event.detail == 'workspace_scope_rejected') {
           state = state.copyWith(
             workspaceError:

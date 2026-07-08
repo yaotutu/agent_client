@@ -75,6 +75,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onWorkspaceProjectPath: controller.applyWorkspaceProjectPath,
               onOpenFilePreview: controller.openFilePreview,
               onCloseFilePreview: controller.closeFilePreview,
+              onDismissStreamError: controller.dismissStreamError,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -717,6 +718,7 @@ class _ChatPane extends StatelessWidget {
     required this.onWorkspaceProjectPath,
     required this.onOpenFilePreview,
     required this.onCloseFilePreview,
+    required this.onDismissStreamError,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -732,6 +734,7 @@ class _ChatPane extends StatelessWidget {
   onWorkspaceProjectPath;
   final ValueChanged<String> onOpenFilePreview;
   final VoidCallback onCloseFilePreview;
+  final VoidCallback onDismissStreamError;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -762,6 +765,12 @@ class _ChatPane extends StatelessWidget {
           ),
           if (state.errorMessage != null)
             _InlineError(text: state.errorMessage!, onRetry: onRefresh),
+          if (state.activeView == NanobotShellView.chat &&
+              state.streamError != null)
+            _StreamErrorNotice(
+              error: state.streamError!,
+              onDismiss: onDismissStreamError,
+            ),
           if (state.activeView == NanobotShellView.chat)
             _InputBar(
               controller: inputController,
@@ -1882,6 +1891,85 @@ class _InlineError extends StatelessWidget {
       ),
     );
   }
+}
+
+class _StreamErrorNotice extends StatelessWidget {
+  const _StreamErrorNotice({required this.error, required this.onDismiss});
+
+  final NanobotStreamError error;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final copy = _streamErrorCopy(error);
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppThemeTokens.dangerSoft,
+          border: Border.all(color: AppThemeTokens.dangerBorder),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: AppThemeTokens.dangerText,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    copy.title,
+                    style: const TextStyle(
+                      color: AppThemeTokens.dangerText,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    copy.body,
+                    style: const TextStyle(
+                      color: AppThemeTokens.dangerText,
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Dismiss',
+              onPressed: onDismiss,
+              icon: const Icon(Icons.close, size: 18),
+              color: AppThemeTokens.dangerText,
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+({String title, String body}) _streamErrorCopy(NanobotStreamError error) {
+  return switch (error.kind) {
+    NanobotStreamErrorKind.messageTooBig => (
+      title: 'Message too large',
+      body:
+          'The server rejected your last message because it exceeded the size limit. '
+          'Remove some images or try smaller files, then send again.',
+    ),
+  };
 }
 
 class _WorkspaceScopeBar extends StatelessWidget {

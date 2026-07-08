@@ -126,6 +126,35 @@ void main() {
     expect(find.text('File preview'), findsOneWidget);
     expect(find.text('void main() {}'), findsOneWidget);
   });
+
+  testWidgets('message too large stream errors show a dismissible alert', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({'event': 'error', 'detail': 'message_too_big'});
+    await tester.pumpAndSettle();
+
+    expect(find.text('Message too large'), findsOneWidget);
+    expect(
+      find.textContaining('Remove some images or try smaller files'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Dismiss'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Message too large'), findsNothing);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {

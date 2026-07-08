@@ -4,6 +4,14 @@ import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 
+enum NanobotStreamErrorKind { messageTooBig }
+
+class NanobotStreamError {
+  const NanobotStreamError({required this.kind});
+
+  final NanobotStreamErrorKind kind;
+}
+
 class NanobotWorkspaceState {
   const NanobotWorkspaceState({
     this.sessions = const [],
@@ -35,6 +43,7 @@ class NanobotWorkspaceState {
     this.reasoningText,
     this.activityText,
     this.errorMessage,
+    this.streamError,
   });
 
   final List<NanobotSessionSummary> sessions;
@@ -66,6 +75,7 @@ class NanobotWorkspaceState {
   final String? reasoningText;
   final String? activityText;
   final String? errorMessage;
+  final NanobotStreamError? streamError;
 
   NanobotSessionSummary? get selectedSession {
     final key = selectedSessionKey;
@@ -156,6 +166,7 @@ class NanobotWorkspaceState {
     String? reasoningText,
     String? activityText,
     String? errorMessage,
+    NanobotStreamError? streamError,
     bool clearSelectedSession = false,
     bool clearThreadState = false,
     bool clearSettingsSnapshot = false,
@@ -168,6 +179,7 @@ class NanobotWorkspaceState {
     bool clearReasoning = false,
     bool clearActivity = false,
     bool clearError = false,
+    bool clearStreamError = false,
   }) {
     return NanobotWorkspaceState(
       sessions: sessions ?? this.sessions,
@@ -217,6 +229,7 @@ class NanobotWorkspaceState {
           : reasoningText ?? this.reasoningText,
       activityText: clearActivity ? null : activityText ?? this.activityText,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      streamError: clearStreamError ? null : streamError ?? this.streamError,
     );
   }
 
