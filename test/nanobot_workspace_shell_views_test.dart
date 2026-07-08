@@ -53,7 +53,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Automations'), findsWidgets);
     expect(find.text('Daily ping'), findsWidgets);
-    expect(find.text('enabled'), findsOneWidget);
+    expect(find.text('Active'), findsOneWidget);
 
     await tester.tap(find.text('Skills'));
     await tester.pumpAndSettle();
@@ -108,7 +108,7 @@ void main() {
           title: 'Long detail automation',
           subtitle: longMessage,
           details: 'Release prep',
-          status: 'enabled',
+          status: 'Active',
         ),
       ],
     );
@@ -147,14 +147,14 @@ void main() {
           title: 'Daily repo check',
           subtitle: 'Check the repo status',
           details: 'Release prep',
-          status: 'enabled',
+          status: 'Active',
         ),
         NanobotCatalogItem(
           id: 'wechat-quiz',
           title: 'WeChat quiz',
           subtitle: 'Send a quiz',
           details: 'WeChat',
-          status: 'enabled',
+          status: 'Active',
         ),
       ],
     );
@@ -200,7 +200,7 @@ void main() {
           title: 'Paused job',
           subtitle: 'every',
           details: 'Release prep',
-          status: 'disabled',
+          status: 'Paused',
           filterKeys: ['paused'],
         ),
         NanobotCatalogItem(
@@ -208,7 +208,7 @@ void main() {
           title: 'Cron job',
           subtitle: 'cron',
           details: 'WeChat',
-          status: 'enabled',
+          status: 'Active',
           filterKeys: ['active'],
         ),
       ],
@@ -252,25 +252,25 @@ void main() {
         NanobotCatalogItem(
           id: 'active',
           title: 'Active job',
-          status: 'enabled',
+          status: 'Active',
           filterKeys: ['active'],
         ),
         NanobotCatalogItem(
           id: 'paused',
           title: 'Paused job',
-          status: 'disabled',
+          status: 'Paused',
           filterKeys: ['paused'],
         ),
         NanobotCatalogItem(
           id: 'failed',
           title: 'Failed job',
-          status: 'enabled',
+          status: 'Active',
           filterKeys: ['failed'],
         ),
         NanobotCatalogItem(
           id: 'system',
           title: 'System job',
-          status: 'enabled',
+          status: 'Active',
           filterKeys: ['system'],
         ),
       ],
@@ -314,14 +314,14 @@ void main() {
         NanobotCatalogItem(
           id: 'zeta',
           title: 'Zeta job',
-          status: 'enabled',
+          status: 'Active',
           filterKeys: ['active'],
           nextRunAtMs: 1000,
         ),
         NanobotCatalogItem(
           id: 'alpha',
           title: 'Alpha job',
-          status: 'enabled',
+          status: 'Active',
           filterKeys: ['active'],
           nextRunAtMs: 2000,
         ),
@@ -358,7 +358,7 @@ void main() {
         NanobotCatalogItem(
           id: 'job-1',
           title: 'Daily job',
-          status: 'enabled',
+          status: 'Active',
           filterKeys: ['active'],
         ),
       ],
@@ -366,7 +366,7 @@ void main() {
         NanobotCatalogItem(
           id: 'job-1',
           title: 'Daily job',
-          status: 'disabled',
+          status: 'Paused',
           filterKeys: ['paused'],
         ),
       ],
@@ -384,7 +384,7 @@ void main() {
     await tester.tap(find.text('Automations'));
     await tester.pumpAndSettle();
 
-    expect(find.text('enabled'), findsOneWidget);
+    expect(find.text('Active'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Pause').last);
     await tester.pumpAndSettle();
@@ -392,7 +392,7 @@ void main() {
     expect(repository.actionRequests, [
       (action: NanobotAutomationAction.disable, id: 'job-1'),
     ]);
-    expect(find.text('disabled'), findsOneWidget);
+    expect(find.text('Paused'), findsWidgets);
   });
 
   testWidgets('automations surface shows queue and selected detail panel', (
@@ -405,9 +405,9 @@ void main() {
           title: 'Daily job',
           subtitle: 'Check the repo status',
           details: 'Release prep',
-          status: 'enabled',
+          status: 'Active',
           filterKeys: ['active'],
-          scheduleLabel: 'Every 2 hours · Asia/Shanghai',
+          scheduleLabel: 'Every 2 hours',
           originLabel: 'Release prep',
           originSessionKey: 'websocket:chat-1',
           nextRunAtMs: 1000,
@@ -420,7 +420,7 @@ void main() {
           title: 'Second job',
           subtitle: 'Send summary',
           details: 'WeChat',
-          status: 'enabled',
+          status: 'Active',
           filterKeys: ['active'],
           scheduleLabel: 'Cron 0 * * * *',
           originLabel: 'WeChat',
@@ -448,7 +448,7 @@ void main() {
     expect(find.text('Schedule'), findsOneWidget);
     expect(find.text('Created'), findsOneWidget);
     expect(find.text('Updated'), findsOneWidget);
-    expect(find.text('Every 2 hours · Asia/Shanghai'), findsWidgets);
+    expect(find.text('Every 2 hours'), findsWidgets);
     expect(find.text('Release prep'), findsWidgets);
     expect(find.text('Timed out'), findsOneWidget);
 
@@ -459,6 +459,99 @@ void main() {
 
     expect(find.text('Cron 0 * * * *'), findsWidgets);
     expect(find.text('Timed out'), findsNothing);
+  });
+
+  testWidgets('automations surface mirrors webui status and schedule copy', (
+    tester,
+  ) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final repository = _FakeNanobotRepository(
+      automationItems: [
+        NanobotCatalogItem(
+          id: 'active',
+          title: 'Active job',
+          subtitle: 'Send summary',
+          status: 'Active',
+          filterKeys: const ['active'],
+          nextRunAtMs: now + const Duration(minutes: 5).inMilliseconds,
+          scheduleLabel: 'Daily at 09:00',
+          originLabel: 'Roadmap',
+        ),
+        const NanobotCatalogItem(
+          id: 'running',
+          title: 'Running job',
+          subtitle: 'Check progress',
+          status: 'Running now',
+          filterKeys: ['active'],
+          isPending: true,
+          scheduleLabel: 'Hourly at :15',
+          originLabel: 'Builds',
+        ),
+        const NanobotCatalogItem(
+          id: 'failed',
+          title: 'Failed job',
+          subtitle: 'Retry deployment',
+          status: 'Failed',
+          filterKeys: ['failed'],
+          lastError: 'boom',
+          scheduleLabel: 'Cron */5 * * * *',
+        ),
+        const NanobotCatalogItem(
+          id: 'idle',
+          title: 'Idle job',
+          subtitle: 'No future run',
+          status: 'No schedule',
+          filterKeys: ['active'],
+          scheduleLabel: 'Custom schedule',
+        ),
+        const NanobotCatalogItem(
+          id: 'system',
+          title: 'System job',
+          subtitle: 'heartbeat',
+          status: 'System',
+          filterKeys: ['system'],
+          isProtected: true,
+          scheduleLabel: 'Every 2 hours',
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Active'), findsOneWidget);
+    expect(find.text('Running now'), findsOneWidget);
+    expect(find.text('Failed'), findsOneWidget);
+    expect(find.text('No schedule'), findsOneWidget);
+    expect(find.text('System'), findsOneWidget);
+    expect(find.text('Protected'), findsOneWidget);
+
+    expect(find.text('Daily at 09:00'), findsWidgets);
+    await tester.ensureVisible(find.text('Running job').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Running job').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Hourly at :15'), findsWidgets);
+    await tester.ensureVisible(find.text('System job').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('System job').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Every 2 hours'), findsWidgets);
+    await tester.ensureVisible(find.text('Idle job').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Idle job').first);
+    await tester.pumpAndSettle();
+    expect(find.text('No next run'), findsOneWidget);
+    expect(find.textContaining('2026-'), findsNothing);
   });
 
   testWidgets('skills surface opens unavailable skill details', (tester) async {
@@ -761,7 +854,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       id: 'job-1',
       title: 'Daily ping',
       subtitle: 'cron',
-      status: 'enabled',
+      status: 'Active',
     ),
   ];
 

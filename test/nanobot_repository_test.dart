@@ -141,7 +141,7 @@ void main() {
     expect(automations.single.title, 'Daily repo check');
     expect(automations.single.subtitle, 'Check the repo status');
     expect(automations.single.details, 'Release prep');
-    expect(automations.single.status, 'enabled');
+    expect(automations.single.status, 'No schedule');
   });
 
   test('repository maps automation filter keys', () async {
@@ -200,6 +200,102 @@ void main() {
     expect(automations[2].filterKeys, contains('failed'));
     expect(automations[3].filterKeys, contains('system'));
   });
+
+  test(
+    'repository maps automation status and schedule labels like webui',
+    () async {
+      final adapter = _RouteAdapter({
+        'GET /webui/bootstrap': {
+          'token': 'token-1',
+          'ws_path': '/',
+          'expires_in': 300,
+        },
+        'GET /api/webui/automations': {
+          'jobs': [
+            {
+              'id': 'active',
+              'name': 'Active job',
+              'enabled': true,
+              'schedule': {'kind': 'cron', 'expr': '0 9 * * *'},
+              'state': {'next_run_at_ms': 1, 'last_status': 'ok'},
+            },
+            {
+              'id': 'running',
+              'name': 'Running job',
+              'enabled': true,
+              'schedule': {'kind': 'cron', 'expr': '15 * * * *'},
+              'state': {'pending': true, 'last_status': 'ok'},
+            },
+            {
+              'id': 'paused',
+              'name': 'Paused job',
+              'enabled': false,
+              'schedule': {'kind': 'every', 'every_ms': 3600000},
+              'state': {'last_status': 'ok'},
+            },
+            {
+              'id': 'failed',
+              'name': 'Failed job',
+              'enabled': true,
+              'schedule': {'kind': 'cron', 'expr': '*/5 * * * *'},
+              'state': {'last_status': 'error'},
+            },
+            {
+              'id': 'completed',
+              'name': 'Completed job',
+              'enabled': true,
+              'delete_after_run': true,
+              'schedule': {'kind': 'at', 'at_ms': 2000},
+              'state': {'last_status': 'ok'},
+            },
+            {
+              'id': 'idle',
+              'name': 'Idle job',
+              'enabled': true,
+              'schedule': {'kind': 'unknown'},
+              'state': {'last_status': 'ok'},
+            },
+            {
+              'id': 'system',
+              'name': 'System job',
+              'enabled': true,
+              'protected': true,
+              'schedule': {'kind': 'local'},
+              'state': {'last_status': 'ok'},
+            },
+          ],
+        },
+      });
+      final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+      dio.httpClientAdapter = adapter;
+      final config = const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      );
+      final api = NanobotApiClient(config: config, dio: dio);
+      final repository = NanobotRepository(
+        api: api,
+        ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+      );
+
+      final automations = await repository.fetchAutomationItems();
+
+      expect(automations.map((item) => item.status), [
+        'Active',
+        'Running now',
+        'Paused',
+        'Failed',
+        'Completed',
+        'No schedule',
+        'System',
+      ]);
+      expect(automations[0].scheduleLabel, 'Daily at 09:00');
+      expect(automations[1].scheduleLabel, 'Hourly at :15');
+      expect(automations[2].scheduleLabel, 'Every 1 hour');
+      expect(automations[3].scheduleLabel, 'Cron */5 * * * *');
+      expect(automations[6].scheduleLabel, 'Local trigger');
+    },
+  );
 
   test('repository maps automation sort timestamps', () async {
     final adapter = _RouteAdapter({
@@ -296,7 +392,7 @@ void main() {
     final automations = await repository.fetchAutomationItems();
     final item = automations.single;
 
-    expect(item.scheduleLabel, 'Every 2 hours · Asia/Shanghai');
+    expect(item.scheduleLabel, 'Every 2 hours');
     expect(item.originLabel, 'Release prep');
     expect(item.originSessionKey, 'websocket:chat-1');
     expect(item.createdAtMs, 1000);
@@ -343,7 +439,7 @@ void main() {
     );
 
     expect(automations.single.title, 'Enabled job');
-    expect(automations.single.status, 'enabled');
+    expect(automations.single.status, 'Active');
     expect(automations.single.nextRunAtMs, 1000);
   });
 }

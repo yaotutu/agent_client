@@ -337,7 +337,7 @@ class NanobotRepository implements NanobotRepositoryPort {
       title: _stringValue(row, 'name', fallbackKey: 'id'),
       subtitle: _automationSubtitle(row),
       details: _automationDetails(row),
-      status: row['enabled'] == false ? 'disabled' : 'enabled',
+      status: _automationStatusLabel(row),
       filterKeys: _automationFilterKeys(row),
       nextRunAtMs: _intValue(state?['next_run_at_ms']),
       lastRunAtMs: _intValue(state?['last_run_at_ms']),
@@ -627,7 +627,7 @@ class NanobotRepository implements NanobotRepositoryPort {
       _ => 'Custom schedule',
     };
     final tz = _stringFrom(schedule['tz']);
-    if (tz == null || tz.isEmpty || kind == 'local') {
+    if (tz == null || tz.isEmpty || kind != 'cron') {
       return label;
     }
     return '$label · $tz';
@@ -667,7 +667,124 @@ class NanobotRepository implements NanobotRepositoryPort {
     if (expr == null) {
       return 'Cron';
     }
+    final summary = _formatCronScheduleSummary(expr);
+    if (summary != null) {
+      return summary;
+    }
     return 'Cron $expr';
+  }
+
+  String? _formatCronScheduleSummary(String expr) {
+    final parts = expr.trim().split(RegExp(r'\s+'));
+    if (parts.length != 5) {
+      return null;
+    }
+    final minute = parts[0];
+    final hour = parts[1];
+    final dayOfMonth = parts[2];
+    final month = parts[3];
+    final dayOfWeek = parts[4];
+    final numericMinute = _cronNumericToken(minute, 59);
+    final numericHour = _cronNumericToken(hour, 23);
+    final everyDay = dayOfMonth == '*' && month == '*' && dayOfWeek == '*';
+    final workdays =
+        dayOfMonth == '*' &&
+        month == '*' &&
+        const ['1-5', 'MON-FRI', 'mon-fri'].contains(dayOfWeek);
+
+    if (numericMinute != null && numericHour != null) {
+      final time =
+          '${numericHour.toString().padLeft(2, '0')}:'
+          '${numericMinute.toString().padLeft(2, '0')}';
+      if (everyDay) {
+        return 'Daily at $time';
+      }
+      if (workdays) {
+        return 'Weekdays at $time';
+      }
+    }
+
+    if (everyDay && numericMinute != null && hour == '*') {
+      return 'Hourly at :${numericMinute.toString().padLeft(2, '0')}';
+    }
+
+    final range = RegExp(r'^(\d{1,2})-(\d{1,2})$').firstMatch(hour);
+    if (everyDay && numericMinute != null && range != null) {
+      final start = int.parse(range.group(1)!);
+      final end = int.parse(range.group(2)!);
+      if (start > 23 || end > 23) {
+        return null;
+      }
+      return 'Hourly ${start.toString().padLeft(2, '0')}-'
+          '${end.toString().padLeft(2, '0')} at :'
+          '${numericMinute.toString().padLeft(2, '0')}';
+    }
+
+    return null;
+  }
+
+  int? _cronNumericToken(String value, int max) {
+    if (!RegExp(r'^\d{1,2}$').hasMatch(value)) {
+      return null;
+    }
+    final parsed = int.parse(value);
+    return parsed <= max ? parsed : null;
+  }
+
+  String _automationStatusLabel(Map<String, Object?> row) {
+    final state = _mapValue(row['state']);
+    final status = _automationStatusKey(row, state);
+    return switch (status) {
+      'system' => 'System',
+      'running' => 'Running now',
+      'paused' => 'Paused',
+      'failed' => 'Failed',
+      'completed' => 'Completed',
+      'idle' => 'No schedule',
+      _ => 'Active',
+    };
+  }
+
+  String _automationStatusKey(
+    Map<String, Object?> row,
+    Map<String, Object?>? state,
+  ) {
+    if (row['protected'] == true) {
+      return 'system';
+    }
+    if (state?['pending'] == true) {
+      return 'running';
+    }
+    if (row['enabled'] == false) {
+      return 'paused';
+    }
+    if (state?['last_status'] == 'error') {
+      return 'failed';
+    }
+    if (_isLocalTriggerAutomation(row)) {
+      return 'active';
+    }
+    if (row['delete_after_run'] == true &&
+        _intValue(state?['next_run_at_ms']) == null &&
+        state?['last_status'] == 'ok') {
+      return 'completed';
+    }
+    if (_intValue(state?['next_run_at_ms']) == null) {
+      return 'idle';
+    }
+    return 'active';
+  }
+
+  bool _isLocalTriggerAutomation(Map<String, Object?> row) {
+    if (_stringFrom(row['kind']) == 'local_trigger') {
+      return true;
+    }
+    final payload = _mapValue(row['payload']);
+    if (_stringFrom(payload?['kind']) == 'local_trigger') {
+      return true;
+    }
+    final schedule = _mapValue(row['schedule']);
+    return _stringFrom(schedule?['kind']) == 'local';
   }
 
   List<String> _automationFilterKeys(Map<String, Object?> row) {

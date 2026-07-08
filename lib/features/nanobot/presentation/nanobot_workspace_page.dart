@@ -2445,13 +2445,16 @@ class _AutomationDetailPanel extends StatelessWidget {
   }
 
   String get _nextLabel {
-    if (item.status == 'disabled') {
+    if (item.status == 'Paused') {
       return 'Paused';
     }
     if (item.isPending) {
       return 'Running now';
     }
-    return _timestampLabel(item.nextRunAtMs) ?? 'No next run';
+    if (item.scheduleLabel == 'Local trigger') {
+      return 'Waiting for trigger';
+    }
+    return _relativeTimestampLabel(item.nextRunAtMs) ?? 'No next run';
   }
 
   String? _timestampLabel(int? value) {
@@ -2459,6 +2462,40 @@ class _AutomationDetailPanel extends StatelessWidget {
       return null;
     }
     return DateTime.fromMillisecondsSinceEpoch(value).toLocal().toString();
+  }
+
+  String? _relativeTimestampLabel(int? value) {
+    if (value == null) {
+      return null;
+    }
+    final delta = DateTime.fromMillisecondsSinceEpoch(
+      value,
+    ).difference(DateTime.now());
+    final seconds = delta.inSeconds;
+    final absSeconds = seconds.abs();
+    if (absSeconds < 45) {
+      return seconds >= 0 ? 'now' : 'just now';
+    }
+    if (absSeconds < 90) {
+      return seconds >= 0 ? 'in 1 minute' : '1 minute ago';
+    }
+    final minutes = (absSeconds / 60).round();
+    if (minutes < 60) {
+      return seconds >= 0 ? 'in $minutes minutes' : '$minutes minutes ago';
+    }
+    final hours = (minutes / 60).round();
+    if (hours < 24) {
+      return seconds >= 0
+          ? 'in $hours ${hours == 1 ? 'hour' : 'hours'}'
+          : '$hours ${hours == 1 ? 'hour' : 'hours'} ago';
+    }
+    final days = (hours / 24).round();
+    if (days < 7) {
+      return seconds >= 0
+          ? 'in $days ${days == 1 ? 'day' : 'days'}'
+          : '$days ${days == 1 ? 'day' : 'days'} ago';
+    }
+    return _timestampLabel(value);
   }
 }
 
@@ -2677,8 +2714,7 @@ class _AutomationActionButtons extends StatelessWidget {
       );
     }
     final paused =
-        item.filterKeys.contains('paused') ||
-        item.status.toLowerCase() == 'disabled';
+        item.filterKeys.contains('paused') || item.status == 'Paused';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
