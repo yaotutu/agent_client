@@ -1623,6 +1623,7 @@ class _MessageContentText extends ConsumerWidget {
     if (list != null) {
       return _MessageBulletList(
         prefix: list.prefix,
+        markers: list.markers,
         items: list.items,
         itemBuilder: (item) => _buildInlineSegments(item, ref),
       );
@@ -1666,11 +1667,13 @@ class _MessageContentText extends ConsumerWidget {
 class _MessageBulletList extends StatelessWidget {
   const _MessageBulletList({
     required this.prefix,
+    required this.markers,
     required this.items,
     required this.itemBuilder,
   });
 
   final String prefix;
+  final List<String> markers;
   final List<String> items;
   final Widget Function(String item) itemBuilder;
 
@@ -1684,23 +1687,23 @@ class _MessageBulletList extends StatelessWidget {
           itemBuilder(prefix),
           const SizedBox(height: 6),
         ],
-        for (final item in items)
+        for (var index = 0; index < items.length; index += 1)
           Padding(
             padding: const EdgeInsets.only(top: 3, bottom: 3),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(
-                  width: 18,
+                SizedBox(
+                  width: 24,
                   child: Text(
-                    '•',
-                    style: TextStyle(
+                    markers[index],
+                    style: const TextStyle(
                       color: AppThemeTokens.mutedText,
                       height: 1.4,
                     ),
                   ),
                 ),
-                Expanded(child: itemBuilder(item)),
+                Expanded(child: itemBuilder(items[index])),
               ],
             ),
           ),
@@ -1908,9 +1911,14 @@ class _MessageContentBlock {
 }
 
 class _MarkdownBulletList {
-  const _MarkdownBulletList({required this.prefix, required this.items});
+  const _MarkdownBulletList({
+    required this.prefix,
+    required this.markers,
+    required this.items,
+  });
 
   final String prefix;
+  final List<String> markers;
   final List<String> items;
 }
 
@@ -1954,23 +1962,25 @@ String _trimBlockText(String text) {
 _MarkdownBulletList? _markdownBulletList(String text) {
   final lines = text.split('\n');
   final firstBullet = lines.indexWhere(
-    (line) => line.trimLeft().startsWith('- '),
+    (line) => _markdownListLine(line) != null,
   );
   if (firstBullet < 0) {
     return null;
   }
+  final markers = <String>[];
   final items = <String>[];
   for (var index = firstBullet; index < lines.length; index += 1) {
     final trimmedLeft = lines[index].trimLeft();
     if (trimmedLeft.isEmpty) {
       continue;
     }
-    if (!trimmedLeft.startsWith('- ')) {
+    final line = _markdownListLine(trimmedLeft);
+    if (line == null) {
       return null;
     }
-    final item = trimmedLeft.substring(2).trimRight();
-    if (item.isNotEmpty) {
-      items.add(item);
+    if (line.item.isNotEmpty) {
+      markers.add(line.marker);
+      items.add(line.item);
     }
   }
   if (items.isEmpty) {
@@ -1978,8 +1988,25 @@ _MarkdownBulletList? _markdownBulletList(String text) {
   }
   return _MarkdownBulletList(
     prefix: lines.take(firstBullet).join('\n').trimRight(),
+    markers: markers,
     items: items,
   );
+}
+
+({String marker, String item})? _markdownListLine(String line) {
+  final trimmedLeft = line.trimLeft();
+  final bullet = RegExp(r'^-\s+(.+)$').firstMatch(trimmedLeft);
+  if (bullet != null) {
+    return (marker: '•', item: bullet.group(1)!.trimRight());
+  }
+  final ordered = RegExp(r'^(\d+)\.\s+(.+)$').firstMatch(trimmedLeft);
+  if (ordered != null) {
+    return (
+      marker: '${ordered.group(1)}.',
+      item: ordered.group(2)!.trimRight(),
+    );
+  }
+  return null;
 }
 
 List<InlineSpan>? _inlineMarkdownSpans(String text, Color color) {

@@ -234,6 +234,35 @@ void main() {
     expect(find.textContaining('- **'), findsNothing);
   });
 
+  testWidgets('message markdown ordered lists render numbered rows', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Steps:\n1. **Open** settings\n2. Run `test`',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Steps:'), findsOneWidget);
+    expect(find.text('1.'), findsOneWidget);
+    expect(find.text('2.'), findsOneWidget);
+    expect(_richTextWithBoldSpan('Open'), findsOneWidget);
+    expect(_richTextWithCodeSpan('test'), findsOneWidget);
+    expect(find.textContaining('1. **'), findsNothing);
+  });
+
   testWidgets('message markdown images render inline previews', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
