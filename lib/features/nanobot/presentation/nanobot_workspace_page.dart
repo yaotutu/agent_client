@@ -1,10 +1,10 @@
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
-import 'package:agent_client/core/config/app_config.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_controller.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_state.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -46,6 +46,11 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
                     Navigator.of(context).pop();
                     controller.selectSession(session);
                   },
+                  onOpenChat: controller.openChat,
+                  onOpenSettings: controller.openSettings,
+                  onOpenApps: controller.openApps,
+                  onOpenAutomations: controller.openAutomations,
+                  onOpenSkills: controller.openSkills,
                 ),
               ),
             )
@@ -63,7 +68,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
-              onOpenSettings: () => _showSettingsDialog(context),
+              onOpenSettings: controller.openSettings,
               onRefresh: controller.initialize,
             );
             if (!wide) {
@@ -78,6 +83,11 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
                     onNewChat: controller.startNewSession,
                     onRefresh: controller.refreshSessions,
                     onSelected: controller.selectSession,
+                    onOpenChat: controller.openChat,
+                    onOpenSettings: controller.openSettings,
+                    onOpenApps: controller.openApps,
+                    onOpenAutomations: controller.openAutomations,
+                    onOpenSkills: controller.openSkills,
                   ),
                 ),
                 const VerticalDivider(width: 1, color: AppThemeTokens.border),
@@ -99,61 +109,6 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
     controller.sendMessage(input);
     _focusNode.requestFocus();
   }
-
-  Future<void> _showSettingsDialog(BuildContext context) async {
-    final config = ref.read(appConfigProvider);
-    final baseUrlController = TextEditingController(text: config.apiBaseUrl);
-    final secretController = TextEditingController(text: config.apiKey);
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Nanobot connection'),
-          content: SizedBox(
-            width: 420,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: baseUrlController,
-                  decoration: const InputDecoration(labelText: 'Gateway URL'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: secretController,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Secret'),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                await ref
-                    .read(appConfigControllerProvider.notifier)
-                    .save(
-                      apiBaseUrl: baseUrlController.text,
-                      apiKey: secretController.text,
-                    );
-                ref.invalidate(nanobotWorkspaceControllerProvider);
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-    baseUrlController.dispose();
-    secretController.dispose();
-  }
 }
 
 class _SessionList extends StatelessWidget {
@@ -162,12 +117,22 @@ class _SessionList extends StatelessWidget {
     required this.onNewChat,
     required this.onRefresh,
     required this.onSelected,
+    required this.onOpenChat,
+    required this.onOpenSettings,
+    required this.onOpenApps,
+    required this.onOpenAutomations,
+    required this.onOpenSkills,
   });
 
   final NanobotWorkspaceState state;
   final VoidCallback onNewChat;
   final VoidCallback onRefresh;
   final ValueChanged<NanobotSessionSummary> onSelected;
+  final VoidCallback onOpenChat;
+  final VoidCallback onOpenSettings;
+  final VoidCallback onOpenApps;
+  final VoidCallback onOpenAutomations;
+  final VoidCallback onOpenSkills;
 
   @override
   Widget build(BuildContext context) {
@@ -203,6 +168,44 @@ class _SessionList extends StatelessWidget {
             ),
           ),
           const Divider(height: 1, color: AppThemeTokens.border),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+            child: Column(
+              children: [
+                _ShellNavTile(
+                  label: 'Chats',
+                  icon: Icons.forum_outlined,
+                  selected: state.activeView == NanobotShellView.chat,
+                  onTap: onOpenChat,
+                ),
+                _ShellNavTile(
+                  label: 'Settings',
+                  icon: Icons.tune,
+                  selected: state.activeView == NanobotShellView.settings,
+                  onTap: onOpenSettings,
+                ),
+                _ShellNavTile(
+                  label: 'Apps',
+                  icon: Icons.apps_outlined,
+                  selected: state.activeView == NanobotShellView.apps,
+                  onTap: onOpenApps,
+                ),
+                _ShellNavTile(
+                  label: 'Automations',
+                  icon: Icons.schedule_outlined,
+                  selected: state.activeView == NanobotShellView.automations,
+                  onTap: onOpenAutomations,
+                ),
+                _ShellNavTile(
+                  label: 'Skills',
+                  icon: Icons.extension_outlined,
+                  selected: state.activeView == NanobotShellView.skills,
+                  onTap: onOpenSkills,
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppThemeTokens.border),
           Expanded(
             child: state.isBootstrapping
                 ? const Center(child: CircularProgressIndicator())
@@ -230,6 +233,50 @@ class _SessionList extends StatelessWidget {
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ShellNavTile extends StatelessWidget {
+  const _ShellNavTile({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppThemeTokens.selected : Colors.transparent,
+      borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: AppThemeTokens.mutedText),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppThemeTokens.text,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -343,18 +390,21 @@ class _ChatPane extends StatelessWidget {
           Expanded(
             child: state.isLoadingThread
                 ? const Center(child: CircularProgressIndicator())
-                : _MessageList(state: state),
+                : state.activeView == NanobotShellView.chat
+                ? _MessageList(state: state)
+                : _SecondarySurface(state: state),
           ),
           if (state.errorMessage != null)
             _InlineError(text: state.errorMessage!, onRetry: onRefresh),
-          _InputBar(
-            controller: inputController,
-            focusNode: focusNode,
-            canSend: state.canSend,
-            isStreaming: state.isStreaming,
-            onSend: onSend,
-            onStop: onStop,
-          ),
+          if (state.activeView == NanobotShellView.chat)
+            _InputBar(
+              controller: inputController,
+              focusNode: focusNode,
+              canSend: state.canSend,
+              isStreaming: state.isStreaming,
+              onSend: onSend,
+              onStop: onStop,
+            ),
         ],
       ),
     );
@@ -376,7 +426,7 @@ class _ChatHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = state.selectedSession?.displayTitle ?? 'Nanobot';
+    final title = _titleFor(state);
     return SizedBox(
       height: 64,
       child: Padding(
@@ -434,6 +484,16 @@ class _ChatHeader extends StatelessWidget {
     );
   }
 
+  String _titleFor(NanobotWorkspaceState state) {
+    return switch (state.activeView) {
+      NanobotShellView.chat => state.selectedSession?.displayTitle ?? 'Nanobot',
+      NanobotShellView.settings => 'Settings',
+      NanobotShellView.apps => 'Apps',
+      NanobotShellView.automations => 'Automations',
+      NanobotShellView.skills => 'Skills',
+    };
+  }
+
   String _statusText(NanobotWorkspaceState state) {
     final model = state.modelName?.trim();
     final modelText = model == null || model.isEmpty ? 'model unknown' : model;
@@ -448,6 +508,231 @@ class _ChatHeader extends StatelessWidget {
       NanobotSocketStatus.closed => 'closed',
       NanobotSocketStatus.error => 'error',
     };
+  }
+}
+
+class _SecondarySurface extends StatelessWidget {
+  const _SecondarySurface({required this.state});
+
+  final NanobotWorkspaceState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.isLoadingSurface) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: switch (state.activeView) {
+        NanobotShellView.settings => _SettingsSurface(
+          snapshot: state.settingsSnapshot,
+        ),
+        NanobotShellView.apps => _CatalogSurface(
+          title: 'Apps',
+          emptyText: 'No apps',
+          items: state.appItems,
+        ),
+        NanobotShellView.automations => _CatalogSurface(
+          title: 'Automations',
+          emptyText: 'No automations',
+          items: state.automationItems,
+        ),
+        NanobotShellView.skills => _CatalogSurface(
+          title: 'Skills',
+          emptyText: 'No skills',
+          items: state.skillItems,
+        ),
+        NanobotShellView.chat => const SizedBox.shrink(),
+      },
+    );
+  }
+}
+
+class _SettingsSurface extends StatelessWidget {
+  const _SettingsSurface({required this.snapshot});
+
+  final NanobotSettingsSnapshot? snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = snapshot;
+    if (value == null) {
+      return const _EmptySurface(text: 'No settings loaded');
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SurfaceTitle('Settings'),
+        const SizedBox(height: 16),
+        _SurfaceRow(label: 'Model', value: value.model ?? 'unknown'),
+        _SurfaceRow(label: 'Provider', value: value.provider ?? 'unknown'),
+        _SurfaceRow(label: 'Usage', value: '${value.totalTokens} tokens'),
+        if (value.version != null)
+          _SurfaceRow(label: 'Version', value: value.version!),
+        _SurfaceRow(
+          label: 'Restart',
+          value: value.requiresRestart ? 'required' : 'not required',
+        ),
+      ],
+    );
+  }
+}
+
+class _CatalogSurface extends StatelessWidget {
+  const _CatalogSurface({
+    required this.title,
+    required this.emptyText,
+    required this.items,
+  });
+
+  final String title;
+  final String emptyText;
+  final List<NanobotCatalogItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return _EmptySurface(text: emptyText);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SurfaceTitle(title),
+        const SizedBox(height: 16),
+        for (final item in items)
+          _CatalogRow(key: ValueKey(item.id), item: item),
+      ],
+    );
+  }
+}
+
+class _CatalogRow extends StatelessWidget {
+  const _CatalogRow({super.key, required this.item});
+
+  final NanobotCatalogItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspaceAlt,
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        border: Border.all(color: AppThemeTokens.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: const TextStyle(
+                    color: AppThemeTokens.headingText,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (item.subtitle.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    item.subtitle,
+                    style: const TextStyle(
+                      color: AppThemeTokens.mutedText,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (item.status.trim().isNotEmpty)
+            Text(
+              item.status,
+              style: const TextStyle(
+                color: AppThemeTokens.brandPressed,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SurfaceRow extends StatelessWidget {
+  const _SurfaceRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspaceAlt,
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        border: Border.all(color: AppThemeTokens.border),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(
+              label,
+              style: const TextStyle(color: AppThemeTokens.mutedText),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: AppThemeTokens.text,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SurfaceTitle extends StatelessWidget {
+  const _SurfaceTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: AppThemeTokens.headingText,
+        fontSize: 24,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
+class _EmptySurface extends StatelessWidget {
+  const _EmptySurface({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        text,
+        style: const TextStyle(color: AppThemeTokens.mutedText),
+      ),
+    );
   }
 }
 

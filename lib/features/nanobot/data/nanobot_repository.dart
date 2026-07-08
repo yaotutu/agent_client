@@ -6,6 +6,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 
 abstract class NanobotRepositoryPort {
   Stream<NanobotEvent> get events;
@@ -27,6 +28,22 @@ abstract class NanobotRepositoryPort {
   Future<void> attach(String chatId);
 
   Future<void> sendMessage({required String chatId, required String content});
+
+  Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() {
+    throw UnimplementedError('fetchSettingsSnapshot');
+  }
+
+  Future<List<NanobotCatalogItem>> fetchAppItems() {
+    throw UnimplementedError('fetchAppItems');
+  }
+
+  Future<List<NanobotCatalogItem>> fetchAutomationItems() {
+    throw UnimplementedError('fetchAutomationItems');
+  }
+
+  Future<List<NanobotCatalogItem>> fetchSkillItems() {
+    throw UnimplementedError('fetchSkillItems');
+  }
 
   Future<void> dispose();
 }
@@ -101,6 +118,61 @@ class NanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
+    final settings = await api.fetchSettings();
+    final usage = settings.usage;
+    return NanobotSettingsSnapshot(
+      model: settings.agent['model'] as String?,
+      provider: settings.agent['provider'] as String?,
+      totalTokens: usage?.totalTokens ?? 0,
+      requiresRestart: settings.requiresRestart,
+      version: settings.version?['current'] as String?,
+    );
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> fetchAppItems() async {
+    final payload = await api.fetchCliApps();
+    return [
+      for (final row in payload.apps)
+        NanobotCatalogItem(
+          id: _stringValue(row, 'name'),
+          title: _stringValue(row, 'display_name', fallbackKey: 'name'),
+          subtitle: _stringValue(row, 'description', fallbackKey: 'category'),
+          status: _stringValue(row, 'status'),
+        ),
+    ];
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> fetchAutomationItems() async {
+    final payload = await api.fetchAutomations();
+    return [
+      for (final row in payload.jobs)
+        NanobotCatalogItem(
+          id: _stringValue(row, 'id'),
+          title: _stringValue(row, 'name', fallbackKey: 'id'),
+          subtitle: _automationSubtitle(row),
+          status: row['enabled'] == false ? 'disabled' : 'enabled',
+        ),
+    ];
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> fetchSkillItems() async {
+    final payload = await api.fetchSkills();
+    return [
+      for (final row in payload.skills)
+        NanobotCatalogItem(
+          id: _stringValue(row, 'name'),
+          title: _stringValue(row, 'name'),
+          subtitle: _stringValue(row, 'description', fallbackKey: 'source'),
+          status: row['available'] == false ? 'unavailable' : 'available',
+        ),
+    ];
+  }
+
+  @override
   Future<String> newChat() => ws.newChat();
 
   @override
@@ -166,4 +238,31 @@ class NanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<void> dispose() => ws.dispose();
+
+  String _stringValue(
+    Map<String, Object?> row,
+    String key, {
+    String? fallbackKey,
+  }) {
+    final value = row[key];
+    if (value is String && value.trim().isNotEmpty) {
+      return value;
+    }
+    final fallbackValue = fallbackKey == null ? null : row[fallbackKey];
+    if (fallbackValue is String && fallbackValue.trim().isNotEmpty) {
+      return fallbackValue;
+    }
+    return '';
+  }
+
+  String _automationSubtitle(Map<String, Object?> row) {
+    final schedule = row['schedule'];
+    if (schedule is Map) {
+      final kind = schedule['kind'];
+      if (kind is String && kind.trim().isNotEmpty) {
+        return kind;
+      }
+    }
+    return _stringValue(row, 'kind');
+  }
 }

@@ -7,6 +7,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:agent_client/features/nanobot/presentation/nanobot_workspace_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -127,6 +128,26 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     required String chatId,
     required String content,
   }) async {}
+
+  @override
+  Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
+    return const NanobotSettingsSnapshot();
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> fetchAppItems() async {
+    return const [];
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> fetchAutomationItems() async {
+    return const [];
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> fetchSkillItems() async {
+    return const [];
+  }
 
   @override
   Future<void> dispose() async {

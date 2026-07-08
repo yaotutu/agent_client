@@ -9,62 +9,57 @@ import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
-import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
+import 'package:agent_client/features/nanobot/presentation/nanobot_workspace_page.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
-  test('workspace controller reduces live events into thread state', () async {
+  testWidgets('sidebar utility entries switch to secondary webui surfaces', (
+    tester,
+  ) async {
     final repository = _FakeNanobotRepository();
-    final container = ProviderContainer(
-      overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
-    );
-    addTearDown(container.dispose);
     addTearDown(repository.dispose);
 
-    container.read(nanobotWorkspaceControllerProvider);
-    await pumpEventQueue();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-    repository.emit({
-      'event': 'reasoning_delta',
-      'chat_id': 'chat-1',
-      'text': 'think',
-      'turn_id': 'turn-1',
-    });
-    repository.emit({
-      'event': 'delta',
-      'chat_id': 'chat-1',
-      'text': 'answer',
-      'turn_id': 'turn-1',
-    });
-    repository.emit({
-      'event': 'message',
-      'chat_id': 'chat-1',
-      'kind': 'tool_hint',
-      'text': 'read file',
-      'tool_events': [
-        {'name': 'read_file', 'phase': 'start'},
-      ],
-    });
-    repository.emit({
-      'event': 'turn_end',
-      'chat_id': 'chat-1',
-      'latency_ms': 77,
-    });
-    await pumpEventQueue();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Settings'), findsWidgets);
+    expect(find.text('MiniMax-M3'), findsOneWidget);
+    expect(find.text('openai'), findsOneWidget);
 
-    final state = container.read(nanobotWorkspaceControllerProvider);
-    expect(state.threadState?.isStreaming, isFalse);
-    expect(state.threadState?.entries, hasLength(2));
-    expect(state.threadState?.entries.first.reasoning, 'think');
-    expect(state.threadState?.entries.first.content, 'answer');
-    expect(state.threadState?.entries.first.latencyMs, 77);
-    expect(state.threadState?.entries.last.kind, NanobotThreadEntryKind.trace);
-    expect(state.threadState?.entries.last.traces, ['read file']);
-    expect(state.messages, hasLength(1));
-    expect(state.messages.single.content, 'answer');
-    expect(state.messages.single.reasoning, 'think');
-    expect(state.isStreaming, isFalse);
+    await tester.tap(find.text('Apps'));
+    await tester.pumpAndSettle();
+    expect(find.text('Apps'), findsWidgets);
+    expect(find.text('GIMP'), findsOneWidget);
+    expect(find.text('installed'), findsOneWidget);
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+    expect(find.text('Automations'), findsWidgets);
+    expect(find.text('Daily ping'), findsOneWidget);
+    expect(find.text('enabled'), findsOneWidget);
+
+    await tester.tap(find.text('Skills'));
+    await tester.pumpAndSettle();
+    expect(find.text('Skills'), findsWidgets);
+    expect(find.text('browser'), findsOneWidget);
+    expect(find.text('available'), findsOneWidget);
+
+    await tester.tap(find.text('Chats'));
+    await tester.pumpAndSettle();
+    final state = ProviderScope.containerOf(
+      tester.element(find.byType(NanobotWorkspacePage)),
+    ).read(nanobotWorkspaceControllerProvider);
+    expect(state.activeView, NanobotShellView.chat);
+    expect(find.text('Start a chat'), findsOneWidget);
   });
 }
 
@@ -91,17 +86,13 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   @override
   NanobotSocketStatus get currentStatus => NanobotSocketStatus.open;
 
-  void emit(Map<String, Object?> frame) {
-    _events.add(NanobotEvent.fromJson(frame));
-  }
-
   @override
   Future<NanobotBootstrap> bootstrap({bool forceRefresh = false}) async {
     return NanobotBootstrap(
       token: 'token',
-      wsPath: '/ws',
-      expiresAt: DateTime.fromMillisecondsSinceEpoch(1000),
-      modelName: 'model',
+      wsPath: '/',
+      expiresAt: DateTime.now().add(const Duration(minutes: 5)),
+      modelName: 'MiniMax-M3',
     );
   }
 
@@ -110,9 +101,6 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<List<NanobotSessionSummary>> listSessions() async => _sessions;
-
-  @override
-  Future<void> attach(String chatId) async {}
 
   @override
   Future<List<NanobotMessage>> fetchThread(
@@ -125,6 +113,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<String> newChat() async => 'chat-1';
 
   @override
+  Future<void> attach(String chatId) async {}
+
+  @override
   Future<void> sendMessage({
     required String chatId,
     required String content,
@@ -132,22 +123,48 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
-    return const NanobotSettingsSnapshot();
+    return const NanobotSettingsSnapshot(
+      model: 'MiniMax-M3',
+      provider: 'openai',
+      totalTokens: 42,
+      requiresRestart: false,
+    );
   }
 
   @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
-    return const [];
+    return const [
+      NanobotCatalogItem(
+        id: 'gimp',
+        title: 'GIMP',
+        subtitle: 'Image editor',
+        status: 'installed',
+      ),
+    ];
   }
 
   @override
   Future<List<NanobotCatalogItem>> fetchAutomationItems() async {
-    return const [];
+    return const [
+      NanobotCatalogItem(
+        id: 'job-1',
+        title: 'Daily ping',
+        subtitle: 'cron',
+        status: 'enabled',
+      ),
+    ];
   }
 
   @override
   Future<List<NanobotCatalogItem>> fetchSkillItems() async {
-    return const [];
+    return const [
+      NanobotCatalogItem(
+        id: 'browser',
+        title: 'browser',
+        subtitle: 'Browse',
+        status: 'available',
+      ),
+    ];
   }
 
   @override

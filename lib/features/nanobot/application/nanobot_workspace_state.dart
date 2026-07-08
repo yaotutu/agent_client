@@ -1,6 +1,7 @@
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 
 class NanobotWorkspaceState {
@@ -10,6 +11,12 @@ class NanobotWorkspaceState {
     this.selectedSessionKey,
     this.selectedChatId,
     this.threadState,
+    this.activeView = NanobotShellView.chat,
+    this.settingsSnapshot,
+    this.appItems = const [],
+    this.automationItems = const [],
+    this.skillItems = const [],
+    this.isLoadingSurface = false,
     this.modelName,
     this.socketStatus = NanobotSocketStatus.idle,
     this.isBootstrapping = false,
@@ -25,6 +32,12 @@ class NanobotWorkspaceState {
   final String? selectedSessionKey;
   final String? selectedChatId;
   final NanobotThreadState? threadState;
+  final NanobotShellView activeView;
+  final NanobotSettingsSnapshot? settingsSnapshot;
+  final List<NanobotCatalogItem> appItems;
+  final List<NanobotCatalogItem> automationItems;
+  final List<NanobotCatalogItem> skillItems;
+  final bool isLoadingSurface;
   final String? modelName;
   final NanobotSocketStatus socketStatus;
   final bool isBootstrapping;
@@ -57,6 +70,12 @@ class NanobotWorkspaceState {
     String? selectedSessionKey,
     String? selectedChatId,
     NanobotThreadState? threadState,
+    NanobotShellView? activeView,
+    NanobotSettingsSnapshot? settingsSnapshot,
+    List<NanobotCatalogItem>? appItems,
+    List<NanobotCatalogItem>? automationItems,
+    List<NanobotCatalogItem>? skillItems,
+    bool? isLoadingSurface,
     String? modelName,
     NanobotSocketStatus? socketStatus,
     bool? isBootstrapping,
@@ -67,6 +86,8 @@ class NanobotWorkspaceState {
     String? errorMessage,
     bool clearSelectedSession = false,
     bool clearThreadState = false,
+    bool clearSettingsSnapshot = false,
+    bool clearSurfaceItems = false,
     bool clearModelName = false,
     bool clearReasoning = false,
     bool clearActivity = false,
@@ -82,6 +103,16 @@ class NanobotWorkspaceState {
           ? null
           : selectedChatId ?? this.selectedChatId,
       threadState: clearThreadState ? null : threadState ?? this.threadState,
+      activeView: activeView ?? this.activeView,
+      settingsSnapshot: clearSettingsSnapshot
+          ? null
+          : settingsSnapshot ?? this.settingsSnapshot,
+      appItems: clearSurfaceItems ? const [] : appItems ?? this.appItems,
+      automationItems: clearSurfaceItems
+          ? const []
+          : automationItems ?? this.automationItems,
+      skillItems: clearSurfaceItems ? const [] : skillItems ?? this.skillItems,
+      isLoadingSurface: isLoadingSurface ?? this.isLoadingSurface,
       modelName: clearModelName ? null : modelName ?? this.modelName,
       socketStatus: socketStatus ?? this.socketStatus,
       isBootstrapping: isBootstrapping ?? this.isBootstrapping,

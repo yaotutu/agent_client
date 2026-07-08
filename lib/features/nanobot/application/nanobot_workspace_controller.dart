@@ -6,6 +6,7 @@ import 'package:agent_client/features/nanobot/data/nanobot_providers.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -77,6 +78,90 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       state = state.copyWith(sessions: sessions, clearError: true);
     } on Object catch (error) {
       state = state.copyWith(errorMessage: _friendlyError(error));
+    }
+  }
+
+  void openChat() {
+    state = state.copyWith(activeView: NanobotShellView.chat);
+  }
+
+  Future<void> openSettings() async {
+    state = state.copyWith(
+      activeView: NanobotShellView.settings,
+      isLoadingSurface: true,
+      clearError: true,
+    );
+    try {
+      final snapshot = await ref
+          .read(nanobotRepositoryProvider)
+          .fetchSettingsSnapshot();
+      state = state.copyWith(
+        settingsSnapshot: snapshot,
+        isLoadingSurface: false,
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(
+        isLoadingSurface: false,
+        errorMessage: _friendlyError(error),
+      );
+    }
+  }
+
+  Future<void> openApps() {
+    return _openCatalog(
+      NanobotShellView.apps,
+      () => ref.read(nanobotRepositoryProvider).fetchAppItems(),
+      (items) => state.copyWith(
+        appItems: items,
+        isLoadingSurface: false,
+        clearError: true,
+      ),
+    );
+  }
+
+  Future<void> openAutomations() {
+    return _openCatalog(
+      NanobotShellView.automations,
+      () => ref.read(nanobotRepositoryProvider).fetchAutomationItems(),
+      (items) => state.copyWith(
+        automationItems: items,
+        isLoadingSurface: false,
+        clearError: true,
+      ),
+    );
+  }
+
+  Future<void> openSkills() {
+    return _openCatalog(
+      NanobotShellView.skills,
+      () => ref.read(nanobotRepositoryProvider).fetchSkillItems(),
+      (items) => state.copyWith(
+        skillItems: items,
+        isLoadingSurface: false,
+        clearError: true,
+      ),
+    );
+  }
+
+  Future<void> _openCatalog(
+    NanobotShellView view,
+    Future<List<NanobotCatalogItem>> Function() load,
+    NanobotWorkspaceState Function(List<NanobotCatalogItem> items) apply,
+  ) async {
+    state = state.copyWith(
+      activeView: view,
+      isLoadingSurface: true,
+      clearError: true,
+    );
+    try {
+      final items = await load();
+      state = apply(items);
+    } on Object catch (error) {
+      state = state.copyWith(
+        isLoadingSurface: false,
+        errorMessage: _friendlyError(error),
+      );
     }
   }
 
