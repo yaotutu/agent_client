@@ -1434,6 +1434,9 @@ class _SecondarySurface extends StatelessWidget {
           title: 'Automations',
           emptyText: 'No automations yet.',
           items: state.automationItems,
+          searchable: true,
+          searchPlaceholder: 'Search task, message, linked chat, or schedule',
+          noMatchesText: 'No automations match this view.',
         ),
         NanobotShellView.skills => _CatalogSurface(
           title: 'Skills',
@@ -1828,16 +1831,32 @@ class _CatalogSurface extends StatelessWidget {
     required this.title,
     required this.emptyText,
     required this.items,
+    this.searchable = false,
+    this.searchPlaceholder = '',
+    this.noMatchesText,
     this.onItemSelected,
   });
 
   final String title;
   final String emptyText;
   final List<NanobotCatalogItem> items;
+  final bool searchable;
+  final String searchPlaceholder;
+  final String? noMatchesText;
   final ValueChanged<NanobotCatalogItem>? onItemSelected;
 
   @override
   Widget build(BuildContext context) {
+    if (searchable) {
+      return _SearchableCatalogSurface(
+        title: title,
+        emptyText: emptyText,
+        items: items,
+        searchPlaceholder: searchPlaceholder,
+        noMatchesText: noMatchesText ?? emptyText,
+        onItemSelected: onItemSelected,
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1854,6 +1873,99 @@ class _CatalogSurface extends StatelessWidget {
             ),
       ],
     );
+  }
+}
+
+class _SearchableCatalogSurface extends StatefulWidget {
+  const _SearchableCatalogSurface({
+    required this.title,
+    required this.emptyText,
+    required this.items,
+    required this.searchPlaceholder,
+    required this.noMatchesText,
+    required this.onItemSelected,
+  });
+
+  final String title;
+  final String emptyText;
+  final List<NanobotCatalogItem> items;
+  final String searchPlaceholder;
+  final String noMatchesText;
+  final ValueChanged<NanobotCatalogItem>? onItemSelected;
+
+  @override
+  State<_SearchableCatalogSurface> createState() =>
+      _SearchableCatalogSurfaceState();
+}
+
+class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
+  final _queryController = TextEditingController();
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _queryController.text.trim();
+    final visibleItems = query.isEmpty
+        ? widget.items
+        : [
+            for (final item in widget.items)
+              if (_matches(item, query)) item,
+          ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SurfaceTitle(widget.title),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _queryController,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: widget.searchPlaceholder,
+            prefixIcon: const Icon(Icons.search),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+              borderSide: const BorderSide(color: AppThemeTokens.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+              borderSide: const BorderSide(color: AppThemeTokens.border),
+            ),
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (widget.items.isEmpty)
+          _EmptySurface(text: widget.emptyText)
+        else if (visibleItems.isEmpty)
+          _EmptySurface(text: widget.noMatchesText)
+        else
+          for (final item in visibleItems)
+            _CatalogRow(
+              key: ValueKey(item.id),
+              item: item,
+              onSelected: widget.onItemSelected,
+            ),
+      ],
+    );
+  }
+
+  bool _matches(NanobotCatalogItem item, String query) {
+    final haystack = [
+      item.title,
+      item.subtitle,
+      item.details,
+      item.status,
+    ].join('\n').toLowerCase();
+    final tokens = query
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((token) => token.isNotEmpty);
+    return tokens.every(haystack.contains);
   }
 }
 

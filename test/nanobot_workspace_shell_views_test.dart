@@ -135,6 +135,59 @@ void main() {
     expect(find.text('Show less'), findsOneWidget);
   });
 
+  testWidgets('automations surface filters by message and linked chat', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      automationItems: const [
+        NanobotCatalogItem(
+          id: 'repo-check',
+          title: 'Daily repo check',
+          subtitle: 'Check the repo status',
+          details: 'Release prep',
+          status: 'enabled',
+        ),
+        NanobotCatalogItem(
+          id: 'wechat-quiz',
+          title: 'WeChat quiz',
+          subtitle: 'Send a quiz',
+          details: 'WeChat',
+          status: 'enabled',
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    final search = find.widgetWithText(
+      TextField,
+      'Search task, message, linked chat, or schedule',
+    );
+    expect(search, findsOneWidget);
+
+    await tester.enterText(search, 'Release');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daily repo check'), findsOneWidget);
+    expect(find.text('WeChat quiz'), findsNothing);
+
+    await tester.enterText(search, 'quiz');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daily repo check'), findsNothing);
+    expect(find.text('WeChat quiz'), findsOneWidget);
+  });
+
   testWidgets('skills surface opens unavailable skill details', (tester) async {
     final repository = _FakeNanobotRepository(
       skillItems: const [
