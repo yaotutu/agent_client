@@ -12,6 +12,7 @@ import 'package:agent_client/features/nanobot/presentation/nanobot_workspace_pag
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 void main() {
   testWidgets('renders persisted trace and file edit thread entries', (
@@ -534,6 +535,41 @@ void main() {
     expect(find.text('Diagram'), findsNothing);
   });
 
+  testWidgets('message markdown videos render inline players', (tester) async {
+    final platform = _FakeVideoPlayerPlatform();
+    final previousPlatform = VideoPlayerPlatform.instance;
+    VideoPlayerPlatform.instance = platform;
+    addTearDown(() {
+      VideoPlayerPlatform.instance = previousPlatform;
+      platform.disposeStreams();
+    });
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Watch ![nanobot-intro.mp4](/api/media/sig/video)',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Watch'), findsOneWidget);
+    expect(find.byKey(const ValueKey('nanobot-markdown-video')), findsOneWidget);
+    expect(find.byType(Texture), findsOneWidget);
+    expect(find.byIcon(Icons.image_outlined), findsNothing);
+    expect(platform.dataSources, hasLength(1));
+    expect(platform.dataSources.single.sourceType, DataSourceType.network);
+    expect(platform.dataSources.single.uri, endsWith('/api/media/sig/video'));
+  });
+
   testWidgets('message fenced code blocks render code panels', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
@@ -846,6 +882,85 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<void> dispose() async {
     await _events.close();
     await _status.close();
+  }
+}
+
+class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
+  final dataSources = <DataSource>[];
+  final streams = <int, StreamController<VideoEvent>>{};
+  var nextPlayerId = 1;
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<int?> create(DataSource dataSource) async {
+    return createWithOptions(
+      VideoCreationOptions(
+        dataSource: dataSource,
+        viewType: VideoViewType.textureView,
+      ),
+    );
+  }
+
+  @override
+  Future<int?> createWithOptions(VideoCreationOptions options) async {
+    final playerId = nextPlayerId;
+    nextPlayerId += 1;
+    dataSources.add(options.dataSource);
+    final stream = StreamController<VideoEvent>();
+    streams[playerId] = stream;
+    stream.add(
+      VideoEvent(
+        eventType: VideoEventType.initialized,
+        size: const Size(320, 180),
+        duration: const Duration(seconds: 8),
+      ),
+    );
+    return playerId;
+  }
+
+  @override
+  Stream<VideoEvent> videoEventsFor(int playerId) {
+    return streams[playerId]!.stream;
+  }
+
+  @override
+  Future<void> dispose(int playerId) async {
+    await streams.remove(playerId)?.close();
+  }
+
+  @override
+  Future<void> play(int playerId) async {}
+
+  @override
+  Future<void> pause(int playerId) async {}
+
+  @override
+  Future<void> setLooping(int playerId, bool looping) async {}
+
+  @override
+  Future<void> setVolume(int playerId, double volume) async {}
+
+  @override
+  Future<void> setPlaybackSpeed(int playerId, double speed) async {}
+
+  @override
+  Future<void> seekTo(int playerId, Duration position) async {}
+
+  @override
+  Future<Duration> getPosition(int playerId) async => Duration.zero;
+
+  @override
+  Widget buildView(int playerId) {
+    return Texture(textureId: playerId);
+  }
+
+  void disposeStreams() {
+    for (final stream in streams.values) {
+      stream.close();
+    }
+    streams.clear();
   }
 }
 

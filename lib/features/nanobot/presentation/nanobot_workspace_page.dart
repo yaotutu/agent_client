@@ -13,6 +13,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:video_player/video_player.dart';
 
 class NanobotWorkspacePage extends ConsumerStatefulWidget {
   const NanobotWorkspacePage({super.key});
@@ -2860,8 +2861,165 @@ class _MediaAttachmentTile extends StatelessWidget {
         ),
       );
     }
+    if (attachment.kind == 'video' && resolvedUrl != null) {
+      return _VideoAttachmentFrame(label: label, url: resolvedUrl);
+    }
 
     return _AttachmentLabelTile(attachment: attachment);
+  }
+}
+
+class _VideoAttachmentFrame extends StatefulWidget {
+  const _VideoAttachmentFrame({required this.label, required this.url});
+
+  final String label;
+  final String url;
+
+  @override
+  State<_VideoAttachmentFrame> createState() => _VideoAttachmentFrameState();
+}
+
+class _VideoAttachmentFrameState extends State<_VideoAttachmentFrame> {
+  VideoPlayerController? _controller;
+  Future<void>? _initializeFuture;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _createController();
+  }
+
+  @override
+  void didUpdateWidget(_VideoAttachmentFrame oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      _disposeController();
+      _createController();
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposeController();
+    super.dispose();
+  }
+
+  void _createController() {
+    final uri = Uri.tryParse(widget.url);
+    if (uri == null) {
+      _error = FormatException('Invalid video URL', widget.url);
+      return;
+    }
+    final controller = VideoPlayerController.networkUrl(uri);
+    controller.addListener(_handleControllerChanged);
+    _controller = controller;
+    _initializeFuture = controller.initialize().catchError((Object error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+        });
+      } else {
+        _error = error;
+      }
+    });
+  }
+
+  void _disposeController() {
+    final controller = _controller;
+    if (controller == null) {
+      return;
+    }
+    controller.removeListener(_handleControllerChanged);
+    controller.dispose();
+    _controller = null;
+    _initializeFuture = null;
+  }
+
+  void _handleControllerChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    return Container(
+      key: const ValueKey('nanobot-markdown-video'),
+      constraints: const BoxConstraints(
+        minWidth: 160,
+        minHeight: 96,
+        maxWidth: 520,
+        maxHeight: 544,
+      ),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspace,
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Semantics(
+        label: 'Video attachment: ${widget.label}',
+        child: FutureBuilder<void>(
+          future: _initializeFuture,
+          builder: (context, snapshot) {
+            if (_error != null || controller == null) {
+              return _AttachmentLabelTile(
+                attachment: NanobotMediaAttachment(
+                  kind: 'video',
+                  url: widget.url,
+                  name: widget.label,
+                ),
+              );
+            }
+            if (snapshot.connectionState != ConnectionState.done ||
+                !controller.value.isInitialized) {
+              return const SizedBox(
+                height: 128,
+                child: Center(
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            }
+            final aspectRatio = controller.value.aspectRatio > 0
+                ? controller.value.aspectRatio
+                : 16 / 9;
+            return Stack(
+              alignment: Alignment.bottomLeft,
+              children: [
+                AspectRatio(
+                  aspectRatio: aspectRatio,
+                  child: VideoPlayer(controller),
+                ),
+                Material(
+                  color: Colors.black54,
+                  child: IconButton(
+                    tooltip: controller.value.isPlaying
+                        ? 'Pause video'
+                        : 'Play video',
+                    color: Colors.white,
+                    onPressed: () {
+                      if (controller.value.isPlaying) {
+                        controller.pause();
+                      } else {
+                        controller.play();
+                      }
+                    },
+                    icon: Icon(
+                      controller.value.isPlaying
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
   }
 }
 
