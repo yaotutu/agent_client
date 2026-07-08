@@ -1665,8 +1665,17 @@ class _MessageContentText extends ConsumerWidget {
         markers: list.markers,
         checks: list.checks,
         items: list.items,
-        itemBuilder: (item) => _buildInlineSegments(item, ref),
+        isStandaloneItem: (item) => _compactLinkPreview(item) != null,
+        itemBuilder: (item) => _buildListItem(item, ref),
       );
+    }
+    return _buildInlineSegments(value, ref);
+  }
+
+  Widget _buildListItem(String value, WidgetRef ref) {
+    final preview = _compactLinkPreview(value);
+    if (preview != null) {
+      return _CompactLinkPreviewRow(preview: preview);
     }
     return _buildInlineSegments(value, ref);
   }
@@ -1877,6 +1886,7 @@ class _MessageBulletList extends StatelessWidget {
     required this.markers,
     required this.checks,
     required this.items,
+    required this.isStandaloneItem,
     required this.itemBuilder,
   });
 
@@ -1884,6 +1894,7 @@ class _MessageBulletList extends StatelessWidget {
   final List<String> markers;
   final List<bool?> checks;
   final List<String> items;
+  final bool Function(String item) isStandaloneItem;
   final Widget Function(String item) itemBuilder;
 
   @override
@@ -1899,36 +1910,90 @@ class _MessageBulletList extends StatelessWidget {
         for (var index = 0; index < items.length; index += 1)
           Padding(
             padding: const EdgeInsets.only(top: 3, bottom: 3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (checks[index] == null)
-                  SizedBox(
-                    width: 24,
-                    child: Text(
-                      markers[index],
-                      style: const TextStyle(
-                        color: AppThemeTokens.mutedText,
-                        height: 1.4,
-                      ),
-                    ),
-                  )
-                else
-                  SizedBox(
-                    width: 24,
-                    height: 22,
-                    child: Checkbox(
-                      value: checks[index],
-                      onChanged: null,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
+            child: isStandaloneItem(items[index])
+                ? itemBuilder(items[index])
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (checks[index] == null)
+                        SizedBox(
+                          width: 24,
+                          child: Text(
+                            markers[index],
+                            style: const TextStyle(
+                              color: AppThemeTokens.mutedText,
+                              height: 1.4,
+                            ),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: 24,
+                          height: 22,
+                          child: Checkbox(
+                            value: checks[index],
+                            onChanged: null,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      Expanded(child: itemBuilder(items[index])),
+                    ],
                   ),
-                Expanded(child: itemBuilder(items[index])),
-              ],
-            ),
           ),
       ],
+    );
+  }
+}
+
+class _CompactLinkPreviewRow extends StatelessWidget {
+  const _CompactLinkPreviewRow({required this.preview});
+
+  final _CompactLinkPreview preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = preview.prefix == null
+        ? preview.title
+        : '${preview.prefix} — ${preview.title}';
+    return Semantics(
+      label: 'Open link: $label',
+      link: true,
+      container: true,
+      child: Tooltip(
+        message: preview.href,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: AppThemeTokens.workspace,
+                border: Border.all(color: AppThemeTokens.border),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(
+                Icons.public,
+                size: 12,
+                color: AppThemeTokens.mutedText,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppThemeTokens.brandPressed,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2226,6 +2291,18 @@ class _MarkdownBulletList {
   final List<String> items;
 }
 
+class _CompactLinkPreview {
+  const _CompactLinkPreview({
+    required this.href,
+    required this.title,
+    this.prefix,
+  });
+
+  final String href;
+  final String title;
+  final String? prefix;
+}
+
 List<_MessageContentBlock> _messageContentBlocks(String text) {
   final matches = RegExp(
     r'```([^\n`]*)\n([\s\S]*?)(?:\n```|$)',
@@ -2483,6 +2560,10 @@ _MarkdownBulletList? _markdownBulletList(String text) {
     }
     final line = _markdownListLine(trimmedLeft);
     if (line == null) {
+      if (items.isNotEmpty && _isMarkdownListContinuation(lines[index])) {
+        items[items.length - 1] = '${items.last}\n${trimmedLeft.trimRight()}';
+        continue;
+      }
       return null;
     }
     if (line.item.isNotEmpty) {
@@ -2525,6 +2606,52 @@ _MarkdownBulletList? _markdownBulletList(String text) {
     );
   }
   return null;
+}
+
+bool _isMarkdownListContinuation(String line) {
+  return line.startsWith('  ') || line.startsWith('\t');
+}
+
+_CompactLinkPreview? _compactLinkPreview(String text) {
+  final hrefMatch = RegExp(r'https?://\S+', caseSensitive: false).firstMatch(
+    text,
+  );
+  if (hrefMatch == null) {
+    return null;
+  }
+  final href = hrefMatch.group(0)!.trim();
+  final uri = Uri.tryParse(href);
+  if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+    return null;
+  }
+  final labelText = _cleanCompactLinkText(
+    text
+        .replaceRange(hrefMatch.start, hrefMatch.end, ' ')
+        .replaceAll(RegExp(r'\s+'), ' '),
+  );
+  if (labelText.length < 4) {
+    return null;
+  }
+  final sourceMatch = RegExp(
+    r'^(.*?)\s*(?:[—–]| - |:)\s*(.+)$',
+  ).firstMatch(labelText);
+  final prefix = _cleanCompactLinkText(sourceMatch?.group(1) ?? '');
+  final title = _cleanCompactLinkText(sourceMatch?.group(2) ?? labelText);
+  if (title.isEmpty || title.startsWith(RegExp(r'https?://'))) {
+    return null;
+  }
+  return _CompactLinkPreview(
+    href: href,
+    prefix: prefix.isEmpty ? null : prefix,
+    title: title,
+  );
+}
+
+String _cleanCompactLinkText(String value) {
+  return value
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'^[\s"“”‘’]+|[\s"“”‘’]+$'), '')
+      .trim();
 }
 
 List<InlineSpan>? _inlineMarkdownSpans(String text, Color color) {

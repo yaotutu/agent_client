@@ -596,6 +596,40 @@ void main() {
     expect(find.byType(Image), findsNothing);
   });
 
+  testWidgets('message markdown source links render compact link rows', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text':
+          'Sources:\n\n'
+          '- Polymarket — “When will GPT-5.6 be released?”\n'
+          '  https://polymarket.com/event/when-will-gpt-5pt6-be-released',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sources:'), findsOneWidget);
+    expect(
+      _semanticsLabel('Open link: Polymarket — When will GPT-5.6 be released?'),
+      findsOneWidget,
+    );
+    expect(find.text('Polymarket — When will GPT-5.6 be released?'), findsOneWidget);
+    expect(find.textContaining('https://polymarket.com'), findsNothing);
+    expect(find.text('•'), findsNothing);
+  });
+
   testWidgets('message fenced code blocks render code panels', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
