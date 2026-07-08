@@ -1,7 +1,9 @@
+import 'package:agent_client/features/nanobot/application/nanobot_workspace_state.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -39,6 +41,88 @@ void main() {
     expect(session.chatId, 'chat-123');
     expect(session.displayTitle, 'hello');
     expect(session.runStartedAt, 123);
+  });
+
+  test('workspace state sorts visible sessions by displayed title', () {
+    final state = NanobotWorkspaceState(
+      sessions: [
+        NanobotSessionSummary(
+          key: 'websocket:zulu',
+          channel: 'websocket',
+          chatId: 'zulu',
+          title: 'Zulu work',
+          preview: 'later',
+          createdAt: DateTime.utc(2026, 4, 16, 12),
+          updatedAt: DateTime.utc(2026, 4, 16, 12),
+        ),
+        NanobotSessionSummary(
+          key: 'websocket:new',
+          channel: 'websocket',
+          chatId: 'new',
+          title: '',
+          preview: 'hi nanobot',
+          createdAt: DateTime.utc(2026, 4, 15, 12),
+          updatedAt: DateTime.utc(2026, 4, 15, 12),
+        ),
+        NanobotSessionSummary(
+          key: 'websocket:alpha',
+          channel: 'websocket',
+          chatId: 'alpha',
+          title: 'Alpha plan',
+          preview: 'earlier',
+          createdAt: DateTime.utc(2026, 4, 14, 12),
+          updatedAt: DateTime.utc(2026, 4, 14, 12),
+        ),
+      ],
+      sidebarState: const NanobotSidebarState(
+        sort: 'title_asc',
+        titleOverrides: {'websocket:new': 'Beta fallback'},
+      ),
+    );
+
+    expect(state.visibleSessions.map((session) => session.key), [
+      'websocket:alpha',
+      'websocket:new',
+      'websocket:zulu',
+    ]);
+  });
+
+  test('workspace state uses natural title sort and created date sort', () {
+    final sessions = [
+      NanobotSessionSummary(
+        key: 'websocket:chat-10',
+        channel: 'websocket',
+        chatId: 'chat-10',
+        title: 'Chat 10',
+        preview: '',
+        createdAt: DateTime.utc(2026, 4, 14, 12),
+        updatedAt: DateTime.utc(2026, 4, 16, 12),
+      ),
+      NanobotSessionSummary(
+        key: 'websocket:chat-2',
+        channel: 'websocket',
+        chatId: 'chat-2',
+        title: 'Chat 2',
+        preview: '',
+        createdAt: DateTime.utc(2026, 4, 16, 12),
+        updatedAt: DateTime.utc(2026, 4, 14, 12),
+      ),
+    ];
+
+    expect(
+      NanobotWorkspaceState(
+        sessions: sessions,
+        sidebarState: const NanobotSidebarState(sort: 'title_asc'),
+      ).visibleSessions.map((session) => session.key),
+      ['websocket:chat-2', 'websocket:chat-10'],
+    );
+    expect(
+      NanobotWorkspaceState(
+        sessions: sessions,
+        sidebarState: const NanobotSidebarState(sort: 'created_desc'),
+      ).visibleSessions.map((session) => session.key),
+      ['websocket:chat-2', 'websocket:chat-10'],
+    );
   });
 
   test('webui thread messages map UIMessage shape', () {

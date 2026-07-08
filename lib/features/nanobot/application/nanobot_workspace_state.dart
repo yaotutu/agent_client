@@ -123,6 +123,19 @@ class NanobotWorkspaceState {
         if (bPinned == null) return -1;
         return aPinned.compareTo(bPinned);
       }
+      if (sidebarState.sort == 'title_asc') {
+        final titleOrder = _compareNaturalTitles(
+          displayTitleFor(a),
+          displayTitleFor(b),
+        );
+        if (titleOrder != 0) {
+          return titleOrder;
+        }
+        return _sessionTime(b).compareTo(_sessionTime(a));
+      }
+      if (sidebarState.sort == 'created_desc') {
+        return _createdTime(b).compareTo(_createdTime(a));
+      }
       return _sessionTime(b).compareTo(_sessionTime(a));
     });
     return rows;
@@ -236,5 +249,34 @@ class NanobotWorkspaceState {
   static int _sessionTime(NanobotSessionSummary session) {
     return (session.updatedAt ?? session.createdAt)?.millisecondsSinceEpoch ??
         0;
+  }
+
+  static int _createdTime(NanobotSessionSummary session) {
+    return session.createdAt?.millisecondsSinceEpoch ?? 0;
+  }
+
+  static int _compareNaturalTitles(String a, String b) {
+    final aParts = _titleParts(a);
+    final bParts = _titleParts(b);
+    final count = aParts.length < bParts.length ? aParts.length : bParts.length;
+    for (var i = 0; i < count; i += 1) {
+      final aPart = aParts[i];
+      final bPart = bParts[i];
+      final aNumber = int.tryParse(aPart);
+      final bNumber = int.tryParse(bPart);
+      final result = aNumber != null && bNumber != null
+          ? aNumber.compareTo(bNumber)
+          : aPart.toLowerCase().compareTo(bPart.toLowerCase());
+      if (result != 0) {
+        return result;
+      }
+    }
+    return aParts.length.compareTo(bParts.length);
+  }
+
+  static List<String> _titleParts(String value) {
+    return RegExp(
+      r'\d+|\D+',
+    ).allMatches(value.trim()).map((match) => match.group(0) ?? '').toList();
   }
 }
