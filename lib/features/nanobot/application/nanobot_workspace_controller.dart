@@ -228,6 +228,21 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     }
   }
 
+  Future<void> updateAutomation(
+    NanobotCatalogItem item,
+    Map<String, Object?> values,
+  ) async {
+    state = state.copyWith(clearError: true);
+    try {
+      final items = await ref
+          .read(nanobotRepositoryProvider)
+          .updateAutomation(id: item.id, values: values);
+      state = state.copyWith(automationItems: items, clearError: true);
+    } on Object catch (error) {
+      state = state.copyWith(errorMessage: _friendlyError(error));
+    }
+  }
+
   Future<void> openSkills() {
     return _openCatalog(
       NanobotShellView.skills,

@@ -445,6 +445,78 @@ void main() {
     ]);
   });
 
+  testWidgets('automations edit dialog updates name message and interval', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      automationItems: const [
+        NanobotCatalogItem(
+          id: 'job-1',
+          title: 'Daily job',
+          subtitle: 'Check the repo status',
+          status: 'Active',
+          filterKeys: ['active'],
+          automationScheduleKind: 'every',
+          automationEveryMs: 7200000,
+        ),
+      ],
+      actionAutomationItems: const [
+        NanobotCatalogItem(
+          id: 'job-1',
+          title: 'Updated job',
+          subtitle: 'Send updated status',
+          status: 'Active',
+          filterKeys: ['active'],
+          automationScheduleKind: 'every',
+          automationEveryMs: 10800000,
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byTooltip('Edit').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit automation'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('automation-edit-name')),
+      'Updated job',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('automation-edit-message')),
+      'Send updated status',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('automation-edit-every-value')),
+      '3',
+    );
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(repository.updateRequests, hasLength(1));
+    expect(repository.updateRequests.single.id, 'job-1');
+    expect(repository.updateRequests.single.values, {
+      'name': 'Updated job',
+      'message': 'Send updated status',
+      'schedule': {'kind': 'every', 'every_ms': 10800000},
+    });
+    expect(find.text('Updated job'), findsWidgets);
+  });
+
   testWidgets('automations surface shows queue and selected detail panel', (
     tester,
   ) async {
@@ -684,6 +756,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   final Map<String, NanobotSkillDetail> _skillDetails;
   final requestedSkillDetails = <String>[];
   final actionRequests = <({NanobotAutomationAction action, String id})>[];
+  final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
       key: 'websocket:chat-1',
@@ -861,7 +934,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     required String id,
     required Map<String, Object?> values,
   }) async {
-    return _automationItems;
+    updateRequests.add((id: id, values: values));
+    return _actionAutomationItems ?? _automationItems;
   }
 
   @override

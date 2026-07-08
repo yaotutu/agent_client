@@ -48,6 +48,12 @@ class NanobotCatalogItem {
     this.isPending = false,
     this.isProtected = false,
     this.deleteAfterRun = false,
+    this.automationScheduleKind,
+    this.automationEveryMs,
+    this.automationCronExpr,
+    this.automationTz,
+    this.automationAtMs,
+    this.isLocalTriggerAutomation = false,
   });
 
   final String id;
@@ -67,6 +73,12 @@ class NanobotCatalogItem {
   final bool isPending;
   final bool isProtected;
   final bool deleteAfterRun;
+  final String? automationScheduleKind;
+  final int? automationEveryMs;
+  final String? automationCronExpr;
+  final String? automationTz;
+  final int? automationAtMs;
+  final bool isLocalTriggerAutomation;
 }
 
 class NanobotSkillDetail {

@@ -124,6 +124,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onOpenSkillDetail: controller.openSkillDetail,
               onCloseSkillDetail: controller.closeSkillDetail,
               onAutomationAction: controller.runAutomationAction,
+              onAutomationUpdate: controller.updateAutomation,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -1187,6 +1188,7 @@ class _ChatPane extends StatelessWidget {
     required this.onOpenSkillDetail,
     required this.onCloseSkillDetail,
     required this.onAutomationAction,
+    required this.onAutomationUpdate,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -1225,6 +1227,11 @@ class _ChatPane extends StatelessWidget {
     NanobotCatalogItem item,
   )
   onAutomationAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    Map<String, Object?> values,
+  )
+  onAutomationUpdate;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -1257,6 +1264,7 @@ class _ChatPane extends StatelessWidget {
                     onOpenSkillDetail: onOpenSkillDetail,
                     onCloseSkillDetail: onCloseSkillDetail,
                     onAutomationAction: onAutomationAction,
+                    onAutomationUpdate: onAutomationUpdate,
                   ),
           ),
           if (state.errorMessage != null)
@@ -1417,6 +1425,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onOpenSkillDetail,
     required this.onCloseSkillDetail,
     required this.onAutomationAction,
+    required this.onAutomationUpdate,
   });
 
   final NanobotWorkspaceState state;
@@ -1427,6 +1436,11 @@ class _SecondarySurface extends StatelessWidget {
     NanobotCatalogItem item,
   )
   onAutomationAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    Map<String, Object?> values,
+  )
+  onAutomationUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -1452,6 +1466,7 @@ class _SecondarySurface extends StatelessWidget {
           searchPlaceholder: 'Search task, message, linked chat, or schedule',
           noMatchesText: 'No automations match this view.',
           onAutomationAction: onAutomationAction,
+          onAutomationUpdate: onAutomationUpdate,
         ),
         NanobotShellView.skills => _CatalogSurface(
           title: 'Skills',
@@ -1851,6 +1866,7 @@ class _CatalogSurface extends StatelessWidget {
     this.noMatchesText,
     this.onItemSelected,
     this.onAutomationAction,
+    this.onAutomationUpdate,
   });
 
   final String title;
@@ -1865,6 +1881,11 @@ class _CatalogSurface extends StatelessWidget {
     NanobotCatalogItem item,
   )?
   onAutomationAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    Map<String, Object?> values,
+  )?
+  onAutomationUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -1877,6 +1898,7 @@ class _CatalogSurface extends StatelessWidget {
         noMatchesText: noMatchesText ?? emptyText,
         onItemSelected: onItemSelected,
         onAutomationAction: onAutomationAction,
+        onAutomationUpdate: onAutomationUpdate,
       );
     }
     return Column(
@@ -1893,6 +1915,7 @@ class _CatalogSurface extends StatelessWidget {
               item: item,
               onSelected: onItemSelected,
               onAutomationAction: onAutomationAction,
+              onAutomationUpdate: onAutomationUpdate,
             ),
       ],
     );
@@ -1908,6 +1931,7 @@ class _SearchableCatalogSurface extends StatefulWidget {
     required this.noMatchesText,
     required this.onItemSelected,
     required this.onAutomationAction,
+    required this.onAutomationUpdate,
   });
 
   final String title;
@@ -1921,6 +1945,11 @@ class _SearchableCatalogSurface extends StatefulWidget {
     NanobotCatalogItem item,
   )?
   onAutomationAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    Map<String, Object?> values,
+  )?
+  onAutomationUpdate;
 
   @override
   State<_SearchableCatalogSurface> createState() =>
@@ -2018,6 +2047,7 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
             selectedItemId: _selectedItemId,
             onSelected: (item) => setState(() => _selectedItemId = item.id),
             onAutomationAction: widget.onAutomationAction!,
+            onAutomationUpdate: widget.onAutomationUpdate!,
           )
         else
           for (final item in visibleItems)
@@ -2026,6 +2056,7 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
               item: item,
               onSelected: widget.onItemSelected,
               onAutomationAction: widget.onAutomationAction,
+              onAutomationUpdate: widget.onAutomationUpdate,
             ),
       ],
     );
@@ -2204,6 +2235,7 @@ class _AutomationQueueDetailPanel extends StatelessWidget {
     required this.selectedItemId,
     required this.onSelected,
     required this.onAutomationAction,
+    required this.onAutomationUpdate,
   });
 
   final List<NanobotCatalogItem> items;
@@ -2214,6 +2246,11 @@ class _AutomationQueueDetailPanel extends StatelessWidget {
     NanobotCatalogItem item,
   )
   onAutomationAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    Map<String, Object?> values,
+  )
+  onAutomationUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -2226,10 +2263,12 @@ class _AutomationQueueDetailPanel extends StatelessWidget {
           selected: selected,
           onSelected: onSelected,
           onAutomationAction: onAutomationAction,
+          onAutomationUpdate: onAutomationUpdate,
         );
         final detail = _AutomationDetailPanel(
           item: selected,
           onAutomationAction: onAutomationAction,
+          onAutomationUpdate: onAutomationUpdate,
         );
         if (!wide) {
           return Column(
@@ -2268,6 +2307,7 @@ class _AutomationQueueList extends StatelessWidget {
     required this.selected,
     required this.onSelected,
     required this.onAutomationAction,
+    required this.onAutomationUpdate,
   });
 
   final List<NanobotCatalogItem> items;
@@ -2278,6 +2318,11 @@ class _AutomationQueueList extends StatelessWidget {
     NanobotCatalogItem item,
   )
   onAutomationAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    Map<String, Object?> values,
+  )
+  onAutomationUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -2316,6 +2361,7 @@ class _AutomationQueueList extends StatelessWidget {
                 selected: item.id == selected.id,
                 onSelected: onSelected,
                 onAutomationAction: onAutomationAction,
+                onAutomationUpdate: onAutomationUpdate,
               ),
           ],
         ),
@@ -2328,6 +2374,7 @@ class _AutomationDetailPanel extends StatelessWidget {
   const _AutomationDetailPanel({
     required this.item,
     required this.onAutomationAction,
+    required this.onAutomationUpdate,
   });
 
   final NanobotCatalogItem item;
@@ -2336,6 +2383,11 @@ class _AutomationDetailPanel extends StatelessWidget {
     NanobotCatalogItem item,
   )
   onAutomationAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    Map<String, Object?> values,
+  )
+  onAutomationUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -2382,6 +2434,7 @@ class _AutomationDetailPanel extends StatelessWidget {
                 _AutomationActionButtons(
                   item: item,
                   onAction: onAutomationAction,
+                  onUpdate: onAutomationUpdate,
                 ),
               ],
             ),
@@ -2606,6 +2659,7 @@ class _CatalogRow extends StatelessWidget {
     this.selected = false,
     this.onSelected,
     this.onAutomationAction,
+    this.onAutomationUpdate,
   });
 
   final NanobotCatalogItem item;
@@ -2616,6 +2670,11 @@ class _CatalogRow extends StatelessWidget {
     NanobotCatalogItem item,
   )?
   onAutomationAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    Map<String, Object?> values,
+  )?
+  onAutomationUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -2675,7 +2734,11 @@ class _CatalogRow extends StatelessWidget {
             ),
           if (onAutomationAction != null) ...[
             const SizedBox(width: 8),
-            _AutomationActionButtons(item: item, onAction: onAutomationAction!),
+            _AutomationActionButtons(
+              item: item,
+              onAction: onAutomationAction!,
+              onUpdate: onAutomationUpdate,
+            ),
           ],
         ],
       ),
@@ -2696,7 +2759,11 @@ class _CatalogRow extends StatelessWidget {
 }
 
 class _AutomationActionButtons extends StatelessWidget {
-  const _AutomationActionButtons({required this.item, required this.onAction});
+  const _AutomationActionButtons({
+    required this.item,
+    required this.onAction,
+    this.onUpdate,
+  });
 
   final NanobotCatalogItem item;
   final Future<void> Function(
@@ -2704,6 +2771,11 @@ class _AutomationActionButtons extends StatelessWidget {
     NanobotCatalogItem item,
   )
   onAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    Map<String, Object?> values,
+  )?
+  onUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -2718,6 +2790,24 @@ class _AutomationActionButtons extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (onUpdate != null)
+          IconButton(
+            tooltip: 'Edit',
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            onPressed: () async {
+              final values = await showDialog<Map<String, Object?>>(
+                context: context,
+                builder: (context) => _AutomationEditDialog(item: item),
+              );
+              if (values == null) {
+                return;
+              }
+              await onUpdate!(item, values);
+            },
+            icon: const Icon(Icons.edit_outlined),
+          ),
         IconButton(
           tooltip: paused ? 'Resume' : 'Pause',
           constraints: const BoxConstraints.tightFor(width: 36, height: 36),
@@ -2790,6 +2880,214 @@ class _AutomationActionButtons extends StatelessWidget {
       ),
     );
     return confirmed == true;
+  }
+}
+
+class _AutomationEditDialog extends StatefulWidget {
+  const _AutomationEditDialog({required this.item});
+
+  final NanobotCatalogItem item;
+
+  @override
+  State<_AutomationEditDialog> createState() => _AutomationEditDialogState();
+}
+
+class _AutomationEditDialogState extends State<_AutomationEditDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _messageController;
+  late final TextEditingController _everyValueController;
+  late final TextEditingController _cronController;
+  late final TextEditingController _tzController;
+  late String _scheduleKind;
+  late String _everyUnit;
+
+  static const _units = <String, int>{
+    'second': 1000,
+    'minute': 60000,
+    'hour': 3600000,
+    'day': 86400000,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.item.title);
+    _messageController = TextEditingController(text: widget.item.subtitle);
+    _scheduleKind = _initialScheduleKind();
+    final interval = _initialInterval(widget.item.automationEveryMs);
+    _everyValueController = TextEditingController(text: interval.value);
+    _everyUnit = interval.unit;
+    _cronController = TextEditingController(
+      text: widget.item.automationCronExpr ?? '0 9 * * *',
+    );
+    _tzController = TextEditingController(text: widget.item.automationTz ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _messageController.dispose();
+    _everyValueController.dispose();
+    _cronController.dispose();
+    _tzController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final localTrigger = widget.item.isLocalTriggerAutomation;
+    return AlertDialog(
+      title: const Text('Edit automation'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const ValueKey('automation-edit-name'),
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            if (!localTrigger) ...[
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('automation-edit-message'),
+                controller: _messageController,
+                decoration: const InputDecoration(labelText: 'Message'),
+                minLines: 3,
+                maxLines: 6,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: const ValueKey('automation-edit-schedule-kind'),
+                initialValue: _scheduleKind,
+                decoration: const InputDecoration(labelText: 'Schedule type'),
+                items: const [
+                  DropdownMenuItem(value: 'every', child: Text('Interval')),
+                  DropdownMenuItem(value: 'cron', child: Text('Cron')),
+                  DropdownMenuItem(value: 'at', child: Text('Once')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _scheduleKind = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              if (_scheduleKind == 'every') ...[
+                TextField(
+                  key: const ValueKey('automation-edit-every-value'),
+                  controller: _everyValueController,
+                  decoration: const InputDecoration(labelText: 'Every'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: const ValueKey('automation-edit-every-unit'),
+                  initialValue: _everyUnit,
+                  decoration: const InputDecoration(labelText: 'Unit'),
+                  items: const [
+                    DropdownMenuItem(value: 'second', child: Text('Seconds')),
+                    DropdownMenuItem(value: 'minute', child: Text('Minutes')),
+                    DropdownMenuItem(value: 'hour', child: Text('Hours')),
+                    DropdownMenuItem(value: 'day', child: Text('Days')),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _everyUnit = value);
+                  },
+                ),
+              ] else if (_scheduleKind == 'cron') ...[
+                TextField(
+                  key: const ValueKey('automation-edit-cron'),
+                  controller: _cronController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cron expression',
+                    hintText: '0 9 * * *',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const ValueKey('automation-edit-tz'),
+                  controller: _tzController,
+                  decoration: const InputDecoration(
+                    labelText: 'Timezone',
+                    hintText: 'Asia/Shanghai',
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => _save(context),
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  String _initialScheduleKind() {
+    final kind = widget.item.automationScheduleKind;
+    if (kind == 'at' || kind == 'cron' || kind == 'every') {
+      return kind!;
+    }
+    return 'every';
+  }
+
+  ({String value, String unit}) _initialInterval(int? ms) {
+    final raw = ms ?? 3600000;
+    for (final entry in _units.entries.toList().reversed) {
+      if (raw >= entry.value && raw % entry.value == 0) {
+        return (value: '${raw ~/ entry.value}', unit: entry.key);
+      }
+    }
+    return (value: '${(raw / 60000).round().clamp(1, 999999)}', unit: 'minute');
+  }
+
+  void _save(BuildContext context) {
+    final values = <String, Object?>{'name': _nameController.text.trim()};
+    if (!widget.item.isLocalTriggerAutomation) {
+      values['message'] = _messageController.text.trim();
+      final schedule = _schedulePayload();
+      if (schedule != null) {
+        values['schedule'] = schedule;
+      }
+    }
+    Navigator.of(context).pop(values);
+  }
+
+  Map<String, Object?>? _schedulePayload() {
+    if (_scheduleKind == 'every') {
+      final value = int.tryParse(_everyValueController.text.trim());
+      final unitMs = _units[_everyUnit];
+      if (value == null || value <= 0 || unitMs == null) {
+        return null;
+      }
+      return {'kind': 'every', 'every_ms': value * unitMs};
+    }
+    if (_scheduleKind == 'cron') {
+      final expr = _cronController.text.trim();
+      if (expr.isEmpty) {
+        return null;
+      }
+      return {
+        'kind': 'cron',
+        'expr': expr,
+        if (_tzController.text.trim().isNotEmpty)
+          'tz': _tzController.text.trim(),
+      };
+    }
+    final atMs = widget.item.automationAtMs;
+    final schedule = <String, Object?>{'kind': 'at'};
+    if (atMs != null) {
+      schedule['at_ms'] = atMs;
+    }
+    return schedule;
   }
 }
 

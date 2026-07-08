@@ -332,6 +332,7 @@ class NanobotRepository implements NanobotRepositoryPort {
   NanobotCatalogItem _automationItemFromRow(Map<String, Object?> row) {
     final state = _mapValue(row['state']);
     final origin = _mapValue(row['origin']);
+    final schedule = _mapValue(row['schedule']);
     return NanobotCatalogItem(
       id: _stringValue(row, 'id'),
       title: _stringValue(row, 'name', fallbackKey: 'id'),
@@ -350,6 +351,12 @@ class NanobotRepository implements NanobotRepositoryPort {
       isPending: state?['pending'] == true,
       isProtected: row['protected'] == true,
       deleteAfterRun: row['delete_after_run'] == true,
+      automationScheduleKind: _stringFrom(schedule?['kind']),
+      automationEveryMs: _intValue(schedule?['every_ms']),
+      automationCronExpr: _stringFrom(schedule?['expr']),
+      automationTz: _stringFrom(schedule?['tz']),
+      automationAtMs: _intValue(schedule?['at_ms']),
+      isLocalTriggerAutomation: _isLocalTriggerAutomation(row),
     );
   }
 

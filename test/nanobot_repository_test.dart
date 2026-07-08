@@ -401,6 +401,10 @@ void main() {
     expect(item.isPending, isTrue);
     expect(item.isProtected, isTrue);
     expect(item.deleteAfterRun, isTrue);
+    expect(item.automationScheduleKind, 'every');
+    expect(item.automationEveryMs, 7200000);
+    expect(item.automationTz, 'Asia/Shanghai');
+    expect(item.isLocalTriggerAutomation, isFalse);
   });
 
   test('repository maps automation action results', () async {
