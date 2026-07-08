@@ -301,7 +301,7 @@ class NanobotRepository implements NanobotRepositoryPort {
           id: _stringValue(row, 'name'),
           title: _stringValue(row, 'name'),
           subtitle: _stringValue(row, 'description', fallbackKey: 'source'),
-          status: row['available'] == false ? 'unavailable' : 'available',
+          status: _skillStatus(row),
         ),
     ];
   }
@@ -481,6 +481,17 @@ class NanobotRepository implements NanobotRepositoryPort {
       }
     }
     return _stringValue(row, 'kind');
+  }
+
+  String _skillStatus(Map<String, Object?> row) {
+    if (row['available'] != false) {
+      return 'available';
+    }
+    final reason = _stringValue(row, 'unavailable_reason').trim();
+    if (reason.isNotEmpty) {
+      return 'Missing: $reason';
+    }
+    return 'unavailable';
   }
 
   NanobotSidebarState _sidebarStateFromDto(NanobotSidebarStateDto dto) {
