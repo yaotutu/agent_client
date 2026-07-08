@@ -236,6 +236,32 @@ void main() {
     );
   });
 
+  testWidgets('message safe inline html renders styled spans', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': '<mark>高亮文本</mark> x<sup>2</sup> H<sub>2</sub>O',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('<mark>'), findsNothing);
+    expect(find.textContaining('<sup>'), findsNothing);
+    expect(find.textContaining('<sub>'), findsNothing);
+    expect(_richTextWithBackground('高亮文本'), findsOneWidget);
+    expect(_richTextWithSmallSpanCount('2', 2), findsOneWidget);
+  });
+
   testWidgets('message markdown bullet lists render list rows', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
@@ -837,6 +863,47 @@ Finder _richTextWithDecoration(String text, TextDecoration decoration) {
 
     visit(widget.text);
     return found;
+  });
+}
+
+Finder _richTextWithBackground(String text) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! RichText) {
+      return false;
+    }
+    var found = false;
+    void visit(InlineSpan span) {
+      if (span is TextSpan) {
+        if (span.text == text && span.style?.backgroundColor != null) {
+          found = true;
+        }
+        span.children?.forEach(visit);
+      }
+    }
+
+    visit(widget.text);
+    return found;
+  });
+}
+
+Finder _richTextWithSmallSpanCount(String text, int count) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! RichText) {
+      return false;
+    }
+    var found = 0;
+    void visit(InlineSpan span) {
+      if (span is TextSpan) {
+        final fontSize = span.style?.fontSize;
+        if (span.text == text && fontSize != null && fontSize < 12) {
+          found += 1;
+        }
+        span.children?.forEach(visit);
+      }
+    }
+
+    visit(widget.text);
+    return found == count;
   });
 }
 

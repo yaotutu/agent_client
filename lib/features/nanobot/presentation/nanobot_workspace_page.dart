@@ -2379,7 +2379,8 @@ _MarkdownBulletList? _markdownBulletList(String text) {
 
 List<InlineSpan>? _inlineMarkdownSpans(String text, Color color) {
   final matches = RegExp(
-    r'`([^`]+)`|\*\*([^*]+)\*\*|~~([^~]+)~~',
+    r'`([^`]+)`|\*\*([^*]+)\*\*|~~([^~]+)~~|<mark>([^<]+)</mark>|<sup>([^<]+)</sup>|<sub>([^<]+)</sub>',
+    caseSensitive: false,
   ).allMatches(text).toList();
   if (matches.isEmpty) {
     return null;
@@ -2393,6 +2394,9 @@ List<InlineSpan>? _inlineMarkdownSpans(String text, Color color) {
     final code = match.group(1);
     final bold = match.group(2);
     final strike = match.group(3);
+    final mark = match.group(4);
+    final sup = match.group(5);
+    final sub = match.group(6);
     if (code != null) {
       spans.add(
         TextSpan(
@@ -2413,6 +2417,23 @@ List<InlineSpan>? _inlineMarkdownSpans(String text, Color color) {
             color: color,
             decoration: TextDecoration.lineThrough,
           ),
+        ),
+      );
+    } else if (mark != null) {
+      spans.add(
+        TextSpan(
+          text: mark,
+          style: TextStyle(
+            color: color,
+            backgroundColor: AppThemeTokens.warningSoft,
+          ),
+        ),
+      );
+    } else if (sup != null || sub != null) {
+      spans.add(
+        TextSpan(
+          text: sup ?? sub ?? '',
+          style: TextStyle(color: color, fontSize: 10),
         ),
       );
     } else {
