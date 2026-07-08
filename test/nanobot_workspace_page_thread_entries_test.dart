@@ -697,6 +697,43 @@ void main() {
     expect(find.byType(Image), findsNothing);
   });
 
+  testWidgets('message markdown file attachments open media urls', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+    final launcher = _FakeUrlLauncherPlatform();
+    final previousLauncher = UrlLauncherPlatform.instance;
+    UrlLauncherPlatform.instance = launcher;
+    addTearDown(() {
+      UrlLauncherPlatform.instance = previousLauncher;
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Download ![index.html](/api/media/sig/html)',
+    });
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('index.html'));
+    await tester.pump();
+
+    expect(launcher.launchedUrls.single, endsWith('/api/media/sig/html'));
+    expect(
+      launcher.launchOptions.single.mode,
+      PreferredLaunchMode.externalApplication,
+    );
+  });
+
   testWidgets('message markdown source links render compact link rows', (
     tester,
   ) async {

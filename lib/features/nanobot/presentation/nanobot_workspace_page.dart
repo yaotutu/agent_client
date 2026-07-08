@@ -3536,14 +3536,20 @@ class _MediaAttachmentTile extends StatelessWidget {
           label: label,
           imageBytes: imageBytes,
           resolvedUrl: resolvedUrl,
-          fallback: _AttachmentLabelTile(attachment: attachment),
+          fallback: _AttachmentLabelTile(
+            attachment: attachment,
+            url: resolvedUrl,
+          ),
         ),
         dialogImage: _attachmentImage(
           label: label,
           imageBytes: imageBytes,
           resolvedUrl: resolvedUrl,
           fit: BoxFit.contain,
-          fallback: _AttachmentLabelTile(attachment: attachment),
+          fallback: _AttachmentLabelTile(
+            attachment: attachment,
+            url: resolvedUrl,
+          ),
         ),
       );
     }
@@ -3551,7 +3557,7 @@ class _MediaAttachmentTile extends StatelessWidget {
       return _VideoAttachmentFrame(label: label, url: resolvedUrl);
     }
 
-    return _AttachmentLabelTile(attachment: attachment);
+    return _AttachmentLabelTile(attachment: attachment, url: resolvedUrl);
   }
 }
 
@@ -3834,9 +3840,10 @@ Future<void> _showImagePreviewDialog(
 }
 
 class _AttachmentLabelTile extends StatelessWidget {
-  const _AttachmentLabelTile({required this.attachment});
+  const _AttachmentLabelTile({required this.attachment, this.url});
 
   final NanobotMediaAttachment attachment;
+  final String? url;
 
   @override
   Widget build(BuildContext context) {
@@ -3849,40 +3856,56 @@ class _AttachmentLabelTile extends StatelessWidget {
       'image' => 'Image attachment: $label',
       _ => 'Attachment',
     };
+    final tile = Container(
+      constraints: const BoxConstraints(maxWidth: 220),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspace,
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _mediaIcon(attachment.kind),
+            size: 16,
+            color: AppThemeTokens.mutedText,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppThemeTokens.text,
+                fontSize: 12,
+                height: 1.2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    final href = url;
     return Semantics(
       label: semanticsLabel,
       container: true,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 220),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: AppThemeTokens.workspace,
-          border: Border.all(color: AppThemeTokens.border),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _mediaIcon(attachment.kind),
-              size: 16,
-              color: AppThemeTokens.mutedText,
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppThemeTokens.text,
-                  fontSize: 12,
-                  height: 1.2,
+      link: href != null,
+      onTap: href == null ? null : () => _launchExternalUrl(href),
+      child: href == null
+          ? tile
+          : Tooltip(
+              message: href,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _launchExternalUrl(href),
+                  child: tile,
                 ),
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
 
