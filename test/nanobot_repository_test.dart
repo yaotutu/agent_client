@@ -87,6 +87,60 @@ void main() {
   });
 
   test(
+    'repository keeps apps catalog when optional features endpoint is absent',
+    () async {
+      final adapter = _RouteAdapter({
+        'GET /webui/bootstrap': {
+          'token': 'token-1',
+          'ws_path': '/',
+          'expires_in': 300,
+        },
+        'GET /api/settings/cli-apps': {
+          'apps': [
+            {
+              'name': 'blender',
+              'display_name': 'Blender',
+              'description': '3D modeling',
+              'installed': false,
+            },
+          ],
+        },
+        'GET /api/settings/mcp-presets': {
+          'presets': [
+            {
+              'name': 'browserbase',
+              'display_name': 'Browserbase',
+              'description': 'Cloud browser automation',
+              'installed': false,
+              'configured': false,
+              'status': 'not_installed',
+            },
+          ],
+        },
+      });
+      final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+      dio.httpClientAdapter = adapter;
+      final config = const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      );
+      final api = NanobotApiClient(config: config, dio: dio);
+      final repository = NanobotRepository(
+        api: api,
+        ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+      );
+
+      final apps = await repository.fetchAppItems();
+
+      expect([for (final item in apps) item.title], ['Blender', 'Browserbase']);
+      expect(
+        apps.every((item) => !item.filterKeys.contains('nanobot')),
+        isTrue,
+      );
+    },
+  );
+
+  test(
     'repository maps unavailable skill reasons for catalog display',
     () async {
       final adapter = _RouteAdapter({

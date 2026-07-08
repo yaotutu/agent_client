@@ -9,6 +9,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_thread_page.dart';
+import 'package:dio/dio.dart';
 
 abstract class NanobotRepositoryPort {
   Stream<NanobotEvent> get events;
@@ -285,9 +286,9 @@ class NanobotRepository implements NanobotRepositoryPort {
   @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
     final results = await Future.wait([
-      api.fetchNanobotFeatures(),
-      api.fetchCliApps(),
-      api.fetchMcpPresets(),
+      _optionalCatalog(api.fetchNanobotFeatures, const NanobotFeaturesDto()),
+      _optionalCatalog(api.fetchCliApps, const NanobotCliAppsDto()),
+      _optionalCatalog(api.fetchMcpPresets, const NanobotMcpPresetsDto()),
     ]);
     final features = results[0] as NanobotFeaturesDto;
     final cliApps = results[1] as NanobotCliAppsDto;
@@ -307,6 +308,17 @@ class NanobotRepository implements NanobotRepositoryPort {
       return left.title.toLowerCase().compareTo(right.title.toLowerCase());
     });
     return items;
+  }
+
+  Future<T> _optionalCatalog<T>(Future<T> Function() load, T fallback) async {
+    try {
+      return await load();
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        return fallback;
+      }
+      rethrow;
+    }
   }
 
   NanobotCatalogItem _featureCatalogItem(Map<String, Object?> row) {
