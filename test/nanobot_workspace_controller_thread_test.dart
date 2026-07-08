@@ -141,6 +141,90 @@ void main() {
     );
     expect(repository.sentMcpPresets.single.brandColor, '#111827');
   });
+
+  test(
+    'side-channel slash commands do not mark the workspace streaming',
+    () async {
+      final repository = _FakeNanobotRepository();
+      final container = ProviderContainer(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      addTearDown(repository.dispose);
+
+      final controller = container.read(
+        nanobotWorkspaceControllerProvider.notifier,
+      );
+      container.read(nanobotWorkspaceControllerProvider);
+      await pumpEventQueue();
+
+      await controller.sendMessage('/history');
+
+      final state = container.read(nanobotWorkspaceControllerProvider);
+      expect(repository.sentContent, '/history');
+      expect(state.messages.last.content, '/history');
+      expect(state.isStreaming, isFalse);
+      expect(state.threadState?.isStreaming, isFalse);
+    },
+  );
+
+  test('finalizing slash commands close the active UI turn', () async {
+    final repository = _FakeNanobotRepository();
+    final container = ProviderContainer(
+      overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    addTearDown(repository.dispose);
+
+    final controller = container.read(
+      nanobotWorkspaceControllerProvider.notifier,
+    );
+    container.read(nanobotWorkspaceControllerProvider);
+    await pumpEventQueue();
+
+    await controller.sendMessage('long task');
+    expect(
+      container.read(nanobotWorkspaceControllerProvider).isStreaming,
+      isTrue,
+    );
+
+    await controller.sendMessage('/new');
+
+    final state = container.read(nanobotWorkspaceControllerProvider);
+    expect(repository.sentContent, '/new');
+    expect(state.messages.map((message) => message.content), [
+      'long task',
+      '/new',
+    ]);
+    expect(state.isStreaming, isFalse);
+    expect(state.threadState?.isStreaming, isFalse);
+  });
+
+  test('stop slash command uses stop flow while streaming', () async {
+    final repository = _FakeNanobotRepository();
+    final container = ProviderContainer(
+      overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    addTearDown(repository.dispose);
+
+    final controller = container.read(
+      nanobotWorkspaceControllerProvider.notifier,
+    );
+    container.read(nanobotWorkspaceControllerProvider);
+    await pumpEventQueue();
+
+    await controller.sendMessage('long task');
+    await controller.sendMessage('/stop');
+
+    final state = container.read(nanobotWorkspaceControllerProvider);
+    expect(repository.sentContent, '/stop');
+    expect(
+      state.messages.map((message) => message.content),
+      isNot(contains('/stop')),
+    );
+    expect(state.isStreaming, isFalse);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -198,7 +282,30 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<List<NanobotSlashCommand>> listSlashCommands() async {
-    return const [];
+    return const [
+      NanobotSlashCommand(
+        command: '/history',
+        title: 'Show conversation history',
+        description: 'Print the last N persisted messages.',
+        icon: 'history',
+        lifecycle: 'side_channel',
+        acceptsArgs: true,
+      ),
+      NanobotSlashCommand(
+        command: '/new',
+        title: 'Start new task',
+        description: 'Finalize the active turn and begin a new task.',
+        icon: 'plus',
+        lifecycle: 'finalize_active_turn',
+      ),
+      NanobotSlashCommand(
+        command: '/stop',
+        title: 'Stop current task',
+        description: 'Cancel the active agent turn.',
+        icon: 'square',
+        lifecycle: 'stop_active_turn',
+      ),
+    ];
   }
 
   @override

@@ -525,6 +525,16 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       return;
     }
 
+    final slashLifecycle = _slashCommandLifecycle(content);
+    if (slashLifecycle == 'stop_active_turn' && state.isStreaming) {
+      await stopActiveTurn();
+      return;
+    }
+    final sideChannel = _isSlashSideChannel(slashLifecycle);
+    final finalizeActiveTurn = slashLifecycle == 'finalize_active_turn';
+    final nextStreaming = sideChannel
+        ? (finalizeActiveTurn ? false : state.isStreaming)
+        : true;
     final userMessage = NanobotMessage(
       id: _newMessageId('user'),
       sessionKey: sessionKey,
@@ -540,10 +550,11 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         sessionKey: sessionKey,
         chatId: chatId,
         content: content,
+        isStreaming: nextStreaming,
       ),
-      isStreaming: true,
-      clearReasoning: true,
-      clearActivity: true,
+      isStreaming: nextStreaming,
+      clearReasoning: !sideChannel || finalizeActiveTurn,
+      clearActivity: !sideChannel || finalizeActiveTurn,
       clearError: true,
     );
 
@@ -620,6 +631,34 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       cliApps: cliApps,
       mcpPresets: mcpPresets,
     );
+  }
+
+  String? _slashCommandLifecycle(String content) {
+    final trimmed = content.trim();
+    if (!trimmed.startsWith('/')) {
+      return null;
+    }
+    final commandName = trimmed.split(RegExp(r'\s+')).first;
+    for (final command in state.slashCommands) {
+      if (command.command != commandName) {
+        continue;
+      }
+      final args = trimmed.substring(command.command.length).trim();
+      if (args.isNotEmpty && !command.acceptsArgs) {
+        return null;
+      }
+      if (command.lifecycle == 'agent_turn_with_args') {
+        return args.isNotEmpty ? 'agent_turn' : 'side_channel';
+      }
+      return command.lifecycle;
+    }
+    return null;
+  }
+
+  bool _isSlashSideChannel(String? lifecycle) {
+    return lifecycle == 'side_channel' ||
+        lifecycle == 'finalize_active_turn' ||
+        lifecycle == 'stop_active_turn';
   }
 
   Future<void> stopActiveTurn() async {
@@ -835,6 +874,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     required String sessionKey,
     required String chatId,
     required String content,
+    required bool isStreaming,
   }) {
     final base =
         current ?? NanobotThreadState(sessionKey: sessionKey, chatId: chatId);
@@ -848,7 +888,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
           createdAt: DateTime.now(),
         ),
       ],
-      isStreaming: true,
+      isStreaming: isStreaming,
     );
   }
 
