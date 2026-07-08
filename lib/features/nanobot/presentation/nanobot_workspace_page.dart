@@ -4940,6 +4940,7 @@ class _ComposerImageChip extends StatelessWidget {
     final label = media.name?.trim().isNotEmpty == true
         ? media.name!.trim()
         : 'Image attachment';
+    final thumbnail = _bytesFromDataUrl(media.dataUrl);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppThemeTokens.panelMuted,
@@ -4951,10 +4952,26 @@ class _ComposerImageChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.image_outlined,
-              size: 18,
-              color: AppThemeTokens.mutedText,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox.square(
+                dimension: 40,
+                child: thumbnail == null
+                    ? const ColoredBox(
+                        color: AppThemeTokens.panel,
+                        child: Icon(
+                          Icons.image_outlined,
+                          size: 18,
+                          color: AppThemeTokens.mutedText,
+                        ),
+                      )
+                    : Image.memory(
+                        thumbnail,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                        semanticLabel: label,
+                      ),
+              ),
             ),
             const SizedBox(width: 6),
             ConstrainedBox(
@@ -4983,6 +5000,18 @@ class _ComposerImageChip extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Uint8List? _bytesFromDataUrl(String dataUrl) {
+    final comma = dataUrl.indexOf(',');
+    if (comma <= 0 || !dataUrl.substring(0, comma).contains(';base64')) {
+      return null;
+    }
+    try {
+      return base64Decode(dataUrl.substring(comma + 1));
+    } on FormatException {
+      return null;
+    }
   }
 }
 

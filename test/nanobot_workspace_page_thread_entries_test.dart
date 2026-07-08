@@ -1243,6 +1243,47 @@ void main() {
     expect(repository.sentMedia.single.name, 'screen.png');
     expect(find.byKey(chipKey), findsNothing);
   });
+
+  testWidgets('composer image attachment chips show previews and remove', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    final picker = _FakeNanobotImageAttachmentPicker([
+      const NanobotSendMedia(
+        dataUrl:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
+            'AAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        name: 'screen.png',
+      ),
+    ]);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          nanobotRepositoryProvider.overrideWithValue(repository),
+          nanobotImageAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Attach image'));
+    await tester.pumpAndSettle();
+
+    const chipKey = ValueKey('composer-image-screen.png-0');
+    expect(find.byKey(chipKey), findsOneWidget);
+    expect(
+      find.descendant(of: find.byKey(chipKey), matching: find.byType(Image)),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Remove screen.png'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(chipKey), findsNothing);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
