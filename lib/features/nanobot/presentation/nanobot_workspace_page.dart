@@ -852,6 +852,7 @@ class _SessionSearchDialog extends StatefulWidget {
 
 class _SessionSearchDialogState extends State<_SessionSearchDialog> {
   final _queryController = TextEditingController();
+  var _highlightedIndex = 0;
 
   @override
   void dispose() {
@@ -867,9 +868,19 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
       titlePadding: EdgeInsets.zero,
       title: Focus(
         onKeyEvent: (node, event) {
-          if (event is KeyDownEvent &&
-              event.logicalKey == LogicalKeyboardKey.enter) {
-            _selectFirstResult();
+          if (event is! KeyDownEvent) {
+            return KeyEventResult.ignored;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+            _moveHighlight(1);
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            _moveHighlight(-1);
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.enter) {
+            _selectHighlightedResult();
             return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
@@ -883,8 +894,8 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
             border: InputBorder.none,
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           ),
-          onChanged: (_) => setState(() {}),
-          onSubmitted: (_) => _selectFirstResult(),
+          onChanged: (_) => setState(() => _highlightedIndex = 0),
+          onSubmitted: (_) => _selectHighlightedResult(),
         ),
       ),
       contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -912,14 +923,15 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
                     )
                   : ListView.builder(
                       itemCount: results.length,
-                      itemBuilder: (context, index) {
-                        final session = results[index];
-                        final title = widget.state.displayTitleFor(session);
-                        final preview = session.preview.trim();
-                        return ListTile(
-                          title: Text(title),
-                          subtitle: preview.isEmpty ? null : Text(preview),
-                          trailing:
+                    itemBuilder: (context, index) {
+                      final session = results[index];
+                      final title = widget.state.displayTitleFor(session);
+                      final preview = session.preview.trim();
+                      return ListTile(
+                        selected: index == _clampedHighlightedIndex(results),
+                        title: Text(title),
+                        subtitle: preview.isEmpty ? null : Text(preview),
+                        trailing:
                               session.key == widget.state.selectedSessionKey
                               ? const Text('Current')
                               : null,
@@ -955,13 +967,38 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
     return terms.every(haystack.contains);
   }
 
-  void _selectFirstResult() {
+  int _clampedHighlightedIndex(List<NanobotSessionSummary> results) {
+    if (results.isEmpty) {
+      return 0;
+    }
+    if (_highlightedIndex < 0) {
+      return 0;
+    }
+    if (_highlightedIndex >= results.length) {
+      return results.length - 1;
+    }
+    return _highlightedIndex;
+  }
+
+  void _moveHighlight(int delta) {
     final query = _queryController.text.trim().toLowerCase();
     final results = _searchResults(query);
     if (results.isEmpty) {
       return;
     }
-    Navigator.of(context).pop(results.first);
+    setState(() {
+      final current = _clampedHighlightedIndex(results);
+      _highlightedIndex = (current + delta + results.length) % results.length;
+    });
+  }
+
+  void _selectHighlightedResult() {
+    final query = _queryController.text.trim().toLowerCase();
+    final results = _searchResults(query);
+    if (results.isEmpty) {
+      return;
+    }
+    Navigator.of(context).pop(results[_clampedHighlightedIndex(results)]);
   }
 }
 

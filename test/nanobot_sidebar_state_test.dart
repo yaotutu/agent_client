@@ -261,6 +261,47 @@ void main() {
     expect(find.text('Recent'), findsNothing);
     expect(repository.newChatCount, 1);
   });
+
+  testWidgets('session search arrow keys move highlighted result', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<ListTile>(
+        find.widgetWithText(ListTile, 'Active Chat'),
+      ).selected,
+      isTrue,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<ListTile>(
+        find.widgetWithText(ListTile, 'Active Chat'),
+      ).selected,
+      isFalse,
+    );
+    expect(
+      tester.widget<ListTile>(
+        find.widgetWithText(ListTile, 'Pinned Roadmap'),
+      ).selected,
+      isTrue,
+    );
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
