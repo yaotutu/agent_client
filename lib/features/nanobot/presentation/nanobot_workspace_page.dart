@@ -1596,26 +1596,30 @@ class _MessageContentText extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final blocks = _messageContentBlocks(text);
-    if (blocks.any((block) => block.code != null)) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final block in blocks) ...[
-            if (block.code == null)
-              _buildInlineContent(block.text, ref)
-            else
-              _MessageCodeBlock(
-                language: block.language,
-                code: block.code!,
-                textColor: textColor,
-              ),
-            if (block != blocks.last) const SizedBox(height: 8),
-          ],
-        ],
-      );
+    if (blocks.length == 1 &&
+        blocks.single.code == null &&
+        blocks.single.heading == null) {
+      return _buildInlineContent(text, ref);
     }
-    return _buildInlineContent(text, ref);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final block in blocks) ...[
+          if (block.heading != null)
+            _MessageHeading(text: block.heading!, level: block.headingLevel)
+          else if (block.code == null)
+            _buildInlineContent(block.text, ref)
+          else
+            _MessageCodeBlock(
+              language: block.language,
+              code: block.code!,
+              textColor: textColor,
+            ),
+          if (block != blocks.last) const SizedBox(height: 8),
+        ],
+      ],
+    );
   }
 
   Widget _buildInlineContent(String value, WidgetRef ref) {
@@ -1660,6 +1664,31 @@ class _MessageContentText extends ConsumerWidget {
           else
             _InlineFormattedText(text: segment.text, color: textColor),
       ],
+    );
+  }
+}
+
+class _MessageHeading extends StatelessWidget {
+  const _MessageHeading({required this.text, required this.level});
+
+  final String text;
+  final int level;
+
+  @override
+  Widget build(BuildContext context) {
+    final fontSize = switch (level) {
+      1 => 18.0,
+      2 => 16.0,
+      _ => 14.5,
+    };
+    return Text(
+      text,
+      style: TextStyle(
+        color: AppThemeTokens.text,
+        fontSize: fontSize,
+        fontWeight: FontWeight.w700,
+        height: 1.25,
+      ),
     );
   }
 }
@@ -1901,13 +1930,27 @@ class _MessageContentSegment {
 }
 
 class _MessageContentBlock {
-  const _MessageContentBlock.text(this.text) : language = null, code = null;
+  const _MessageContentBlock.text(this.text)
+    : language = null,
+      code = null,
+      heading = null,
+      headingLevel = 0;
   const _MessageContentBlock.code({required this.language, required this.code})
-    : text = '';
+    : text = '',
+      heading = null,
+      headingLevel = 0;
+  const _MessageContentBlock.heading({
+    required this.heading,
+    required this.headingLevel,
+  }) : text = '',
+       language = null,
+       code = null;
 
   final String text;
   final String? language;
   final String? code;
+  final String? heading;
+  final int headingLevel;
 }
 
 class _MarkdownBulletList {
@@ -1928,7 +1971,7 @@ List<_MessageContentBlock> _messageContentBlocks(String text) {
     multiLine: true,
   ).allMatches(text).toList();
   if (matches.isEmpty) {
-    return [_MessageContentBlock.text(text)];
+    return _markdownTextBlocks(text);
   }
 
   final blocks = <_MessageContentBlock>[];
@@ -1936,7 +1979,7 @@ List<_MessageContentBlock> _messageContentBlocks(String text) {
   for (final match in matches) {
     final prefix = _trimBlockText(text.substring(cursor, match.start));
     if (prefix.isNotEmpty) {
-      blocks.add(_MessageContentBlock.text(prefix));
+      blocks.addAll(_markdownTextBlocks(prefix));
     }
     blocks.add(
       _MessageContentBlock.code(
@@ -1948,8 +1991,39 @@ List<_MessageContentBlock> _messageContentBlocks(String text) {
   }
   final suffix = _trimBlockText(text.substring(cursor));
   if (suffix.isNotEmpty) {
-    blocks.add(_MessageContentBlock.text(suffix));
+    blocks.addAll(_markdownTextBlocks(suffix));
   }
+  return blocks.isEmpty ? [_MessageContentBlock.text(text)] : blocks;
+}
+
+List<_MessageContentBlock> _markdownTextBlocks(String text) {
+  final lines = text.split('\n');
+  final blocks = <_MessageContentBlock>[];
+  final buffer = <String>[];
+
+  void flushBuffer() {
+    final value = _trimBlockText(buffer.join('\n'));
+    if (value.isNotEmpty) {
+      blocks.add(_MessageContentBlock.text(value));
+    }
+    buffer.clear();
+  }
+
+  for (final line in lines) {
+    final heading = RegExp(r'^(#{1,3})\s+(.+)$').firstMatch(line.trimRight());
+    if (heading == null) {
+      buffer.add(line);
+      continue;
+    }
+    flushBuffer();
+    blocks.add(
+      _MessageContentBlock.heading(
+        heading: heading.group(2)!.trim(),
+        headingLevel: heading.group(1)!.length,
+      ),
+    );
+  }
+  flushBuffer();
   return blocks.isEmpty ? [_MessageContentBlock.text(text)] : blocks;
 }
 

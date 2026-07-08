@@ -263,6 +263,30 @@ void main() {
     expect(find.textContaining('1. **'), findsNothing);
   });
 
+  testWidgets('message markdown headings render heading text', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': '## Network result\n\nDetails follow.',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('##'), findsNothing);
+    expect(_textWithWeight('Network result', FontWeight.w700), findsOneWidget);
+    expect(find.text('Details follow.'), findsOneWidget);
+  });
+
   testWidgets('message markdown images render inline previews', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
@@ -642,5 +666,14 @@ Finder _richTextWithCodeSpan(String text) {
 
     visit(widget.text);
     return found;
+  });
+}
+
+Finder _textWithWeight(String text, FontWeight weight) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is Text) {
+      return widget.data == text && widget.style?.fontWeight == weight;
+    }
+    return false;
   });
 }
