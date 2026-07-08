@@ -98,14 +98,16 @@ class NanobotWsClient {
     }
   }
 
-  Future<String> newChat() async {
+  Future<String> newChat({Map<String, Object?>? workspaceScope}) async {
     await connect();
     if (_pendingChatRequest != null) {
       throw StateError('new_chat already in flight');
     }
     final completer = Completer<String>();
     _pendingChatRequest = completer;
-    _queueSend(NanobotOutboundEnvelope.newChat().toJson());
+    _queueSend(
+      NanobotOutboundEnvelope.newChat(workspaceScope: workspaceScope).toJson(),
+    );
     return completer.future.timeout(
       const Duration(seconds: 8),
       onTimeout: () {

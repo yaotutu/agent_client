@@ -430,7 +430,10 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       clearError: true,
     );
     try {
-      final chatId = await ref.read(nanobotRepositoryProvider).newChat();
+      final workspaceScope = state.activeWorkspaceScope;
+      final chatId = await ref
+          .read(nanobotRepositoryProvider)
+          .newChat(workspaceScope: workspaceScope);
       final session = NanobotSessionSummary(
         key: 'websocket:$chatId',
         channel: 'websocket',
@@ -438,6 +441,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         preview: '',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        workspaceScope: workspaceScope,
       );
       state = state.copyWith(
         sessions: [session, ...state.sessions],

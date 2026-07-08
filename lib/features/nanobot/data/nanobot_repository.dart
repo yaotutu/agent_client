@@ -23,7 +23,7 @@ abstract class NanobotRepositoryPort {
 
   Future<List<NanobotMessage>> fetchThread(NanobotSessionSummary session);
 
-  Future<String> newChat();
+  Future<String> newChat({NanobotWorkspaceScope? workspaceScope});
 
   Future<void> attach(String chatId);
 
@@ -229,7 +229,9 @@ class NanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
-  Future<String> newChat() => ws.newChat();
+  Future<String> newChat({NanobotWorkspaceScope? workspaceScope}) {
+    return ws.newChat(workspaceScope: workspaceScope?.toJson());
+  }
 
   @override
   Future<void> attach(String chatId) => ws.attach(chatId);

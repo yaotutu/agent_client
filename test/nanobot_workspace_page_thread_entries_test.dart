@@ -157,7 +157,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
-  Future<String> newChat() async => 'chat-1';
+  Future<String> newChat({NanobotWorkspaceScope? workspaceScope}) async =>
+      'chat-1';
 
   @override
   Future<void> sendMessage({

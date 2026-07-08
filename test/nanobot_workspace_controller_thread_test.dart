@@ -66,21 +66,66 @@ void main() {
     expect(state.messages.single.reasoning, 'think');
     expect(state.isStreaming, isFalse);
   });
+
+  test(
+    'workspace controller sends draft workspace scope with new chat',
+    () async {
+      final repository = _FakeNanobotRepository(sessions: const []);
+      final container = ProviderContainer(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      addTearDown(repository.dispose);
+
+      final controller = container.read(
+        nanobotWorkspaceControllerProvider.notifier,
+      );
+      container.read(nanobotWorkspaceControllerProvider);
+      await pumpEventQueue();
+
+      await controller.applyWorkspaceProjectPath('/tmp/custom-project');
+      await controller.sendMessage('hello');
+
+      expect(
+        repository.newChatWorkspaceScope?['project_path'],
+        '/tmp/custom-project',
+      );
+      expect(
+        repository.newChatWorkspaceScope?['project_name'],
+        'custom-project',
+      );
+      expect(repository.newChatWorkspaceScope?['access_mode'], 'restricted');
+      expect(
+        repository.newChatWorkspaceScope?['restrict_to_workspace'],
+        isTrue,
+      );
+      expect(repository.sentChatId, 'chat-1');
+      expect(repository.sentContent, 'hello');
+    },
+  );
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
+  _FakeNanobotRepository({List<NanobotSessionSummary>? sessions})
+    : _sessions =
+          sessions ??
+          [
+            NanobotSessionSummary(
+              key: 'websocket:chat-1',
+              channel: 'websocket',
+              chatId: 'chat-1',
+              preview: '',
+              createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+              updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+            ),
+          ];
+
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
-  final _sessions = [
-    NanobotSessionSummary(
-      key: 'websocket:chat-1',
-      channel: 'websocket',
-      chatId: 'chat-1',
-      preview: '',
-      createdAt: DateTime.fromMillisecondsSinceEpoch(0),
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
-    ),
-  ];
+  final List<NanobotSessionSummary> _sessions;
+  Map<String, Object?>? newChatWorkspaceScope;
+  String? sentChatId;
+  String? sentContent;
 
   @override
   Stream<NanobotEvent> get events => _events.stream;
@@ -158,13 +203,19 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
-  Future<String> newChat() async => 'chat-1';
+  Future<String> newChat({NanobotWorkspaceScope? workspaceScope}) async {
+    newChatWorkspaceScope = workspaceScope?.toJson();
+    return 'chat-1';
+  }
 
   @override
   Future<void> sendMessage({
     required String chatId,
     required String content,
-  }) async {}
+  }) async {
+    sentChatId = chatId;
+    sentContent = content;
+  }
 
   @override
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
