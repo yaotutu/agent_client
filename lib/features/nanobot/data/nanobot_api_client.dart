@@ -96,12 +96,23 @@ class NanobotApiClient {
     if (trimmedBefore != null && trimmedBefore.isNotEmpty) {
       query['before'] = trimmedBefore;
     }
-    final response = await _dio.get<Object?>(
-      '/api/sessions/${Uri.encodeComponent(sessionKey)}/webui-thread',
-      queryParameters: query,
-      options: await _authOptions(),
-    );
-    return NanobotWebuiThreadDto.fromJson(_asMap(response.data));
+    try {
+      final response = await _dio.get<Object?>(
+        '/api/sessions/${Uri.encodeComponent(sessionKey)}/webui-thread',
+        queryParameters: query,
+        options: await _authOptions(),
+      );
+      return NanobotWebuiThreadDto.fromJson(_asMap(response.data));
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        return NanobotWebuiThreadDto(
+          schemaVersion: 0,
+          sessionKey: sessionKey,
+          page: const NanobotWebuiThreadPageDto(loadedMessageCount: 0),
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<NanobotFilePreviewDto> fetchFilePreview({

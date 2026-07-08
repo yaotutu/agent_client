@@ -139,6 +139,37 @@ void main() {
       isTrue,
     );
   });
+
+  test('webui thread 404 maps to an empty thread snapshot', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final client = NanobotApiClient(
+      config: const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      ),
+      dio: dio,
+    );
+
+    final page = await client.fetchWebuiThreadPage(
+      sessionKey: 'websocket:missing',
+    );
+    final messages = await client.fetchWebuiThread(
+      sessionKey: 'websocket:missing',
+      chatId: 'missing',
+    );
+
+    expect(page.sessionKey, 'websocket:missing');
+    expect(page.messages, isEmpty);
+    expect(messages, isEmpty);
+  });
 }
 
 class _RouteAdapter implements HttpClientAdapter {
