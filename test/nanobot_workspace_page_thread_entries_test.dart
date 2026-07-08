@@ -190,6 +190,39 @@ void main() {
     expect(find.byIcon(Icons.image_outlined), findsOneWidget);
   });
 
+  testWidgets('image media attachments render inline previews', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'See diagram',
+      'media_urls': [
+        {
+          'kind': 'image',
+          'url':
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
+              'AAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+          'name': 'Diagram',
+        },
+      ],
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('See diagram'), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
+    expect(find.bySemanticsLabel('Diagram'), findsOneWidget);
+  });
+
   testWidgets('message too large stream errors show a dismissible alert', (
     tester,
   ) async {

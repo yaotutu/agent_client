@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_controller.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_state.dart';
+import 'package:agent_client/features/nanobot/data/nanobot_providers.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_media_attachment.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
@@ -1869,26 +1872,95 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
-class _MessageMediaRow extends StatelessWidget {
+class _MessageMediaRow extends ConsumerWidget {
   const _MessageMediaRow({required this.media});
 
   final List<NanobotMediaAttachment> media;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mediaBaseUrl = ref.watch(nanobotConfigProvider).baseUrl;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
         for (final attachment in media)
-          _MediaAttachmentTile(attachment: attachment),
+          _MediaAttachmentTile(
+            attachment: attachment,
+            mediaBaseUrl: mediaBaseUrl,
+          ),
       ],
     );
   }
 }
 
 class _MediaAttachmentTile extends StatelessWidget {
-  const _MediaAttachmentTile({required this.attachment});
+  const _MediaAttachmentTile({
+    required this.attachment,
+    required this.mediaBaseUrl,
+  });
+
+  final NanobotMediaAttachment attachment;
+  final String mediaBaseUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = attachment.name?.trim().isNotEmpty == true
+        ? attachment.name!.trim()
+        : _fileNameFromPath(attachment.url ?? 'Attachment');
+    final imageBytes = _dataUrlImageBytes(attachment.url);
+    final resolvedUrl = _resolvedMediaUrl(attachment.url, mediaBaseUrl);
+    if (attachment.kind == 'image' &&
+        (imageBytes != null || resolvedUrl != null)) {
+      return _ImageAttachmentFrame(
+        label: label,
+        child: imageBytes == null
+            ? Image.network(
+                resolvedUrl!,
+                excludeFromSemantics: true,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return _AttachmentLabelTile(attachment: attachment);
+                },
+              )
+            : Image.memory(
+                imageBytes,
+                excludeFromSemantics: true,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return _AttachmentLabelTile(attachment: attachment);
+                },
+              ),
+      );
+    }
+
+    return _AttachmentLabelTile(attachment: attachment);
+  }
+}
+
+class _ImageAttachmentFrame extends StatelessWidget {
+  const _ImageAttachmentFrame({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 520, maxHeight: 544),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspace,
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Semantics(label: label, image: true, child: child),
+    );
+  }
+}
+
+class _AttachmentLabelTile extends StatelessWidget {
+  const _AttachmentLabelTile({required this.attachment});
 
   final NanobotMediaAttachment attachment;
 
@@ -1937,6 +2009,45 @@ class _MediaAttachmentTile extends StatelessWidget {
       _ => Icons.insert_drive_file_outlined,
     };
   }
+}
+
+Uint8List? _dataUrlImageBytes(String? url) {
+  final value = url?.trim();
+  if (value == null || !value.startsWith('data:image/')) {
+    return null;
+  }
+  final commaIndex = value.indexOf(',');
+  if (commaIndex < 0) {
+    return null;
+  }
+  final metadata = value.substring(0, commaIndex).toLowerCase();
+  if (!metadata.contains(';base64')) {
+    return null;
+  }
+  try {
+    return base64Decode(value.substring(commaIndex + 1));
+  } on FormatException {
+    return null;
+  }
+}
+
+String? _resolvedMediaUrl(String? url, String mediaBaseUrl) {
+  final value = url?.trim();
+  if (value == null || value.isEmpty || value.startsWith('data:')) {
+    return null;
+  }
+  final parsed = Uri.tryParse(value);
+  if (parsed == null) {
+    return null;
+  }
+  if (parsed.hasScheme) {
+    return value;
+  }
+  final base = Uri.tryParse(mediaBaseUrl);
+  if (base == null || !base.hasScheme) {
+    return null;
+  }
+  return base.resolveUri(parsed).toString();
 }
 
 class _ActivityBubble extends StatelessWidget {
