@@ -201,6 +201,21 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     );
   }
 
+  Future<void> runCliAppAction(String action, NanobotCatalogItem item) async {
+    state = state.copyWith(clearError: true);
+    try {
+      final items = await ref
+          .read(nanobotRepositoryProvider)
+          .runCliAppAction(action: action, name: _appActionName(item));
+      state = state.copyWith(
+        appItems: _mergeAppItems(state.appItems, items),
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(errorMessage: _friendlyError(error));
+    }
+  }
+
   Future<void> openAutomations() {
     return _openCatalog(
       NanobotShellView.automations,
@@ -1210,6 +1225,56 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       NanobotThreadRole.assistant => NanobotMessageRole.assistant,
       NanobotThreadRole.tool => NanobotMessageRole.tool,
     };
+  }
+
+  String _appActionName(NanobotCatalogItem item) {
+    final separator = item.id.indexOf(':');
+    if (separator >= 0 && separator < item.id.length - 1) {
+      return item.id.substring(separator + 1);
+    }
+    return item.id;
+  }
+
+  List<NanobotCatalogItem> _mergeAppItems(
+    List<NanobotCatalogItem> current,
+    List<NanobotCatalogItem> updates,
+  ) {
+    final updateKinds = {
+      for (final item in updates) _appKind(item),
+    }..remove('');
+    if (updateKinds.isEmpty) {
+      return updates;
+    }
+    final merged = [
+      for (final item in current)
+        if (!updateKinds.contains(_appKind(item))) item,
+      ...updates,
+    ];
+    merged.sort((left, right) {
+      final readyRank =
+          (_isReadyApp(right) ? 1 : 0) - (_isReadyApp(left) ? 1 : 0);
+      if (readyRank != 0) {
+        return readyRank;
+      }
+      return left.title.toLowerCase().compareTo(right.title.toLowerCase());
+    });
+    return merged;
+  }
+
+  String _appKind(NanobotCatalogItem item) {
+    for (final kind in const ['nanobot', 'cli', 'mcp']) {
+      if (item.filterKeys.contains(kind) || item.id.startsWith('$kind:')) {
+        return kind;
+      }
+    }
+    return '';
+  }
+
+  bool _isReadyApp(NanobotCatalogItem item) {
+    final status = item.status.toLowerCase();
+    return item.filterKeys.contains('ready') ||
+        status == 'installed' ||
+        status == 'configured';
   }
 
   String _friendlyError(Object error) {

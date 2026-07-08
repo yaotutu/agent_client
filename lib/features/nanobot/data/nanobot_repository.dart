@@ -105,6 +105,13 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('fetchAppItems');
   }
 
+  Future<List<NanobotCatalogItem>> runCliAppAction({
+    required String action,
+    required String name,
+  }) {
+    throw UnimplementedError('runCliAppAction');
+  }
+
   Future<List<NanobotCatalogItem>> fetchAutomationItems() {
     throw UnimplementedError('fetchAutomationItems');
   }
@@ -337,6 +344,7 @@ class NanobotRepository implements NanobotRepositoryPort {
   NanobotCatalogItem _cliCatalogItem(Map<String, Object?> row) {
     final name = _stringValue(row, 'name');
     final installed = row['installed'] == true;
+    final installSupported = row['install_supported'] == true;
     return NanobotCatalogItem(
       id: 'cli:$name',
       title: _stringValue(row, 'display_name', fallbackKey: 'name'),
@@ -347,7 +355,11 @@ class NanobotRepository implements NanobotRepositoryPort {
         'name',
       ]),
       status: 'CLI',
-      filterKeys: ['cli', installed ? 'ready' : 'unavailable'],
+      filterKeys: [
+        'cli',
+        installed ? 'ready' : 'unavailable',
+        if (installSupported) 'install_supported',
+      ],
     );
   }
 
@@ -369,6 +381,7 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
+  @override
   Future<List<NanobotCatalogItem>> runCliAppAction({
     required String action,
     required String name,

@@ -140,6 +140,70 @@ void main() {
     expect(find.text('GitHub'), findsNothing);
   });
 
+  testWidgets('apps surface runs installed CLI actions and keeps other kinds', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      appItems: const [
+        NanobotCatalogItem(
+          id: 'nanobot:websocket',
+          title: 'WebSocket',
+          subtitle: 'Required for WebUI',
+          status: 'Channel',
+          filterKeys: ['nanobot', 'ready'],
+        ),
+        NanobotCatalogItem(
+          id: 'cli:gimp',
+          title: 'GIMP',
+          subtitle: 'Image editor',
+          status: 'CLI',
+          filterKeys: ['cli', 'ready'],
+        ),
+        NanobotCatalogItem(
+          id: 'mcp:github',
+          title: 'GitHub',
+          subtitle: 'Repository tools',
+          status: 'Configured',
+          filterKeys: ['mcp', 'ready'],
+        ),
+      ],
+      actionAppItems: const [
+        NanobotCatalogItem(
+          id: 'cli:gimp',
+          title: 'GIMP',
+          subtitle: 'CLI healthy',
+          status: 'CLI',
+          filterKeys: ['cli', 'ready'],
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Apps'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('GIMP'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('CLI installed'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Test CLI'));
+    await tester.pumpAndSettle();
+
+    expect(repository.cliActionRequests, [
+      (action: 'test', name: 'gimp'),
+    ]);
+    expect(find.text('CLI healthy'), findsOneWidget);
+    expect(find.text('WebSocket'), findsOneWidget);
+    expect(find.text('GitHub'), findsOneWidget);
+  });
+
   testWidgets('automations empty surface keeps heading and webui empty copy', (
     tester,
   ) async {
@@ -1068,11 +1132,13 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     List<NanobotCatalogItem>? appItems,
     List<NanobotCatalogItem>? automationItems,
     List<NanobotCatalogItem>? actionAutomationItems,
+    List<NanobotCatalogItem>? actionAppItems,
     List<NanobotCatalogItem>? skillItems,
     Map<String, NanobotSkillDetail>? skillDetails,
   }) : _appItems = appItems ?? _defaultAppItems,
        _automationItems = automationItems ?? _defaultAutomationItems,
        _actionAutomationItems = actionAutomationItems ?? automationItems,
+       _actionAppItems = actionAppItems ?? appItems,
        _skillItems = skillItems ?? _defaultSkillItems,
        _skillDetails = skillDetails ?? const {};
 
@@ -1081,10 +1147,12 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   final List<NanobotCatalogItem> _appItems;
   final List<NanobotCatalogItem> _automationItems;
   final List<NanobotCatalogItem>? _actionAutomationItems;
+  final List<NanobotCatalogItem>? _actionAppItems;
   final List<NanobotCatalogItem> _skillItems;
   final Map<String, NanobotSkillDetail> _skillDetails;
   final requestedSkillDetails = <String>[];
   final actionRequests = <({NanobotAutomationAction action, String id})>[];
+  final cliActionRequests = <({String action, String name})>[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -1242,6 +1310,15 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
     return _appItems;
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> runCliAppAction({
+    required String action,
+    required String name,
+  }) async {
+    cliActionRequests.add((action: action, name: name));
+    return _actionAppItems ?? _appItems;
   }
 
   @override
