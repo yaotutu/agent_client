@@ -3157,35 +3157,45 @@ class _AttachmentLabelTile extends StatelessWidget {
     final label = attachment.name?.trim().isNotEmpty == true
         ? attachment.name!.trim()
         : _fileNameFromPath(attachment.url ?? 'Attachment');
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 220),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppThemeTokens.workspace,
-        border: Border.all(color: AppThemeTokens.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            _mediaIcon(attachment.kind),
-            size: 16,
-            color: AppThemeTokens.mutedText,
-          ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppThemeTokens.text,
-                fontSize: 12,
-                height: 1.2,
+    final semanticsLabel = switch (attachment.kind) {
+      'file' => 'File attachment',
+      'video' => 'Video attachment: $label',
+      'image' => 'Image attachment: $label',
+      _ => 'Attachment',
+    };
+    return Semantics(
+      label: semanticsLabel,
+      container: true,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: AppThemeTokens.workspace,
+          border: Border.all(color: AppThemeTokens.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _mediaIcon(attachment.kind),
+              size: 16,
+              color: AppThemeTokens.mutedText,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppThemeTokens.text,
+                  fontSize: 12,
+                  height: 1.2,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

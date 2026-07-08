@@ -570,6 +570,32 @@ void main() {
     expect(platform.dataSources.single.uri, endsWith('/api/media/sig/video'));
   });
 
+  testWidgets('message markdown file attachments expose file semantics', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Download ![index.html](/api/media/sig/html)',
+    });
+    await tester.pumpAndSettle();
+
+    expect(_semanticsLabel('File attachment'), findsOneWidget);
+    expect(find.text('index.html'), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+  });
+
   testWidgets('message fenced code blocks render code panels', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
@@ -1062,6 +1088,12 @@ Finder _richTextWithSmallSpanCount(String text, int count) {
 
     visit(widget.text);
     return found == count;
+  });
+}
+
+Finder _semanticsLabel(String label) {
+  return find.byWidgetPredicate((widget) {
+    return widget is Semantics && widget.properties.label == label;
   });
 }
 
