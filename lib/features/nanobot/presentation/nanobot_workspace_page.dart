@@ -1930,12 +1930,11 @@ class _MessageBulletList extends StatelessWidget {
                         SizedBox(
                           width: 24,
                           height: 22,
-                          child: Checkbox(
-                            value: checks[index],
-                            onChanged: null,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: _MessageTaskStatusMark(
+                              checked: checks[index] ?? false,
+                            ),
                           ),
                         ),
                       Expanded(child: itemBuilder(items[index])),
@@ -1943,6 +1942,36 @@ class _MessageBulletList extends StatelessWidget {
                   ),
           ),
       ],
+    );
+  }
+}
+
+class _MessageTaskStatusMark extends StatelessWidget {
+  const _MessageTaskStatusMark({required this.checked});
+
+  final bool checked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: checked ? 'Task complete' : 'Task incomplete',
+      container: true,
+      child: Container(
+        key: const ValueKey('nanobot-markdown-task-mark'),
+        width: 16,
+        height: 16,
+        margin: const EdgeInsets.only(top: 2),
+        decoration: BoxDecoration(
+          color: checked ? AppThemeTokens.brand : Colors.transparent,
+          border: Border.all(
+            color: checked ? AppThemeTokens.brand : AppThemeTokens.strongBorder,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: checked
+            ? const Icon(Icons.check, color: Colors.white, size: 12)
+            : null,
+      ),
     );
   }
 }
