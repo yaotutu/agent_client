@@ -199,6 +199,12 @@ class _SessionList extends StatelessWidget {
                   onTap: onOpenChat,
                 ),
                 _ShellNavTile(
+                  label: 'Search',
+                  icon: Icons.search,
+                  selected: false,
+                  onTap: () => _openSearch(context),
+                ),
+                _ShellNavTile(
                   label: 'Settings',
                   icon: Icons.tune,
                   selected: state.activeView == NanobotShellView.settings,
@@ -312,6 +318,17 @@ class _SessionList extends StatelessWidget {
       return;
     }
     await onDeleteSession(session.key);
+  }
+
+  Future<void> _openSearch(BuildContext context) async {
+    final selected = await showDialog<NanobotSessionSummary>(
+      context: context,
+      builder: (context) => _SessionSearchDialog(state: state),
+    );
+    if (selected == null) {
+      return;
+    }
+    onSelected(selected);
   }
 }
 
@@ -519,6 +536,110 @@ class _DeleteSessionDialog extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _SessionSearchDialog extends StatefulWidget {
+  const _SessionSearchDialog({required this.state});
+
+  final NanobotWorkspaceState state;
+
+  @override
+  State<_SessionSearchDialog> createState() => _SessionSearchDialogState();
+}
+
+class _SessionSearchDialogState extends State<_SessionSearchDialog> {
+  final _queryController = TextEditingController();
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _queryController.text.trim().toLowerCase();
+    final results = _searchResults(query);
+    return AlertDialog(
+      titlePadding: EdgeInsets.zero,
+      title: TextField(
+        controller: _queryController,
+        autofocus: true,
+        decoration: const InputDecoration(
+          hintText: 'Search',
+          prefixIcon: Icon(Icons.search),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        ),
+        onChanged: (_) => setState(() {}),
+      ),
+      contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      content: SizedBox(
+        width: 420,
+        height: 360,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              query.isEmpty ? 'Recent' : 'Results',
+              style: const TextStyle(
+                color: AppThemeTokens.mutedText,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: results.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No matching chats.',
+                        style: TextStyle(color: AppThemeTokens.mutedText),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: results.length,
+                      itemBuilder: (context, index) {
+                        final session = results[index];
+                        final title = widget.state.displayTitleFor(session);
+                        final preview = session.preview.trim();
+                        return ListTile(
+                          title: Text(title),
+                          subtitle: preview.isEmpty ? null : Text(preview),
+                          trailing:
+                              session.key == widget.state.selectedSessionKey
+                              ? const Text('Current')
+                              : null,
+                          onTap: () => Navigator.of(context).pop(session),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<NanobotSessionSummary> _searchResults(String query) {
+    final sessions = widget.state.sessions;
+    if (query.isEmpty) {
+      return sessions;
+    }
+    final terms = query.split(RegExp(r'\s+')).where((term) => term.isNotEmpty);
+    return [
+      for (final session in sessions)
+        if (_matchesAllTerms(session, terms)) session,
+    ];
+  }
+
+  bool _matchesAllTerms(NanobotSessionSummary session, Iterable<String> terms) {
+    final haystack = [
+      widget.state.displayTitleFor(session),
+      session.title,
+      session.preview,
+    ].join(' ').toLowerCase();
+    return terms.every(haystack.contains);
   }
 }
 

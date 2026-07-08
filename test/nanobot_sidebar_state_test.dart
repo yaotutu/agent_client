@@ -152,6 +152,44 @@ void main() {
       'websocket:chat-2',
     );
   });
+
+  testWidgets('sidebar search filters sessions and selects a result', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(NanobotWorkspacePage)),
+    );
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recent'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'road');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Results'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Pinned Roadmap'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Active Chat'), findsNothing);
+
+    await tester.tap(find.text('Pinned Roadmap').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Results'), findsNothing);
+    expect(
+      container.read(nanobotWorkspaceControllerProvider).selectedSessionKey,
+      'websocket:chat-2',
+    );
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
