@@ -326,20 +326,31 @@ class NanobotRepository implements NanobotRepositoryPort {
   List<NanobotCatalogItem> _automationItemsFromPayload(
     NanobotAutomationsDto payload,
   ) {
-    return [
-      for (final row in payload.jobs)
-        NanobotCatalogItem(
-          id: _stringValue(row, 'id'),
-          title: _stringValue(row, 'name', fallbackKey: 'id'),
-          subtitle: _automationSubtitle(row),
-          details: _automationDetails(row),
-          status: row['enabled'] == false ? 'disabled' : 'enabled',
-          filterKeys: _automationFilterKeys(row),
-          nextRunAtMs: _automationStateInt(row, 'next_run_at_ms'),
-          lastRunAtMs: _automationStateInt(row, 'last_run_at_ms'),
-          updatedAtMs: _intValue(row['updated_at_ms']),
-        ),
-    ];
+    return [for (final row in payload.jobs) _automationItemFromRow(row)];
+  }
+
+  NanobotCatalogItem _automationItemFromRow(Map<String, Object?> row) {
+    final state = _mapValue(row['state']);
+    final origin = _mapValue(row['origin']);
+    return NanobotCatalogItem(
+      id: _stringValue(row, 'id'),
+      title: _stringValue(row, 'name', fallbackKey: 'id'),
+      subtitle: _automationSubtitle(row),
+      details: _automationDetails(row),
+      status: row['enabled'] == false ? 'disabled' : 'enabled',
+      filterKeys: _automationFilterKeys(row),
+      nextRunAtMs: _intValue(state?['next_run_at_ms']),
+      lastRunAtMs: _intValue(state?['last_run_at_ms']),
+      createdAtMs: _intValue(row['created_at_ms']),
+      updatedAtMs: _intValue(row['updated_at_ms']),
+      scheduleLabel: _automationScheduleLabel(row),
+      originLabel: _automationDetails(row),
+      originSessionKey: _stringFrom(origin?['session_key']),
+      lastError: _stringFrom(state?['last_error']),
+      isPending: state?['pending'] == true,
+      isProtected: row['protected'] == true,
+      deleteAfterRun: row['delete_after_run'] == true,
+    );
   }
 
   @override
@@ -518,8 +529,22 @@ class NanobotRepository implements NanobotRepositoryPort {
 
   String? _nullableStringValue(Map<String, Object?> row, String key) {
     final value = row[key];
+    return _stringFrom(value);
+  }
+
+  String? _stringFrom(Object? value) {
     if (value is String && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+    return null;
+  }
+
+  Map<String, Object?>? _mapValue(Object? value) {
+    if (value is Map<String, Object?>) {
       return value;
+    }
+    if (value is Map) {
+      return Map<String, Object?>.from(value);
     }
     return null;
   }
@@ -588,6 +613,63 @@ class NanobotRepository implements NanobotRepositoryPort {
     return '';
   }
 
+  String _automationScheduleLabel(Map<String, Object?> row) {
+    final schedule = _mapValue(row['schedule']);
+    if (schedule == null) {
+      return 'Custom schedule';
+    }
+    final kind = _stringFrom(schedule['kind']);
+    final label = switch (kind) {
+      'at' => _formatAtSchedule(schedule),
+      'every' => _formatEverySchedule(schedule),
+      'cron' => _formatCronSchedule(schedule),
+      'local' => 'Local trigger',
+      _ => 'Custom schedule',
+    };
+    final tz = _stringFrom(schedule['tz']);
+    if (tz == null || tz.isEmpty || kind == 'local') {
+      return label;
+    }
+    return '$label · $tz';
+  }
+
+  String _formatAtSchedule(Map<String, Object?> schedule) {
+    final atMs = _intValue(schedule['at_ms']);
+    if (atMs == null) {
+      return 'One-time';
+    }
+    return 'At ${DateTime.fromMillisecondsSinceEpoch(atMs).toLocal()}';
+  }
+
+  String _formatEverySchedule(Map<String, Object?> schedule) {
+    final everyMs = _intValue(schedule['every_ms']);
+    if (everyMs == null || everyMs <= 0) {
+      return 'Interval';
+    }
+    final seconds = everyMs ~/ 1000;
+    if (seconds % 86400 == 0) {
+      final days = seconds ~/ 86400;
+      return 'Every $days ${days == 1 ? 'day' : 'days'}';
+    }
+    if (seconds % 3600 == 0) {
+      final hours = seconds ~/ 3600;
+      return 'Every $hours ${hours == 1 ? 'hour' : 'hours'}';
+    }
+    if (seconds % 60 == 0) {
+      final minutes = seconds ~/ 60;
+      return 'Every $minutes ${minutes == 1 ? 'minute' : 'minutes'}';
+    }
+    return 'Every $seconds ${seconds == 1 ? 'second' : 'seconds'}';
+  }
+
+  String _formatCronSchedule(Map<String, Object?> schedule) {
+    final expr = _stringFrom(schedule['expr']);
+    if (expr == null) {
+      return 'Cron';
+    }
+    return 'Cron $expr';
+  }
+
   List<String> _automationFilterKeys(Map<String, Object?> row) {
     if (row['protected'] == true) {
       return const ['system'];
@@ -601,14 +683,6 @@ class NanobotRepository implements NanobotRepositoryPort {
       return const ['paused'];
     }
     return const ['active'];
-  }
-
-  int? _automationStateInt(Map<String, Object?> row, String key) {
-    final state = row['state'];
-    if (state is! Map) {
-      return null;
-    }
-    return _intValue(state[key]);
   }
 
   int? _intValue(Object? value) {

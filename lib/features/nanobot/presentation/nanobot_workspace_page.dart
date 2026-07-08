@@ -1931,6 +1931,7 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
   final _queryController = TextEditingController();
   var _activeFilter = 'all';
   var _activeSort = 'next';
+  String? _selectedItemId;
 
   @override
   void dispose() {
@@ -2011,6 +2012,13 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
           _EmptySurface(text: widget.emptyText)
         else if (visibleItems.isEmpty)
           _EmptySurface(text: widget.noMatchesText)
+        else if (widget.onAutomationAction != null)
+          _AutomationQueueDetailPanel(
+            items: visibleItems,
+            selectedItemId: _selectedItemId,
+            onSelected: (item) => setState(() => _selectedItemId = item.id),
+            onAutomationAction: widget.onAutomationAction!,
+          )
         else
           for (final item in visibleItems)
             _CatalogRow(
@@ -2190,15 +2198,381 @@ class _AutomationFilterOption {
   final int count;
 }
 
+class _AutomationQueueDetailPanel extends StatelessWidget {
+  const _AutomationQueueDetailPanel({
+    required this.items,
+    required this.selectedItemId,
+    required this.onSelected,
+    required this.onAutomationAction,
+  });
+
+  final List<NanobotCatalogItem> items;
+  final String? selectedItemId;
+  final ValueChanged<NanobotCatalogItem> onSelected;
+  final Future<void> Function(
+    NanobotAutomationAction action,
+    NanobotCatalogItem item,
+  )
+  onAutomationAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = _selectedItem();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 760;
+        final queue = _AutomationQueueList(
+          items: items,
+          selected: selected,
+          onSelected: onSelected,
+          onAutomationAction: onAutomationAction,
+        );
+        final detail = _AutomationDetailPanel(
+          item: selected,
+          onAutomationAction: onAutomationAction,
+        );
+        if (!wide) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [queue, const SizedBox(height: 12), detail],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 280, child: queue),
+            const SizedBox(width: 12),
+            Expanded(child: detail),
+          ],
+        );
+      },
+    );
+  }
+
+  NanobotCatalogItem _selectedItem() {
+    final id = selectedItemId;
+    if (id != null) {
+      for (final item in items) {
+        if (item.id == id) {
+          return item;
+        }
+      }
+    }
+    return items.first;
+  }
+}
+
+class _AutomationQueueList extends StatelessWidget {
+  const _AutomationQueueList({
+    required this.items,
+    required this.selected,
+    required this.onSelected,
+    required this.onAutomationAction,
+  });
+
+  final List<NanobotCatalogItem> items;
+  final NanobotCatalogItem selected;
+  final ValueChanged<NanobotCatalogItem> onSelected;
+  final Future<void> Function(
+    NanobotAutomationAction action,
+    NanobotCatalogItem item,
+  )
+  onAutomationAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Queue',
+                    style: TextStyle(
+                      color: AppThemeTokens.headingText,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${items.length}',
+                  style: const TextStyle(color: AppThemeTokens.mutedText),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final item in items)
+              _CatalogRow(
+                key: ValueKey('queue-${item.id}'),
+                item: item,
+                selected: item.id == selected.id,
+                onSelected: onSelected,
+                onAutomationAction: onAutomationAction,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AutomationDetailPanel extends StatelessWidget {
+  const _AutomationDetailPanel({
+    required this.item,
+    required this.onAutomationAction,
+  });
+
+  final NanobotCatalogItem item;
+  final Future<void> Function(
+    NanobotAutomationAction action,
+    NanobotCatalogItem item,
+  )
+  onAutomationAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspaceAlt,
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: const TextStyle(
+                          color: AppThemeTokens.headingText,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        [
+                          if (item.scheduleLabel.isNotEmpty) item.scheduleLabel,
+                          if (_originLabel.isNotEmpty) _originLabel,
+                        ].join(' · '),
+                        style: const TextStyle(
+                          color: AppThemeTokens.mutedText,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _AutomationActionButtons(
+                  item: item,
+                  onAction: onAutomationAction,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _AutomationMessageSection(item: item),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _AutomationDetailTile(
+                  label: 'Next',
+                  value: _nextLabel,
+                  title: _timestampLabel(item.nextRunAtMs),
+                ),
+                _AutomationDetailTile(
+                  label: 'Linked chat',
+                  value: _originLabel.isEmpty ? 'No linked chat' : _originLabel,
+                  title: item.originSessionKey,
+                ),
+                _AutomationDetailTile(
+                  label: 'Schedule',
+                  value: item.scheduleLabel.isEmpty
+                      ? 'Custom schedule'
+                      : item.scheduleLabel,
+                ),
+                if (item.createdAtMs != null)
+                  _AutomationDetailTile(
+                    label: 'Created',
+                    value: _timestampLabel(item.createdAtMs),
+                  ),
+                if (item.updatedAtMs != null)
+                  _AutomationDetailTile(
+                    label: 'Updated',
+                    value: _timestampLabel(item.updatedAtMs),
+                  ),
+              ],
+            ),
+            if (item.lastError != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                item.lastError!,
+                style: const TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String get _originLabel {
+    if (item.originLabel.trim().isNotEmpty) {
+      return item.originLabel;
+    }
+    return item.details;
+  }
+
+  String get _nextLabel {
+    if (item.status == 'disabled') {
+      return 'Paused';
+    }
+    if (item.isPending) {
+      return 'Running now';
+    }
+    return _timestampLabel(item.nextRunAtMs) ?? 'No next run';
+  }
+
+  String? _timestampLabel(int? value) {
+    if (value == null) {
+      return null;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(value).toLocal().toString();
+  }
+}
+
+class _AutomationMessageSection extends StatelessWidget {
+  const _AutomationMessageSection({required this.item});
+
+  final NanobotCatalogItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = item.subtitle.trim().isEmpty
+        ? 'System-managed automation'
+        : item.subtitle;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Message',
+              style: TextStyle(color: AppThemeTokens.mutedText, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            _ExpandableCatalogText(
+              text: message,
+              collapsedLabel: 'Show full message',
+              expandedLabel: 'Show less',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AutomationDetailTile extends StatelessWidget {
+  const _AutomationDetailTile({
+    required this.label,
+    required this.value,
+    this.title,
+  });
+
+  final String label;
+  final String? value;
+  final String? title;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 180,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: AppThemeTokens.border),
+          borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 11,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value ?? '',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppThemeTokens.headingText,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (title != null && title!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  title!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CatalogRow extends StatelessWidget {
   const _CatalogRow({
     super.key,
     required this.item,
+    this.selected = false,
     this.onSelected,
     this.onAutomationAction,
   });
 
   final NanobotCatalogItem item;
+  final bool selected;
   final ValueChanged<NanobotCatalogItem>? onSelected;
   final Future<void> Function(
     NanobotAutomationAction action,
@@ -2212,7 +2586,7 @@ class _CatalogRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppThemeTokens.workspaceAlt,
+        color: selected ? AppThemeTokens.panel : AppThemeTokens.workspaceAlt,
         borderRadius: BorderRadius.circular(AppThemeTokens.radius),
         border: Border.all(color: AppThemeTokens.border),
       ),

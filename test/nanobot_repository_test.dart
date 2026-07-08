@@ -243,6 +243,70 @@ void main() {
     expect(automations.single.updatedAtMs, 3000);
   });
 
+  test('repository maps automation detail panel metadata', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/webui/automations': {
+        'jobs': [
+          {
+            'id': 'job-1',
+            'name': 'Detail probe',
+            'enabled': true,
+            'protected': true,
+            'delete_after_run': true,
+            'created_at_ms': 1000,
+            'updated_at_ms': 3000,
+            'schedule': {
+              'kind': 'every',
+              'every_ms': 7200000,
+              'tz': 'Asia/Shanghai',
+            },
+            'payload': {'message': 'Check the repo status'},
+            'origin': {
+              'channel': 'websocket',
+              'session_key': 'websocket:chat-1',
+              'title': 'Release prep',
+            },
+            'state': {
+              'next_run_at_ms': 4000,
+              'last_run_at_ms': 2000,
+              'last_error': 'Timed out',
+              'pending': true,
+            },
+          },
+        ],
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final automations = await repository.fetchAutomationItems();
+    final item = automations.single;
+
+    expect(item.scheduleLabel, 'Every 2 hours · Asia/Shanghai');
+    expect(item.originLabel, 'Release prep');
+    expect(item.originSessionKey, 'websocket:chat-1');
+    expect(item.createdAtMs, 1000);
+    expect(item.updatedAtMs, 3000);
+    expect(item.lastError, 'Timed out');
+    expect(item.isPending, isTrue);
+    expect(item.isProtected, isTrue);
+    expect(item.deleteAfterRun, isTrue);
+  });
+
   test('repository maps automation action results', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

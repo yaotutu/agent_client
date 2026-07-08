@@ -52,7 +52,7 @@ void main() {
     await tester.tap(find.text('Automations'));
     await tester.pumpAndSettle();
     expect(find.text('Automations'), findsWidgets);
-    expect(find.text('Daily ping'), findsOneWidget);
+    expect(find.text('Daily ping'), findsWidgets);
     expect(find.text('enabled'), findsOneWidget);
 
     await tester.tap(find.text('Skills'));
@@ -125,13 +125,13 @@ void main() {
     await tester.tap(find.text('Automations'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Long detail automation'), findsOneWidget);
-    expect(find.text('Release prep'), findsOneWidget);
-    expect(find.text('Show full message'), findsOneWidget);
+    expect(find.text('Long detail automation'), findsWidgets);
+    expect(find.text('Release prep'), findsWidgets);
+    expect(find.text('Show full message'), findsWidgets);
 
-    await tester.ensureVisible(find.text('Show full message'));
+    await tester.ensureVisible(find.text('Show full message').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Show full message'));
+    await tester.tap(find.text('Show full message').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Show less'), findsOneWidget);
@@ -180,14 +180,14 @@ void main() {
     await tester.enterText(search, 'Release');
     await tester.pumpAndSettle();
 
-    expect(find.text('Daily repo check'), findsOneWidget);
+    expect(find.text('Daily repo check'), findsWidgets);
     expect(find.text('WeChat quiz'), findsNothing);
 
     await tester.enterText(search, 'quiz');
     await tester.pumpAndSettle();
 
     expect(find.text('Daily repo check'), findsNothing);
-    expect(find.text('WeChat quiz'), findsOneWidget);
+    expect(find.text('WeChat quiz'), findsWidgets);
   });
 
   testWidgets('automations search supports webui field prefixes', (
@@ -234,14 +234,14 @@ void main() {
     await tester.enterText(search, 'status:paused');
     await tester.pumpAndSettle();
 
-    expect(find.text('Paused job'), findsOneWidget);
+    expect(find.text('Paused job'), findsWidgets);
     expect(find.text('Cron job'), findsNothing);
 
     await tester.enterText(search, 'schedule:cron');
     await tester.pumpAndSettle();
 
     expect(find.text('Paused job'), findsNothing);
-    expect(find.text('Cron job'), findsOneWidget);
+    expect(find.text('Cron job'), findsWidgets);
   });
 
   testWidgets('automations surface filter chips narrow by status', (
@@ -297,14 +297,14 @@ void main() {
     await tester.tap(find.text('Paused 1'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Paused job'), findsOneWidget);
+    expect(find.text('Paused job'), findsWidgets);
     expect(find.text('Active job'), findsNothing);
     expect(find.text('Failed job'), findsNothing);
 
     await tester.tap(find.text('Needs attention 1'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Failed job'), findsOneWidget);
+    expect(find.text('Failed job'), findsWidgets);
     expect(find.text('Paused job'), findsNothing);
   });
 
@@ -395,6 +395,72 @@ void main() {
     expect(find.text('disabled'), findsOneWidget);
   });
 
+  testWidgets('automations surface shows queue and selected detail panel', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      automationItems: const [
+        NanobotCatalogItem(
+          id: 'job-1',
+          title: 'Daily job',
+          subtitle: 'Check the repo status',
+          details: 'Release prep',
+          status: 'enabled',
+          filterKeys: ['active'],
+          scheduleLabel: 'Every 2 hours · Asia/Shanghai',
+          originLabel: 'Release prep',
+          originSessionKey: 'websocket:chat-1',
+          nextRunAtMs: 1000,
+          createdAtMs: 500,
+          updatedAtMs: 900,
+          lastError: 'Timed out',
+        ),
+        NanobotCatalogItem(
+          id: 'job-2',
+          title: 'Second job',
+          subtitle: 'Send summary',
+          details: 'WeChat',
+          status: 'enabled',
+          filterKeys: ['active'],
+          scheduleLabel: 'Cron 0 * * * *',
+          originLabel: 'WeChat',
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Queue'), findsOneWidget);
+    expect(find.text('2'), findsWidgets);
+    expect(find.text('Daily job'), findsWidgets);
+    expect(find.text('Next'), findsOneWidget);
+    expect(find.text('Linked chat'), findsOneWidget);
+    expect(find.text('Schedule'), findsOneWidget);
+    expect(find.text('Created'), findsOneWidget);
+    expect(find.text('Updated'), findsOneWidget);
+    expect(find.text('Every 2 hours · Asia/Shanghai'), findsWidgets);
+    expect(find.text('Release prep'), findsWidgets);
+    expect(find.text('Timed out'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Second job').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Second job').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cron 0 * * * *'), findsWidgets);
+    expect(find.text('Timed out'), findsNothing);
+  });
+
   testWidgets('skills surface opens unavailable skill details', (tester) async {
     final repository = _FakeNanobotRepository(
       skillItems: const [
@@ -448,8 +514,8 @@ void main() {
 }
 
 bool _isAbove(WidgetTester tester, String upperText, String lowerText) {
-  final upperTop = tester.getTopLeft(find.text(upperText)).dy;
-  final lowerTop = tester.getTopLeft(find.text(lowerText)).dy;
+  final upperTop = tester.getTopLeft(find.text(upperText).first).dy;
+  final lowerTop = tester.getTopLeft(find.text(lowerText).first).dy;
   return upperTop < lowerTop;
 }
 

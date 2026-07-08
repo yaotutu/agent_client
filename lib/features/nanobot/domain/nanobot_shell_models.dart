@@ -39,7 +39,15 @@ class NanobotCatalogItem {
     this.filterKeys = const [],
     this.nextRunAtMs,
     this.lastRunAtMs,
+    this.createdAtMs,
     this.updatedAtMs,
+    this.scheduleLabel = '',
+    this.originLabel = '',
+    this.originSessionKey,
+    this.lastError,
+    this.isPending = false,
+    this.isProtected = false,
+    this.deleteAfterRun = false,
   });
 
   final String id;
@@ -50,7 +58,15 @@ class NanobotCatalogItem {
   final List<String> filterKeys;
   final int? nextRunAtMs;
   final int? lastRunAtMs;
+  final int? createdAtMs;
   final int? updatedAtMs;
+  final String scheduleLabel;
+  final String originLabel;
+  final String? originSessionKey;
+  final String? lastError;
+  final bool isPending;
+  final bool isProtected;
+  final bool deleteAfterRun;
 }
 
 class NanobotSkillDetail {
