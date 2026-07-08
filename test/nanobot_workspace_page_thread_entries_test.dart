@@ -1342,6 +1342,105 @@ void main() {
     );
     expect(attachButton.onPressed, isNull);
   });
+
+  testWidgets(
+    'composer queues guidance while streaming and flushes on turn end',
+    (tester) async {
+      final repository = _FakeNanobotRepository();
+      addTearDown(repository.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: NanobotWorkspacePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      repository.emit({
+        'event': 'delta',
+        'chat_id': 'chat-1',
+        'text': 'working',
+      });
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byType(TextField).last,
+        'continue with tests',
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(repository.sentContents, isEmpty);
+      expect(find.text('Queued guidance'), findsOneWidget);
+      expect(find.text('continue with tests'), findsOneWidget);
+      expect(find.byTooltip('Stop'), findsOneWidget);
+
+      repository.emit({'event': 'turn_end', 'chat_id': 'chat-1'});
+      await tester.pumpAndSettle();
+
+      expect(repository.sentContents, ['continue with tests']);
+      expect(find.text('Queued guidance'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('nanobot-queued-guidance')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('composer queued guidance rows support guide edit and delete', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({'event': 'delta', 'chat_id': 'chat-1', 'text': 'working'});
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, 'first draft');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Guide'), findsOneWidget);
+    expect(find.byTooltip('Edit guidance'), findsOneWidget);
+    expect(find.byTooltip('Delete guidance'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Edit guidance'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Queued guidance'), findsNothing);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).controller?.text,
+      'first draft',
+    );
+
+    await tester.enterText(find.byType(TextField).last, 'remove me');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Delete guidance'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Queued guidance'), findsNothing);
+
+    await tester.enterText(find.byType(TextField).last, 'send queued now');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Guide'));
+    await tester.pumpAndSettle();
+
+    expect(repository.sentContents, ['send queued now']);
+    expect(find.text('Queued guidance'), findsNothing);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -1425,6 +1524,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   int? forkBeforeUserIndex;
   String? forkTitle;
   String? sentContent;
+  final sentContents = <String>[];
   List<NanobotSendMedia> sentMedia = const [];
 
   @override
@@ -1499,6 +1599,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     List<NanobotCapabilityMention> mcpPresets = const [],
   }) async {
     sentContent = content;
+    sentContents.add(content);
     sentMedia = media;
   }
 

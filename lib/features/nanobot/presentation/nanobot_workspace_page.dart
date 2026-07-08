@@ -33,7 +33,9 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
   final _inputController = TextEditingController();
   final _focusNode = FocusNode();
   final _attachedImages = <NanobotSendMedia>[];
+  final _queuedPrompts = <_QueuedPrompt>[];
   var _isPickingImages = false;
+  var _queuedPromptCounter = 0;
   String? _composerInlineError;
 
   @override
@@ -84,10 +86,17 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               inputController: _inputController,
               focusNode: _focusNode,
               attachedImages: _attachedImages,
+              queuedPrompts: _queuedPrompts,
               isPickingImages: _isPickingImages,
               composerInlineError: _composerInlineError,
               onSend: () => _send(controller),
               onStop: controller.stopActiveTurn,
+              onQueueGuidance: _queueGuidance,
+              onFlushQueuedPrompt: () => _flushNextQueuedPrompt(controller),
+              onSendQueuedPrompt: (prompt) =>
+                  _sendQueuedPrompt(controller, prompt),
+              onEditQueuedPrompt: _editQueuedPrompt,
+              onDeleteQueuedPrompt: _deleteQueuedPrompt,
               onAttachImages: _pickImageAttachments,
               onRemoveAttachedImage: _removeImageAttachment,
               onWorkspaceAccessMode: controller.applyWorkspaceAccessMode,
@@ -151,6 +160,76 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
     _focusNode.requestFocus();
   }
 
+  void _queueGuidance() {
+    final text = _inputController.text.trim();
+    if ((text.isEmpty && _attachedImages.isEmpty) ||
+        text.trimLeft().startsWith('/')) {
+      return;
+    }
+    final media = List<NanobotSendMedia>.unmodifiable(_attachedImages);
+    setState(() {
+      _queuedPromptCounter += 1;
+      _queuedPrompts.add(
+        _QueuedPrompt(
+          id: 'queued-prompt-$_queuedPromptCounter',
+          text: text,
+          media: media,
+        ),
+      );
+      _attachedImages.clear();
+      _composerInlineError = null;
+    });
+    _inputController.clear();
+    _focusNode.requestFocus();
+  }
+
+  void _flushNextQueuedPrompt(NanobotWorkspaceController controller) {
+    if (_queuedPrompts.isEmpty) {
+      return;
+    }
+    final next = _queuedPrompts.firstWhere(
+      (prompt) => prompt.text.trim().isNotEmpty || prompt.media.isNotEmpty,
+      orElse: () => _queuedPrompts.first,
+    );
+    _sendQueuedPrompt(controller, next);
+  }
+
+  void _sendQueuedPrompt(
+    NanobotWorkspaceController controller,
+    _QueuedPrompt prompt,
+  ) {
+    setState(() {
+      _queuedPrompts.removeWhere((item) => item.id == prompt.id);
+    });
+    if (prompt.text.trim().isEmpty && prompt.media.isEmpty) {
+      return;
+    }
+    unawaited(controller.sendMessage(prompt.text, media: prompt.media));
+    _focusNode.requestFocus();
+  }
+
+  void _editQueuedPrompt(_QueuedPrompt prompt) {
+    setState(() {
+      _queuedPrompts.removeWhere((item) => item.id == prompt.id);
+      _attachedImages
+        ..clear()
+        ..addAll(prompt.media);
+      _composerInlineError = null;
+    });
+    _inputController.text = prompt.text;
+    _inputController.selection = TextSelection.collapsed(
+      offset: _inputController.text.length,
+    );
+    _focusNode.requestFocus();
+  }
+
+  void _deleteQueuedPrompt(String id) {
+    setState(() {
+      _queuedPrompts.removeWhere((prompt) => prompt.id == id);
+    });
+    _focusNode.requestFocus();
+  }
+
   Future<void> _pickImageAttachments() async {
     if (_isPickingImages || _attachedImages.length >= _maxImageAttachments) {
       return;
@@ -193,6 +272,18 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
       _composerInlineError = null;
     });
   }
+}
+
+class _QueuedPrompt {
+  const _QueuedPrompt({
+    required this.id,
+    required this.text,
+    required this.media,
+  });
+
+  final String id;
+  final String text;
+  final List<NanobotSendMedia> media;
 }
 
 class _SessionList extends StatelessWidget {
@@ -781,10 +872,16 @@ class _ChatPane extends StatelessWidget {
     required this.inputController,
     required this.focusNode,
     required this.attachedImages,
+    required this.queuedPrompts,
     required this.isPickingImages,
     required this.composerInlineError,
     required this.onSend,
     required this.onStop,
+    required this.onQueueGuidance,
+    required this.onFlushQueuedPrompt,
+    required this.onSendQueuedPrompt,
+    required this.onEditQueuedPrompt,
+    required this.onDeleteQueuedPrompt,
     required this.onAttachImages,
     required this.onRemoveAttachedImage,
     required this.onWorkspaceAccessMode,
@@ -802,10 +899,16 @@ class _ChatPane extends StatelessWidget {
   final TextEditingController inputController;
   final FocusNode focusNode;
   final List<NanobotSendMedia> attachedImages;
+  final List<_QueuedPrompt> queuedPrompts;
   final bool isPickingImages;
   final String? composerInlineError;
   final VoidCallback onSend;
   final VoidCallback onStop;
+  final VoidCallback onQueueGuidance;
+  final VoidCallback onFlushQueuedPrompt;
+  final ValueChanged<_QueuedPrompt> onSendQueuedPrompt;
+  final ValueChanged<_QueuedPrompt> onEditQueuedPrompt;
+  final ValueChanged<String> onDeleteQueuedPrompt;
   final VoidCallback onAttachImages;
   final ValueChanged<int> onRemoveAttachedImage;
   final ValueChanged<String> onWorkspaceAccessMode;
@@ -861,6 +964,7 @@ class _ChatPane extends StatelessWidget {
               runStartedAt: state.threadState?.runStartedAt,
               goalState: state.threadState?.goalState,
               attachedImages: attachedImages,
+              queuedPrompts: queuedPrompts,
               isPickingImages: isPickingImages,
               inlineError: composerInlineError,
               slashCommands: state.slashCommands,
@@ -875,6 +979,11 @@ class _ChatPane extends StatelessWidget {
               canUseFullAccess: state.canUseFullWorkspaceAccess,
               onSend: onSend,
               onStop: onStop,
+              onQueueGuidance: onQueueGuidance,
+              onFlushQueuedPrompt: onFlushQueuedPrompt,
+              onSendQueuedPrompt: onSendQueuedPrompt,
+              onEditQueuedPrompt: onEditQueuedPrompt,
+              onDeleteQueuedPrompt: onDeleteQueuedPrompt,
               onAttachImages: onAttachImages,
               onRemoveAttachedImage: onRemoveAttachedImage,
               onWorkspaceAccessMode: onWorkspaceAccessMode,
@@ -4470,6 +4579,155 @@ bool _isAbsoluteWorkspacePath(String path) {
       RegExp(r'^[A-Za-z]:[\\/]').hasMatch(trimmed);
 }
 
+class _QueuedPromptStack extends StatelessWidget {
+  const _QueuedPromptStack({
+    required this.prompts,
+    required this.onGuide,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final List<_QueuedPrompt> prompts;
+  final ValueChanged<_QueuedPrompt> onGuide;
+  final ValueChanged<_QueuedPrompt> onEdit;
+  final ValueChanged<String> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Queued guidance',
+      child: Container(
+        key: const ValueKey('nanobot-queued-guidance'),
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppThemeTokens.panelMuted,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppThemeTokens.border),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Queued guidance',
+              style: TextStyle(
+                color: AppThemeTokens.mutedText,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 216),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: prompts.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 4),
+                itemBuilder: (context, index) {
+                  final prompt = prompts[index];
+                  return _QueuedPromptRow(
+                    prompt: prompt,
+                    onGuide: onGuide,
+                    onEdit: onEdit,
+                    onDelete: onDelete,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QueuedPromptRow extends StatelessWidget {
+  const _QueuedPromptRow({
+    required this.prompt,
+    required this.onGuide,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final _QueuedPrompt prompt;
+  final ValueChanged<_QueuedPrompt> onGuide;
+  final ValueChanged<_QueuedPrompt> onEdit;
+  final ValueChanged<String> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = prompt.text.trim();
+    final mediaCount = prompt.media.length;
+    final label = text.isNotEmpty
+        ? text
+        : mediaCount == 1
+        ? '1 image'
+        : '$mediaCount images';
+    return Container(
+      key: ValueKey('nanobot-queued-prompt-${prompt.id}'),
+      constraints: const BoxConstraints(minHeight: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: AppThemeTokens.panel,
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.drag_indicator,
+            size: 16,
+            color: AppThemeTokens.subtleText,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppThemeTokens.headingText,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          TextButton.icon(
+            onPressed: () => onGuide(prompt),
+            icon: const Icon(Icons.subdirectory_arrow_right, size: 14),
+            label: const Text('Guide'),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              textStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Edit guidance',
+            onPressed: () => onEdit(prompt),
+            icon: const Icon(Icons.edit_outlined, size: 16),
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+          ),
+          IconButton(
+            tooltip: 'Delete guidance',
+            onPressed: () => onDelete(prompt.id),
+            icon: const Icon(Icons.delete_outline, size: 16),
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InputBar extends StatefulWidget {
   const _InputBar({
     required this.controller,
@@ -4479,6 +4737,7 @@ class _InputBar extends StatefulWidget {
     required this.runStartedAt,
     required this.goalState,
     required this.attachedImages,
+    required this.queuedPrompts,
     required this.isPickingImages,
     required this.inlineError,
     required this.slashCommands,
@@ -4491,6 +4750,11 @@ class _InputBar extends StatefulWidget {
     required this.canUseFullAccess,
     required this.onSend,
     required this.onStop,
+    required this.onQueueGuidance,
+    required this.onFlushQueuedPrompt,
+    required this.onSendQueuedPrompt,
+    required this.onEditQueuedPrompt,
+    required this.onDeleteQueuedPrompt,
     required this.onAttachImages,
     required this.onRemoveAttachedImage,
     required this.onWorkspaceAccessMode,
@@ -4504,6 +4768,7 @@ class _InputBar extends StatefulWidget {
   final int? runStartedAt;
   final Map<String, Object?>? goalState;
   final List<NanobotSendMedia> attachedImages;
+  final List<_QueuedPrompt> queuedPrompts;
   final bool isPickingImages;
   final String? inlineError;
   final List<NanobotSlashCommand> slashCommands;
@@ -4516,6 +4781,11 @@ class _InputBar extends StatefulWidget {
   final bool canUseFullAccess;
   final VoidCallback onSend;
   final VoidCallback onStop;
+  final VoidCallback onQueueGuidance;
+  final VoidCallback onFlushQueuedPrompt;
+  final ValueChanged<_QueuedPrompt> onSendQueuedPrompt;
+  final ValueChanged<_QueuedPrompt> onEditQueuedPrompt;
+  final ValueChanged<String> onDeleteQueuedPrompt;
   final VoidCallback onAttachImages;
   final ValueChanged<int> onRemoveAttachedImage;
   final ValueChanged<String> onWorkspaceAccessMode;
@@ -4529,6 +4799,21 @@ class _InputBar extends StatefulWidget {
 class _InputBarState extends State<_InputBar> {
   String? _dismissedSlashText;
   var _selectedPaletteIndex = 0;
+
+  @override
+  void didUpdateWidget(covariant _InputBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isStreaming &&
+        !widget.isStreaming &&
+        widget.queuedPrompts.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || widget.isStreaming) {
+          return;
+        }
+        widget.onFlushQueuedPrompt();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4547,6 +4832,13 @@ class _InputBarState extends State<_InputBar> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (widget.queuedPrompts.isNotEmpty)
+                    _QueuedPromptStack(
+                      prompts: widget.queuedPrompts,
+                      onGuide: widget.onSendQueuedPrompt,
+                      onEdit: widget.onEditQueuedPrompt,
+                      onDelete: widget.onDeleteQueuedPrompt,
+                    ),
                   if (widget.workspaceScope != null)
                     _WorkspaceScopeBar(
                       scope: widget.workspaceScope!,
@@ -4714,6 +5006,12 @@ class _InputBarState extends State<_InputBar> {
     }
     final active = _activePalette(widget.controller.value);
     if (active.length == 0) {
+      if (event.logicalKey == LogicalKeyboardKey.enter &&
+          !HardwareKeyboard.instance.isShiftPressed &&
+          _canQueueGuidance()) {
+        widget.onQueueGuidance();
+        return KeyEventResult.handled;
+      }
       return KeyEventResult.ignored;
     }
     final key = event.logicalKey;
@@ -4736,6 +5034,14 @@ class _InputBarState extends State<_InputBar> {
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
+  }
+
+  bool _canQueueGuidance() {
+    final text = widget.controller.text.trim();
+    return widget.isStreaming &&
+        widget.canSend &&
+        (text.isNotEmpty || widget.attachedImages.isNotEmpty) &&
+        !text.trimLeft().startsWith('/');
   }
 
   int _selectedIndex(int length) {
