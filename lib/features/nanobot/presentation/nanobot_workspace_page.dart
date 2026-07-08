@@ -1659,7 +1659,7 @@ class _InlineFormattedText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spans = _boldMarkdownSpans(text, color);
+    final spans = _inlineMarkdownSpans(text, color);
     if (spans == null) {
       return Text(text, style: TextStyle(color: color, height: 1.4));
     }
@@ -1886,8 +1886,10 @@ String _trimBlockText(String text) {
       .replaceAll(RegExp(r'\n\s*$'), '');
 }
 
-List<InlineSpan>? _boldMarkdownSpans(String text, Color color) {
-  final matches = RegExp(r'\*\*([^*]+)\*\*').allMatches(text).toList();
+List<InlineSpan>? _inlineMarkdownSpans(String text, Color color) {
+  final matches = RegExp(
+    r'`([^`]+)`|\*\*([^*]+)\*\*',
+  ).allMatches(text).toList();
   if (matches.isEmpty) {
     return null;
   }
@@ -1897,12 +1899,28 @@ List<InlineSpan>? _boldMarkdownSpans(String text, Color color) {
     if (match.start > cursor) {
       spans.add(TextSpan(text: text.substring(cursor, match.start)));
     }
-    spans.add(
-      TextSpan(
-        text: match.group(1) ?? '',
-        style: TextStyle(color: color, fontWeight: FontWeight.w700),
-      ),
-    );
+    final code = match.group(1);
+    final bold = match.group(2);
+    if (code != null) {
+      spans.add(
+        TextSpan(
+          text: code,
+          style: TextStyle(
+            color: color,
+            backgroundColor: AppThemeTokens.panelMuted,
+            fontFamily: 'monospace',
+            fontSize: 13,
+          ),
+        ),
+      );
+    } else {
+      spans.add(
+        TextSpan(
+          text: bold ?? '',
+          style: TextStyle(color: color, fontWeight: FontWeight.w700),
+        ),
+      );
+    }
     cursor = match.end;
   }
   if (cursor < text.length) {

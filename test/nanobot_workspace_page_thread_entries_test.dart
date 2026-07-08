@@ -184,6 +184,30 @@ void main() {
     expect(_richTextWithBoldSpan('192.168.200.149'), findsOneWidget);
   });
 
+  testWidgets('message inline code renders code spans', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Check `src/**/*.json` before continuing.',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('`'), findsNothing);
+    expect(_richTextWithCodeSpan('src/**/*.json'), findsOneWidget);
+    expect(repository.previewPath, isNull);
+  });
+
   testWidgets('message markdown images render inline previews', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
@@ -535,6 +559,26 @@ Finder _richTextWithBoldSpan(String text) {
     void visit(InlineSpan span) {
       if (span is TextSpan) {
         if (span.text == text && span.style?.fontWeight == FontWeight.w700) {
+          found = true;
+        }
+        span.children?.forEach(visit);
+      }
+    }
+
+    visit(widget.text);
+    return found;
+  });
+}
+
+Finder _richTextWithCodeSpan(String text) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! RichText) {
+      return false;
+    }
+    var found = false;
+    void visit(InlineSpan span) {
+      if (span is TextSpan) {
+        if (span.text == text && span.style?.fontFamily == 'monospace') {
           found = true;
         }
         span.children?.forEach(visit);
