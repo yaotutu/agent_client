@@ -121,6 +121,8 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onCloseFilePreview: controller.closeFilePreview,
               onDismissStreamError: controller.dismissStreamError,
               onForkFromMessage: controller.forkFromMessage,
+              onOpenSkillDetail: controller.openSkillDetail,
+              onCloseSkillDetail: controller.closeSkillDetail,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -1181,6 +1183,8 @@ class _ChatPane extends StatelessWidget {
     required this.onCloseFilePreview,
     required this.onDismissStreamError,
     required this.onForkFromMessage,
+    required this.onOpenSkillDetail,
+    required this.onCloseSkillDetail,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -1212,6 +1216,8 @@ class _ChatPane extends StatelessWidget {
   final VoidCallback onCloseFilePreview;
   final VoidCallback onDismissStreamError;
   final Future<void> Function(int beforeUserIndex) onForkFromMessage;
+  final Future<void> Function(NanobotCatalogItem item) onOpenSkillDetail;
+  final VoidCallback onCloseSkillDetail;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -1239,7 +1245,11 @@ class _ChatPane extends StatelessWidget {
                     onCloseFilePreview: onCloseFilePreview,
                     onForkFromMessage: onForkFromMessage,
                   )
-                : _SecondarySurface(state: state),
+                : _SecondarySurface(
+                    state: state,
+                    onOpenSkillDetail: onOpenSkillDetail,
+                    onCloseSkillDetail: onCloseSkillDetail,
+                  ),
           ),
           if (state.errorMessage != null)
             _InlineError(text: state.errorMessage!, onRetry: onRefresh),
@@ -1394,9 +1404,15 @@ class _ChatHeader extends StatelessWidget {
 }
 
 class _SecondarySurface extends StatelessWidget {
-  const _SecondarySurface({required this.state});
+  const _SecondarySurface({
+    required this.state,
+    required this.onOpenSkillDetail,
+    required this.onCloseSkillDetail,
+  });
 
   final NanobotWorkspaceState state;
+  final Future<void> Function(NanobotCatalogItem item) onOpenSkillDetail;
+  final VoidCallback onCloseSkillDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -1430,81 +1446,28 @@ class _SecondarySurface extends StatelessWidget {
     );
   }
 
-  Future<void> _showSkillDetail(
-    BuildContext context,
-    NanobotCatalogItem item,
-  ) {
-    final unavailableReason = _skillUnavailableReason(item);
+  Future<void> _showSkillDetail(BuildContext context, NanobotCatalogItem item) {
+    unawaited(onOpenSkillDetail(item));
     return showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (context) {
         return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    color: AppThemeTokens.headingText,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const _DetailHeading('Description'),
-                const SizedBox(height: 8),
-                Text(
-                  item.subtitle,
-                  style: const TextStyle(
-                    color: AppThemeTokens.mutedText,
-                    height: 1.45,
-                  ),
-                ),
-                if (item.status.trim().isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  const _DetailHeading('Status'),
-                  const SizedBox(height: 8),
-                  Text(
-                    item.status,
-                    style: const TextStyle(
-                      color: AppThemeTokens.text,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-                if (unavailableReason != null) ...[
-                  const SizedBox(height: 20),
-                  const _DetailHeading('Unavailable reason'),
-                  const SizedBox(height: 8),
-                  Text(
-                    unavailableReason,
-                    style: const TextStyle(
-                      color: AppThemeTokens.brandPressed,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+          child: Consumer(
+            builder: (context, ref, _) {
+              final state = ref.watch(nanobotWorkspaceControllerProvider);
+              return _SkillDetailSheet(
+                summary: state.selectedSkillItem ?? item,
+                detail: state.selectedSkillDetail,
+                isLoading: state.isLoadingSkillDetail,
+                error: state.skillDetailError,
+              );
+            },
           ),
         );
       },
-    );
-  }
-
-  String? _skillUnavailableReason(NanobotCatalogItem item) {
-    const prefix = 'Missing: ';
-    final status = item.status.trim();
-    if (!status.startsWith(prefix)) {
-      return null;
-    }
-    final reason = status.substring(prefix.length).trim();
-    return reason.isEmpty ? null : reason;
+    ).whenComplete(onCloseSkillDetail);
   }
 }
 
@@ -1534,6 +1497,328 @@ class _SettingsSurface extends StatelessWidget {
           value: value.requiresRestart ? 'required' : 'not required',
         ),
       ],
+    );
+  }
+}
+
+class _SkillDetailSheet extends StatelessWidget {
+  const _SkillDetailSheet({
+    required this.summary,
+    required this.detail,
+    required this.isLoading,
+    required this.error,
+  });
+
+  final NanobotCatalogItem summary;
+  final NanobotSkillDetail? detail;
+  final bool isLoading;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeDetail = detail;
+    final title = activeDetail?.name ?? summary.title;
+    final description = activeDetail?.description ?? summary.subtitle;
+    final source = _skillSourceLabel(activeDetail?.source ?? '');
+    final status = activeDetail == null
+        ? summary.status
+        : activeDetail.available
+        ? 'Available'
+        : 'Unavailable';
+    final unavailableReason =
+        activeDetail?.unavailableReason ?? _skillUnavailableReason(summary);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppThemeTokens.headingText,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (isLoading) ...[
+            const SizedBox(height: 20),
+            const Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'Loading skill details...',
+                  style: TextStyle(color: AppThemeTokens.mutedText),
+                ),
+              ],
+            ),
+          ],
+          if (error != null) ...[
+            const SizedBox(height: 20),
+            _InlineError(text: error!, onRetry: () {}),
+          ],
+          const SizedBox(height: 20),
+          const _DetailHeading('Description'),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: const TextStyle(
+              color: AppThemeTokens.mutedText,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _SkillMetaItem(label: 'Source', value: source),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SkillMetaItem(label: 'Status', value: status),
+              ),
+            ],
+          ),
+          if (unavailableReason != null) ...[
+            const SizedBox(height: 20),
+            const _DetailHeading('Unavailable reason'),
+            const SizedBox(height: 8),
+            Text(
+              unavailableReason,
+              style: const TextStyle(
+                color: AppThemeTokens.brandPressed,
+                height: 1.4,
+              ),
+            ),
+          ],
+          if (activeDetail != null) ...[
+            const SizedBox(height: 20),
+            _SkillRequirements(detail: activeDetail),
+            const SizedBox(height: 20),
+            _RawSkillMarkdown(markdown: activeDetail.rawMarkdown),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _skillSourceLabel(String source) {
+    return switch (source) {
+      'workspace' => 'Custom',
+      'builtin' => 'Built-in',
+      '' => 'unknown',
+      _ => source,
+    };
+  }
+
+  static String? _skillUnavailableReason(NanobotCatalogItem item) {
+    const prefix = 'Missing: ';
+    final status = item.status.trim();
+    if (!status.startsWith(prefix)) {
+      return null;
+    }
+    final reason = status.substring(prefix.length).trim();
+    return reason.isEmpty ? null : reason;
+  }
+}
+
+class _SkillMetaItem extends StatelessWidget {
+  const _SkillMetaItem({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspaceAlt,
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppThemeTokens.mutedText,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppThemeTokens.text,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SkillRequirements extends StatelessWidget {
+  const _SkillRequirements({required this.detail});
+
+  final NanobotSkillDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasRequirements = detail.bins.isNotEmpty || detail.env.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _DetailHeading('Requirements'),
+        const SizedBox(height: 10),
+        if (!hasRequirements)
+          const Text(
+            'No explicit requirements.',
+            style: TextStyle(color: AppThemeTokens.mutedText, fontSize: 13),
+          )
+        else ...[
+          if (detail.missingBins.isNotEmpty)
+            _RequirementLine(
+              title: 'Missing CLI',
+              values: detail.missingBins,
+              danger: true,
+            ),
+          if (detail.missingEnv.isNotEmpty)
+            _RequirementLine(
+              title: 'Missing ENV',
+              values: detail.missingEnv,
+              danger: true,
+            ),
+          if (detail.bins.isNotEmpty)
+            _RequirementLine(title: 'Commands', values: detail.bins),
+          if (detail.env.isNotEmpty)
+            _RequirementLine(
+              title: 'Environment variables',
+              values: detail.env,
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _RequirementLine extends StatelessWidget {
+  const _RequirementLine({
+    required this.title,
+    required this.values,
+    this.danger = false,
+  });
+
+  final String title;
+  final List<String> values;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: danger
+                  ? AppThemeTokens.brandPressed
+                  : AppThemeTokens.mutedText,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [for (final value in values) _SkillPill(value)],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkillPill extends StatelessWidget {
+  const _SkillPill(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspaceAlt,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: AppThemeTokens.mutedText,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RawSkillMarkdown extends StatelessWidget {
+  const _RawSkillMarkdown({required this.markdown});
+
+  final String markdown;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = markdown.trim().isEmpty ? 'No raw instructions.' : markdown;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        title: const Text(
+          'Raw SKILL.md',
+          style: TextStyle(
+            color: AppThemeTokens.headingText,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SelectableText(
+              content,
+              style: const TextStyle(
+                color: AppThemeTokens.mutedText,
+                fontFamily: 'monospace',
+                fontSize: 12,
+                height: 1.55,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1573,11 +1858,7 @@ class _CatalogSurface extends StatelessWidget {
 }
 
 class _CatalogRow extends StatelessWidget {
-  const _CatalogRow({
-    super.key,
-    required this.item,
-    this.onSelected,
-  });
+  const _CatalogRow({super.key, required this.item, this.onSelected});
 
   final NanobotCatalogItem item;
   final ValueChanged<NanobotCatalogItem>? onSelected;

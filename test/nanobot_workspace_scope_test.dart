@@ -280,6 +280,16 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotSkillDetail> fetchSkillDetail(String name) async {
+    return NanobotSkillDetail(
+      name: name,
+      description: '',
+      source: 'builtin',
+      available: true,
+    );
+  }
+
+  @override
   Future<List<NanobotCapabilityMention>> fetchCapabilityMentions() async {
     return const [];
   }

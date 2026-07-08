@@ -23,6 +23,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
   StreamSubscription<Object?>? _statusSubscription;
   var _loadGeneration = 0;
   var _filePreviewGeneration = 0;
+  var _skillDetailGeneration = 0;
   var _voiceRequestCounter = 0;
 
   @override
@@ -221,6 +222,45 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         isLoadingSurface: false,
         clearError: true,
       ),
+    );
+  }
+
+  Future<void> openSkillDetail(NanobotCatalogItem item) async {
+    final generation = ++_skillDetailGeneration;
+    state = state.copyWith(
+      selectedSkillItem: item,
+      isLoadingSkillDetail: true,
+      clearSkillDetail: true,
+      clearSkillDetailError: true,
+    );
+    try {
+      final detail = await ref
+          .read(nanobotRepositoryProvider)
+          .fetchSkillDetail(item.id);
+      if (generation != _skillDetailGeneration) {
+        return;
+      }
+      state = state.copyWith(
+        selectedSkillDetail: detail,
+        isLoadingSkillDetail: false,
+        clearSkillDetailError: true,
+      );
+    } on Object catch (error) {
+      if (generation != _skillDetailGeneration) {
+        return;
+      }
+      state = state.copyWith(
+        isLoadingSkillDetail: false,
+        skillDetailError: _friendlyError(error),
+      );
+    }
+  }
+
+  void closeSkillDetail() {
+    _skillDetailGeneration += 1;
+    state = state.copyWith(
+      isLoadingSkillDetail: false,
+      clearSelectedSkill: true,
     );
   }
 

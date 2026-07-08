@@ -102,6 +102,18 @@ void main() {
           status: 'Missing: CLI: gh',
         ),
       ],
+      skillDetails: const {
+        'github': NanobotSkillDetail(
+          name: 'github',
+          description: 'Work with GitHub.',
+          source: 'builtin',
+          available: false,
+          unavailableReason: 'CLI: gh',
+          bins: ['gh'],
+          missingBins: ['gh'],
+          rawMarkdown: '# GitHub',
+        ),
+      },
     );
     addTearDown(repository.dispose);
 
@@ -118,10 +130,17 @@ void main() {
     await tester.tap(find.text('github').last);
     await tester.pumpAndSettle();
 
+    expect(repository.requestedSkillDetails, ['github']);
     expect(find.text('Unavailable reason'), findsOneWidget);
     expect(find.text('CLI: gh'), findsOneWidget);
     expect(find.text('Description'), findsOneWidget);
     expect(find.text('Work with GitHub.'), findsWidgets);
+    expect(find.text('Requirements'), findsOneWidget);
+    expect(find.text('Missing CLI'), findsOneWidget);
+    expect(find.text('Raw SKILL.md'), findsOneWidget);
+    await tester.tap(find.text('Raw SKILL.md'));
+    await tester.pumpAndSettle();
+    expect(find.text('# GitHub'), findsOneWidget);
   });
 }
 
@@ -130,15 +149,19 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     List<NanobotCatalogItem>? appItems,
     List<NanobotCatalogItem>? automationItems,
     List<NanobotCatalogItem>? skillItems,
+    Map<String, NanobotSkillDetail>? skillDetails,
   }) : _appItems = appItems ?? _defaultAppItems,
        _automationItems = automationItems ?? _defaultAutomationItems,
-       _skillItems = skillItems ?? _defaultSkillItems;
+       _skillItems = skillItems ?? _defaultSkillItems,
+       _skillDetails = skillDetails ?? const {};
 
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
   final List<NanobotCatalogItem> _appItems;
   final List<NanobotCatalogItem> _automationItems;
   final List<NanobotCatalogItem> _skillItems;
+  final Map<String, NanobotSkillDetail> _skillDetails;
+  final requestedSkillDetails = <String>[];
   final _sessions = [
     NanobotSessionSummary(
       key: 'websocket:chat-1',
@@ -305,6 +328,16 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   @override
   Future<List<NanobotCatalogItem>> fetchSkillItems() async {
     return _skillItems;
+  }
+
+  @override
+  Future<NanobotSkillDetail> fetchSkillDetail(String name) async {
+    requestedSkillDetails.add(name);
+    final detail = _skillDetails[name];
+    if (detail == null) {
+      throw StateError('Missing skill detail: $name');
+    }
+    return detail;
   }
 
   @override

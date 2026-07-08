@@ -133,7 +133,8 @@ void main() {
       SystemChannels.platform,
       (call) async {
         if (call.method == 'Clipboard.setData') {
-          copiedText = (call.arguments as Map<Object?, Object?>)['text'] as String?;
+          copiedText =
+              (call.arguments as Map<Object?, Object?>)['text'] as String?;
         }
         return null;
       },
@@ -666,7 +667,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Watch'), findsOneWidget);
-    expect(find.byKey(const ValueKey('nanobot-markdown-video')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('nanobot-markdown-video')),
+      findsOneWidget,
+    );
     expect(find.byType(Texture), findsOneWidget);
     expect(find.byIcon(Icons.image_outlined), findsNothing);
     expect(platform.dataSources, hasLength(1));
@@ -766,7 +770,10 @@ void main() {
       _semanticsLabel('Open link: Polymarket — When will GPT-5.6 be released?'),
       findsOneWidget,
     );
-    expect(find.text('Polymarket — When will GPT-5.6 be released?'), findsOneWidget);
+    expect(
+      find.text('Polymarket — When will GPT-5.6 be released?'),
+      findsOneWidget,
+    );
     expect(find.textContaining('https://polymarket.com'), findsNothing);
     expect(find.text('•'), findsNothing);
   });
@@ -871,9 +878,7 @@ void main() {
     });
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.text('Polymarket — When will GPT-5.6 be released?'),
-    );
+    await tester.tap(find.text('Polymarket — When will GPT-5.6 be released?'));
     await tester.pump();
 
     expect(launcher.launchedUrls, [
@@ -990,7 +995,8 @@ void main() {
     repository.emit({
       'event': 'message',
       'chat_id': 'chat-1',
-      'text': r'\[x^2 + y^2 = z^2\]'
+      'text':
+          r'\[x^2 + y^2 = z^2\]'
           '\n\n'
           r'$$a^2 + b^2 = c^2$$',
     });
@@ -1507,7 +1513,10 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byTooltip('Drag to reorder').first, const Offset(0, 48));
+    await tester.drag(
+      find.byTooltip('Drag to reorder').first,
+      const Offset(0, 48),
+    );
     await tester.pumpAndSettle();
 
     repository.emit({'event': 'turn_end', 'chat_id': 'chat-1'});
@@ -1822,6 +1831,16 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   @override
   Future<List<NanobotCatalogItem>> fetchSkillItems() async {
     return const [];
+  }
+
+  @override
+  Future<NanobotSkillDetail> fetchSkillDetail(String name) async {
+    return NanobotSkillDetail(
+      name: name,
+      description: '',
+      source: 'builtin',
+      available: true,
+    );
   }
 
   @override

@@ -112,6 +112,10 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('fetchSkillItems');
   }
 
+  Future<NanobotSkillDetail> fetchSkillDetail(String name) {
+    throw UnimplementedError('fetchSkillDetail');
+  }
+
   Future<List<NanobotCapabilityMention>> fetchCapabilityMentions() {
     throw UnimplementedError('fetchCapabilityMentions');
   }
@@ -307,6 +311,24 @@ class NanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotSkillDetail> fetchSkillDetail(String name) async {
+    final dto = await api.fetchSkillDetail(name);
+    final requirements = dto.requirements ?? const <String, Object?>{};
+    return NanobotSkillDetail(
+      name: dto.name,
+      description: dto.description,
+      source: dto.source,
+      available: dto.available,
+      unavailableReason: dto.unavailableReason,
+      bins: _stringListValue(requirements, 'bins'),
+      missingBins: _stringListValue(requirements, 'missing_bins'),
+      env: _stringListValue(requirements, 'env'),
+      missingEnv: _stringListValue(requirements, 'missing_env'),
+      rawMarkdown: dto.rawMarkdown,
+    );
+  }
+
+  @override
   Future<List<NanobotCapabilityMention>> fetchCapabilityMentions() async {
     final apps = await api.fetchCliApps();
     final mcpPresets = await api.fetchMcpPresets();
@@ -454,6 +476,17 @@ class NanobotRepository implements NanobotRepositoryPort {
       return value;
     }
     return null;
+  }
+
+  List<String> _stringListValue(Map<String, Object?> row, String key) {
+    final value = row[key];
+    if (value is! List) {
+      return const [];
+    }
+    return [
+      for (final item in value)
+        if (item is String && item.trim().isNotEmpty) item,
+    ];
   }
 
   NanobotOutboundMention _outboundMention(NanobotCapabilityMention item) {

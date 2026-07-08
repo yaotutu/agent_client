@@ -32,6 +32,32 @@ class NanobotCatalogItem {
   final String status;
 }
 
+class NanobotSkillDetail {
+  const NanobotSkillDetail({
+    required this.name,
+    required this.description,
+    required this.source,
+    required this.available,
+    this.unavailableReason,
+    this.bins = const [],
+    this.missingBins = const [],
+    this.env = const [],
+    this.missingEnv = const [],
+    this.rawMarkdown = '',
+  });
+
+  final String name;
+  final String description;
+  final String source;
+  final bool available;
+  final String? unavailableReason;
+  final List<String> bins;
+  final List<String> missingBins;
+  final List<String> env;
+  final List<String> missingEnv;
+  final String rawMarkdown;
+}
+
 class NanobotFilePreview {
   const NanobotFilePreview({
     required this.path,

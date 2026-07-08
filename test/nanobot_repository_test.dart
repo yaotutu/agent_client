@@ -50,6 +50,54 @@ void main() {
       expect(skills.single.status, 'Missing: CLI: gh');
     },
   );
+
+  test('repository maps skill detail requirements and raw markdown', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/webui/skills/github': {
+        'name': 'github',
+        'description': 'Work with GitHub.',
+        'source': 'builtin',
+        'available': false,
+        'unavailable_reason': 'CLI: gh',
+        'requirements': {
+          'bins': ['gh'],
+          'missing_bins': ['gh'],
+          'env': ['GITHUB_TOKEN'],
+          'missing_env': ['GITHUB_TOKEN'],
+        },
+        'raw_markdown': '# GitHub',
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final detail = await repository.fetchSkillDetail('github');
+
+    expect(detail.name, 'github');
+    expect(detail.description, 'Work with GitHub.');
+    expect(detail.source, 'builtin');
+    expect(detail.available, isFalse);
+    expect(detail.unavailableReason, 'CLI: gh');
+    expect(detail.bins, ['gh']);
+    expect(detail.missingBins, ['gh']);
+    expect(detail.env, ['GITHUB_TOKEN']);
+    expect(detail.missingEnv, ['GITHUB_TOKEN']);
+    expect(detail.rawMarkdown, '# GitHub');
+  });
 }
 
 class _RouteAdapter implements HttpClientAdapter {

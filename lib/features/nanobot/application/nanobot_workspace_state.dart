@@ -24,6 +24,10 @@ class NanobotWorkspaceState {
     this.appItems = const [],
     this.automationItems = const [],
     this.skillItems = const [],
+    this.selectedSkillItem,
+    this.selectedSkillDetail,
+    this.isLoadingSkillDetail = false,
+    this.skillDetailError,
     this.capabilityMentions = const [],
     this.slashCommands = const [],
     this.isLoadingSurface = false,
@@ -56,6 +60,10 @@ class NanobotWorkspaceState {
   final List<NanobotCatalogItem> appItems;
   final List<NanobotCatalogItem> automationItems;
   final List<NanobotCatalogItem> skillItems;
+  final NanobotCatalogItem? selectedSkillItem;
+  final NanobotSkillDetail? selectedSkillDetail;
+  final bool isLoadingSkillDetail;
+  final String? skillDetailError;
   final List<NanobotCapabilityMention> capabilityMentions;
   final List<NanobotSlashCommand> slashCommands;
   final bool isLoadingSurface;
@@ -160,6 +168,10 @@ class NanobotWorkspaceState {
     List<NanobotCatalogItem>? appItems,
     List<NanobotCatalogItem>? automationItems,
     List<NanobotCatalogItem>? skillItems,
+    NanobotCatalogItem? selectedSkillItem,
+    NanobotSkillDetail? selectedSkillDetail,
+    bool? isLoadingSkillDetail,
+    String? skillDetailError,
     List<NanobotCapabilityMention>? capabilityMentions,
     List<NanobotSlashCommand>? slashCommands,
     bool? isLoadingSurface,
@@ -184,6 +196,9 @@ class NanobotWorkspaceState {
     bool clearThreadState = false,
     bool clearSettingsSnapshot = false,
     bool clearSurfaceItems = false,
+    bool clearSelectedSkill = false,
+    bool clearSkillDetail = false,
+    bool clearSkillDetailError = false,
     bool clearDraftWorkspaceScope = false,
     bool clearWorkspaceError = false,
     bool clearFilePreview = false,
@@ -213,6 +228,16 @@ class NanobotWorkspaceState {
           ? const []
           : automationItems ?? this.automationItems,
       skillItems: clearSurfaceItems ? const [] : skillItems ?? this.skillItems,
+      selectedSkillItem: clearSelectedSkill
+          ? null
+          : selectedSkillItem ?? this.selectedSkillItem,
+      selectedSkillDetail: clearSelectedSkill || clearSkillDetail
+          ? null
+          : selectedSkillDetail ?? this.selectedSkillDetail,
+      isLoadingSkillDetail: isLoadingSkillDetail ?? this.isLoadingSkillDetail,
+      skillDetailError: clearSelectedSkill || clearSkillDetailError
+          ? null
+          : skillDetailError ?? this.skillDetailError,
       capabilityMentions: capabilityMentions ?? this.capabilityMentions,
       slashCommands: slashCommands ?? this.slashCommands,
       isLoadingSurface: isLoadingSurface ?? this.isLoadingSurface,
