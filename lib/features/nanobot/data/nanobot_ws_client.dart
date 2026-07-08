@@ -19,6 +19,10 @@ class NanobotWsClient {
   final _knownChats = <String>{};
   final _sendQueue = <Map<String, Object?>>[];
   final _pendingTranscriptions = <String, Completer<String>>{};
+  final _chatStreams = <String, StreamController<NanobotEvent>>{};
+  final _chatListenerCounts = <String, int>{};
+  final _pendingInboundByChat = <String, List<NanobotEvent>>{};
+  static const _pendingInboundMax = 2000;
 
   WebSocket? _socket;
   Completer<String>? _pendingChatRequest;
@@ -29,6 +33,43 @@ class NanobotWsClient {
   Stream<NanobotSocketStatus> get status => _status.stream;
 
   NanobotSocketStatus get currentStatus => _currentStatus;
+
+  Stream<NanobotEvent> eventsForChat(String chatId) {
+    final trimmed = chatId.trim();
+    if (trimmed.isEmpty) {
+      return const Stream<NanobotEvent>.empty();
+    }
+    final existing = _chatStreams[trimmed];
+    if (existing != null) {
+      return existing.stream;
+    }
+
+    late final StreamController<NanobotEvent> controller;
+    controller = StreamController<NanobotEvent>.broadcast(
+      onListen: () {
+        _chatListenerCounts[trimmed] = (_chatListenerCounts[trimmed] ?? 0) + 1;
+        scheduleMicrotask(() {
+          final pending = _pendingInboundByChat.remove(trimmed);
+          if (pending == null || controller.isClosed) {
+            return;
+          }
+          for (final event in pending) {
+            controller.add(event);
+          }
+        });
+      },
+      onCancel: () {
+        final next = (_chatListenerCounts[trimmed] ?? 1) - 1;
+        if (next <= 0) {
+          _chatListenerCounts.remove(trimmed);
+        } else {
+          _chatListenerCounts[trimmed] = next;
+        }
+      },
+    );
+    _chatStreams[trimmed] = controller;
+    return controller.stream;
+  }
 
   Future<void> connect({bool forceRefresh = false}) async {
     final existing = _socket;
@@ -209,6 +250,12 @@ class NanobotWsClient {
 
   Future<void> dispose() async {
     await close();
+    for (final controller in _chatStreams.values) {
+      await controller.close();
+    }
+    _chatStreams.clear();
+    _chatListenerCounts.clear();
+    _pendingInboundByChat.clear();
     await _events.close();
     await _status.close();
   }
@@ -261,7 +308,7 @@ class NanobotWsClient {
             _pendingChatRequest = null;
           }
         }
-        _events.add(event);
+        _emitEvent(event);
       }
       _setStatus(NanobotSocketStatus.closed);
     } on Object {
@@ -290,6 +337,25 @@ class NanobotWsClient {
         }
       }
       _pendingTranscriptions.clear();
+    }
+  }
+
+  void _emitEvent(NanobotEvent event) {
+    _events.add(event);
+    final chatId = event.chatId;
+    if (chatId == null || chatId.isEmpty) {
+      return;
+    }
+    final controller = _chatStreams[chatId];
+    if (controller != null && (_chatListenerCounts[chatId] ?? 0) > 0) {
+      controller.add(event);
+      return;
+    }
+
+    final pending = _pendingInboundByChat.putIfAbsent(chatId, () => []);
+    pending.add(event);
+    if (pending.length > _pendingInboundMax) {
+      pending.removeRange(0, pending.length - _pendingInboundMax);
     }
   }
 

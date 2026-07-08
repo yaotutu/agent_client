@@ -178,6 +178,45 @@ void main() {
 
     await error;
   });
+
+  test(
+    'replays pending inbound frames when chat stream subscribes later',
+    () async {
+      final ws = client();
+      addTearDown(ws.dispose);
+      await ws.connect();
+
+      harness.send({
+        'event': 'delta',
+        'chat_id': 'chat-late',
+        'text': 'buffered',
+      });
+
+      await expectLater(
+        ws.eventsForChat('chat-late'),
+        emits(
+          isA<NanobotEvent>()
+              .having((event) => event.kind, 'kind', NanobotEventKind.delta)
+              .having((event) => event.text, 'text', 'buffered'),
+        ),
+      );
+    },
+  );
+
+  test('reattaches known chats after reconnect', () async {
+    final ws = client();
+    addTearDown(ws.dispose);
+
+    await ws.attach('chat-1');
+    expect(await harness.nextFrame(), {'type': 'attach', 'chat_id': 'chat-1'});
+
+    final closed = expectLater(ws.status, emits(NanobotSocketStatus.closed));
+    await harness.closeSocket(WebSocketStatus.normalClosure, 'bye');
+    await closed;
+
+    await ws.connect(forceRefresh: true);
+    expect(await harness.nextFrame(), {'type': 'attach', 'chat_id': 'chat-1'});
+  });
 }
 
 class _WsHarness {
