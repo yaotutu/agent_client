@@ -2736,7 +2736,15 @@ class _AutomationActionButtons extends StatelessWidget {
         PopupMenuButton<NanobotAutomationAction>(
           tooltip: 'Automation actions',
           position: PopupMenuPosition.under,
-          onSelected: (action) => onAction(action, item),
+          onSelected: (action) async {
+            if (action == NanobotAutomationAction.delete) {
+              final confirmed = await _confirmAutomationDelete(context, item);
+              if (!confirmed) {
+                return;
+              }
+            }
+            await onAction(action, item);
+          },
           itemBuilder: (context) => [
             PopupMenuItem(
               value: NanobotAutomationAction.run,
@@ -2755,6 +2763,33 @@ class _AutomationActionButtons extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<bool> _confirmAutomationDelete(
+    BuildContext context,
+    NanobotCatalogItem item,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete automation'),
+        content: Text(
+          'This removes ${item.title} from automations. '
+          'Past chat messages stay in the session.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 }
 

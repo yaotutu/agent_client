@@ -395,6 +395,56 @@ void main() {
     expect(find.text('Paused'), findsWidgets);
   });
 
+  testWidgets('automations delete action asks for confirmation first', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      automationItems: const [
+        NanobotCatalogItem(
+          id: 'job-1',
+          title: 'Daily job',
+          status: 'Active',
+          filterKeys: ['active'],
+        ),
+      ],
+      actionAutomationItems: const [],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Automation actions').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.actionRequests, isEmpty);
+    expect(find.text('Delete automation'), findsOneWidget);
+    expect(
+      find.text(
+        'This removes Daily job from automations. '
+        'Past chat messages stay in the session.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.actionRequests, [
+      (action: NanobotAutomationAction.delete, id: 'job-1'),
+    ]);
+  });
+
   testWidgets('automations surface shows queue and selected detail panel', (
     tester,
   ) async {
