@@ -457,16 +457,16 @@ class _SessionList extends StatelessWidget {
                   onTap: onOpenApps,
                 ),
                 _ShellNavTile(
-                  label: 'Automations',
-                  icon: Icons.schedule_outlined,
-                  selected: state.activeView == NanobotShellView.automations,
-                  onTap: onOpenAutomations,
-                ),
-                _ShellNavTile(
                   label: 'Skills',
                   icon: Icons.extension_outlined,
                   selected: state.activeView == NanobotShellView.skills,
                   onTap: onOpenSkills,
+                ),
+                _ShellNavTile(
+                  label: 'Automations',
+                  icon: Icons.schedule_outlined,
+                  selected: state.activeView == NanobotShellView.automations,
+                  onTap: onOpenAutomations,
                 ),
               ],
             ),

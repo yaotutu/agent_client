@@ -31,6 +31,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final appsTop = tester.getTopLeft(find.text('Apps').first).dy;
+    final skillsTop = tester.getTopLeft(find.text('Skills').first).dy;
+    final automationsTop = tester.getTopLeft(find.text('Automations').first).dy;
+    expect(appsTop, lessThan(skillsTop));
+    expect(skillsTop, lessThan(automationsTop));
+
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     expect(find.text('Settings'), findsWidgets);
