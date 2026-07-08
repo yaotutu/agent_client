@@ -2,6 +2,7 @@ import 'package:agent_client/app/theme/app_theme_tokens.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_controller.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_state.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_media_attachment.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
@@ -1441,6 +1442,12 @@ class _ThreadMessageBubble extends StatelessWidget {
                   textColor: textColor,
                   onOpenFilePreview: onOpenFilePreview,
                 ),
+              if (entry.media.isNotEmpty) ...[
+                if (entry.content.trim().isNotEmpty ||
+                    entry.reasoning?.trim().isNotEmpty == true)
+                  const SizedBox(height: 8),
+                _MessageMediaRow(media: entry.media),
+              ],
             ],
           ),
         ),
@@ -1848,11 +1855,87 @@ class _MessageBubble extends StatelessWidget {
                 textColor: textColor,
                 onOpenFilePreview: onOpenFilePreview,
               ),
+              if (message.media.isNotEmpty) ...[
+                if (message.content.trim().isNotEmpty ||
+                    message.reasoning?.trim().isNotEmpty == true)
+                  const SizedBox(height: 8),
+                _MessageMediaRow(media: message.media),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _MessageMediaRow extends StatelessWidget {
+  const _MessageMediaRow({required this.media});
+
+  final List<NanobotMediaAttachment> media;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final attachment in media)
+          _MediaAttachmentTile(attachment: attachment),
+      ],
+    );
+  }
+}
+
+class _MediaAttachmentTile extends StatelessWidget {
+  const _MediaAttachmentTile({required this.attachment});
+
+  final NanobotMediaAttachment attachment;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = attachment.name?.trim().isNotEmpty == true
+        ? attachment.name!.trim()
+        : _fileNameFromPath(attachment.url ?? 'Attachment');
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 220),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspace,
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _mediaIcon(attachment.kind),
+            size: 16,
+            color: AppThemeTokens.mutedText,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppThemeTokens.text,
+                fontSize: 12,
+                height: 1.2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _mediaIcon(String kind) {
+    return switch (kind) {
+      'image' => Icons.image_outlined,
+      'video' => Icons.play_circle_outline,
+      _ => Icons.insert_drive_file_outlined,
+    };
   }
 }
 

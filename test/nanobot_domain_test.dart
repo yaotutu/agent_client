@@ -61,6 +61,26 @@ void main() {
     expect(message.sessionKey, 'websocket:chat-1');
   });
 
+  test('webui thread messages preserve media attachments', () {
+    final message = NanobotMessage.fromWebuiJson(
+      json: {
+        'id': 'm-media',
+        'role': 'assistant',
+        'content': 'diagram',
+        'media': [
+          {'kind': 'image', 'url': '/api/media/sig/payload', 'name': 'Diagram'},
+        ],
+      },
+      sessionKey: 'websocket:chat-1',
+      chatId: 'chat-1',
+    );
+
+    expect(message.media, hasLength(1));
+    expect(message.media.single.kind, 'image');
+    expect(message.media.single.url, '/api/media/sig/payload');
+    expect(message.media.single.name, 'Diagram');
+  });
+
   test('websocket event mapper keeps key live event fields', () {
     final delta = NanobotEvent.fromJson({
       'event': 'delta',

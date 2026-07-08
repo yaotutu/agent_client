@@ -1,3 +1,5 @@
+import 'package:agent_client/features/nanobot/domain/nanobot_media_attachment.dart';
+
 enum NanobotMessageRole { system, user, assistant, tool }
 
 enum NanobotMessageStatus { streaming, completed, failed }
@@ -12,6 +14,7 @@ class NanobotMessage {
     required this.createdAt,
     this.status = NanobotMessageStatus.completed,
     this.reasoning,
+    this.media = const [],
   });
 
   final String id;
@@ -22,6 +25,7 @@ class NanobotMessage {
   final DateTime createdAt;
   final NanobotMessageStatus status;
   final String? reasoning;
+  final List<NanobotMediaAttachment> media;
 
   NanobotMessage copyWith({
     String? id,
@@ -32,6 +36,7 @@ class NanobotMessage {
     DateTime? createdAt,
     NanobotMessageStatus? status,
     String? reasoning,
+    List<NanobotMediaAttachment>? media,
   }) {
     return NanobotMessage(
       id: id ?? this.id,
@@ -42,6 +47,7 @@ class NanobotMessage {
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
       reasoning: reasoning ?? this.reasoning,
+      media: media ?? this.media,
     );
   }
 
@@ -63,7 +69,19 @@ class NanobotMessage {
       status: json['isStreaming'] == true
           ? NanobotMessageStatus.streaming
           : NanobotMessageStatus.completed,
+      media: _mediaFrom(json['media']),
     );
+  }
+
+  static List<NanobotMediaAttachment> _mediaFrom(Object? value) {
+    if (value is! List) {
+      return const [];
+    }
+    return [
+      for (final item in value)
+        if (item is Map)
+          NanobotMediaAttachment.fromJson(Map<String, Object?>.from(item)),
+    ];
   }
 
   static NanobotMessageRole _roleFromString(String? value) {

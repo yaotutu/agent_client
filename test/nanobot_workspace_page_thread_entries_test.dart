@@ -161,6 +161,35 @@ void main() {
     expect(find.text('File preview'), findsNothing);
   });
 
+  testWidgets('message media attachments render attachment tiles', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'See diagram',
+      'media_urls': [
+        {'kind': 'image', 'url': '/api/media/sig/payload', 'name': 'Diagram'},
+      ],
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('See diagram'), findsOneWidget);
+    expect(find.text('Diagram'), findsOneWidget);
+    expect(find.byIcon(Icons.image_outlined), findsOneWidget);
+  });
+
   testWidgets('message too large stream errors show a dismissible alert', (
     tester,
   ) async {

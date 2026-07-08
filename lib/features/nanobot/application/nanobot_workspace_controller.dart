@@ -924,6 +924,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
             createdAt: message.createdAt,
             isStreaming: message.status == NanobotMessageStatus.streaming,
             reasoning: message.reasoning,
+            media: message.media,
           ),
       ],
       isStreaming: isStreaming,
@@ -959,7 +960,8 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       for (final entry in thread.entries)
         if (entry.kind == NanobotThreadEntryKind.message &&
             (entry.content.trim().isNotEmpty ||
-                entry.reasoning?.trim().isNotEmpty == true))
+                entry.reasoning?.trim().isNotEmpty == true ||
+                entry.media.isNotEmpty))
           NanobotMessage(
             id: entry.id,
             sessionKey: thread.sessionKey,
@@ -971,6 +973,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
                 ? NanobotMessageStatus.streaming
                 : NanobotMessageStatus.completed,
             reasoning: entry.reasoning,
+            media: entry.media,
           ),
     ];
   }

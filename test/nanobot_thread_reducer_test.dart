@@ -104,6 +104,25 @@ void main() {
     expect(state.entries.single.fileEdits.single['path'], 'lib/main.dart');
   });
 
+  test('message frames preserve media attachments', () {
+    final state = reduceAll([
+      {
+        'event': 'message',
+        'chat_id': 'chat-1',
+        'text': 'diagram',
+        'media_urls': [
+          {'kind': 'image', 'url': '/api/media/sig/payload', 'name': 'Diagram'},
+        ],
+      },
+    ]);
+
+    expect(state.entries, hasLength(1));
+    expect(state.entries.single.media, hasLength(1));
+    expect(state.entries.single.media.single.kind, 'image');
+    expect(state.entries.single.media.single.url, '/api/media/sig/payload');
+    expect(state.entries.single.media.single.name, 'Diagram');
+  });
+
   test('goal status and turn end update run and goal snapshots', () {
     final state = reduceAll([
       {

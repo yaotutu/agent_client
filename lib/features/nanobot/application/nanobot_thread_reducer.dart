@@ -1,4 +1,5 @@
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_media_attachment.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 
 class NanobotThreadReducer {
@@ -129,7 +130,8 @@ class NanobotThreadReducer {
     }
 
     final text = event.text ?? '';
-    if (text.isEmpty && event.media.isEmpty && event.mediaUrls.isEmpty) {
+    final media = _mediaFromEvent(event);
+    if (text.isEmpty && media.isEmpty) {
       return state;
     }
 
@@ -145,6 +147,7 @@ class NanobotThreadReducer {
           latencyMs: event.latencyMs,
           source: event.source,
           agentUi: event.agentUi,
+          media: media,
         ),
         event,
         fallbackPhase: 'answer',
@@ -362,6 +365,13 @@ class NanobotThreadReducer {
       }
     }
     return null;
+  }
+
+  static List<NanobotMediaAttachment> _mediaFromEvent(NanobotEvent event) {
+    return [
+      for (final url in event.media) NanobotMediaAttachment.fromUrl(url),
+      for (final item in event.mediaUrls) NanobotMediaAttachment.fromJson(item),
+    ];
   }
 
   static String _entryId(NanobotThreadState state, String prefix) {

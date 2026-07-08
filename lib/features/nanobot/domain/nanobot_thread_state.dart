@@ -1,3 +1,5 @@
+import 'package:agent_client/features/nanobot/domain/nanobot_media_attachment.dart';
+
 enum NanobotThreadRole { system, user, assistant, tool }
 
 enum NanobotThreadEntryKind { message, trace, fileEdit }
@@ -51,6 +53,7 @@ class NanobotThreadEntry {
     this.traces = const [],
     this.toolEvents = const [],
     this.fileEdits = const [],
+    this.media = const [],
     this.reasoning,
     this.reasoningStreaming = false,
     this.latencyMs,
@@ -70,6 +73,7 @@ class NanobotThreadEntry {
   final List<String> traces;
   final List<Map<String, Object?>> toolEvents;
   final List<Map<String, Object?>> fileEdits;
+  final List<NanobotMediaAttachment> media;
   final String? reasoning;
   final bool reasoningStreaming;
   final int? latencyMs;
@@ -89,6 +93,7 @@ class NanobotThreadEntry {
     List<String>? traces,
     List<Map<String, Object?>>? toolEvents,
     List<Map<String, Object?>>? fileEdits,
+    List<NanobotMediaAttachment>? media,
     String? reasoning,
     bool? reasoningStreaming,
     int? latencyMs,
@@ -108,6 +113,7 @@ class NanobotThreadEntry {
       traces: traces ?? this.traces,
       toolEvents: toolEvents ?? this.toolEvents,
       fileEdits: fileEdits ?? this.fileEdits,
+      media: media ?? this.media,
       reasoning: reasoning ?? this.reasoning,
       reasoningStreaming: reasoningStreaming ?? this.reasoningStreaming,
       latencyMs: latencyMs ?? this.latencyMs,
