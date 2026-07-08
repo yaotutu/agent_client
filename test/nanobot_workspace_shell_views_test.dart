@@ -69,11 +69,44 @@ void main() {
     expect(state.activeView, NanobotShellView.chat);
     expect(find.text('Start a chat'), findsOneWidget);
   });
+
+  testWidgets('automations empty surface keeps heading and webui empty copy', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(automationItems: const []);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Automations'), findsWidgets);
+    expect(find.text('No automations yet.'), findsOneWidget);
+    expect(find.text('No automations'), findsNothing);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
+  _FakeNanobotRepository({
+    List<NanobotCatalogItem>? appItems,
+    List<NanobotCatalogItem>? automationItems,
+    List<NanobotCatalogItem>? skillItems,
+  }) : _appItems = appItems ?? _defaultAppItems,
+       _automationItems = automationItems ?? _defaultAutomationItems,
+       _skillItems = skillItems ?? _defaultSkillItems;
+
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
+  final List<NanobotCatalogItem> _appItems;
+  final List<NanobotCatalogItem> _automationItems;
+  final List<NanobotCatalogItem> _skillItems;
   final _sessions = [
     NanobotSessionSummary(
       key: 'websocket:chat-1',
@@ -229,38 +262,17 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
-    return const [
-      NanobotCatalogItem(
-        id: 'gimp',
-        title: 'GIMP',
-        subtitle: 'Image editor',
-        status: 'installed',
-      ),
-    ];
+    return _appItems;
   }
 
   @override
   Future<List<NanobotCatalogItem>> fetchAutomationItems() async {
-    return const [
-      NanobotCatalogItem(
-        id: 'job-1',
-        title: 'Daily ping',
-        subtitle: 'cron',
-        status: 'enabled',
-      ),
-    ];
+    return _automationItems;
   }
 
   @override
   Future<List<NanobotCatalogItem>> fetchSkillItems() async {
-    return const [
-      NanobotCatalogItem(
-        id: 'browser',
-        title: 'browser',
-        subtitle: 'Browse',
-        status: 'available',
-      ),
-    ];
+    return _skillItems;
   }
 
   @override
@@ -273,4 +285,31 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     await _events.close();
     await _status.close();
   }
+
+  static const _defaultAppItems = [
+    NanobotCatalogItem(
+      id: 'gimp',
+      title: 'GIMP',
+      subtitle: 'Image editor',
+      status: 'installed',
+    ),
+  ];
+
+  static const _defaultAutomationItems = [
+    NanobotCatalogItem(
+      id: 'job-1',
+      title: 'Daily ping',
+      subtitle: 'cron',
+      status: 'enabled',
+    ),
+  ];
+
+  static const _defaultSkillItems = [
+    NanobotCatalogItem(
+      id: 'browser',
+      title: 'browser',
+      subtitle: 'Browse',
+      status: 'available',
+    ),
+  ];
 }

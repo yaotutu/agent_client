@@ -1411,17 +1411,17 @@ class _SecondarySurface extends StatelessWidget {
         ),
         NanobotShellView.apps => _CatalogSurface(
           title: 'Apps',
-          emptyText: 'No apps',
+          emptyText: 'No apps match this filter.',
           items: state.appItems,
         ),
         NanobotShellView.automations => _CatalogSurface(
           title: 'Automations',
-          emptyText: 'No automations',
+          emptyText: 'No automations yet.',
           items: state.automationItems,
         ),
         NanobotShellView.skills => _CatalogSurface(
           title: 'Skills',
-          emptyText: 'No skills',
+          emptyText: 'No skills are available.',
           items: state.skillItems,
         ),
         NanobotShellView.chat => const SizedBox.shrink(),
@@ -1473,16 +1473,16 @@ class _CatalogSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return _EmptySurface(text: emptyText);
-    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SurfaceTitle(title),
         const SizedBox(height: 16),
-        for (final item in items)
-          _CatalogRow(key: ValueKey(item.id), item: item),
+        if (items.isEmpty)
+          _EmptySurface(text: emptyText)
+        else
+          for (final item in items)
+            _CatalogRow(key: ValueKey(item.id), item: item),
       ],
     );
   }
