@@ -208,6 +208,34 @@ void main() {
     expect(repository.previewPath, isNull);
   });
 
+  testWidgets('message strikethrough markdown renders deleted spans', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Use ~~old gateway~~ new gateway.',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('~~'), findsNothing);
+    expect(
+      _richTextWithDecoration('old gateway', TextDecoration.lineThrough),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('message markdown bullet lists render list rows', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
@@ -717,6 +745,26 @@ Finder _richTextWithCodeSpan(String text) {
     void visit(InlineSpan span) {
       if (span is TextSpan) {
         if (span.text == text && span.style?.fontFamily == 'monospace') {
+          found = true;
+        }
+        span.children?.forEach(visit);
+      }
+    }
+
+    visit(widget.text);
+    return found;
+  });
+}
+
+Finder _richTextWithDecoration(String text, TextDecoration decoration) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! RichText) {
+      return false;
+    }
+    var found = false;
+    void visit(InlineSpan span) {
+      if (span is TextSpan) {
+        if (span.text == text && span.style?.decoration == decoration) {
           found = true;
         }
         span.children?.forEach(visit);
