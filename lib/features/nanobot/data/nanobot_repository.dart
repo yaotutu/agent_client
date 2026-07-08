@@ -29,6 +29,14 @@ abstract class NanobotRepositoryPort {
 
   Future<void> sendMessage({required String chatId, required String content});
 
+  Future<NanobotSidebarState> fetchSidebarState() {
+    throw UnimplementedError('fetchSidebarState');
+  }
+
+  Future<NanobotSidebarState> updateSidebarState(NanobotSidebarState state) {
+    throw UnimplementedError('updateSidebarState');
+  }
+
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() {
     throw UnimplementedError('fetchSettingsSnapshot');
   }
@@ -107,14 +115,18 @@ class NanobotRepository implements NanobotRepositoryPort {
     return api.listSlashCommands();
   }
 
-  Future<NanobotSidebarStateDto> fetchSidebarState() {
-    return api.fetchSidebarState();
+  @override
+  Future<NanobotSidebarState> fetchSidebarState() async {
+    return _sidebarStateFromDto(await api.fetchSidebarState());
   }
 
-  Future<NanobotSidebarStateDto> updateSidebarState(
-    NanobotSidebarStateDto state,
-  ) {
-    return api.updateSidebarState(state);
+  @override
+  Future<NanobotSidebarState> updateSidebarState(
+    NanobotSidebarState state,
+  ) async {
+    return _sidebarStateFromDto(
+      await api.updateSidebarState(_sidebarStateToDto(state)),
+    );
   }
 
   @override
@@ -264,5 +276,33 @@ class NanobotRepository implements NanobotRepositoryPort {
       }
     }
     return _stringValue(row, 'kind');
+  }
+
+  NanobotSidebarState _sidebarStateFromDto(NanobotSidebarStateDto dto) {
+    return NanobotSidebarState(
+      pinnedKeys: dto.pinnedKeys,
+      archivedKeys: dto.archivedKeys,
+      titleOverrides: dto.titleOverrides,
+      projectNameOverrides: dto.projectNameOverrides,
+      collapsedGroups: dto.collapsedGroups,
+      showArchived: dto.view.showArchived,
+      sort: dto.view.sort,
+      density: dto.view.density,
+    );
+  }
+
+  NanobotSidebarStateDto _sidebarStateToDto(NanobotSidebarState state) {
+    return NanobotSidebarStateDto(
+      pinnedKeys: state.pinnedKeys,
+      archivedKeys: state.archivedKeys,
+      titleOverrides: state.titleOverrides,
+      projectNameOverrides: state.projectNameOverrides,
+      collapsedGroups: state.collapsedGroups,
+      view: NanobotSidebarViewDto(
+        density: state.density,
+        sort: state.sort,
+        showArchived: state.showArchived,
+      ),
+    );
   }
 }

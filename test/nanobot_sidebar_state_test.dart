@@ -15,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
-  testWidgets('sidebar utility entries switch to secondary webui surfaces', (
+  testWidgets('session list applies and persists sidebar server state', (
     tester,
   ) async {
     final repository = _FakeNanobotRepository();
@@ -29,49 +29,67 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
-    expect(find.text('Settings'), findsWidgets);
-    expect(find.text('MiniMax-M3'), findsOneWidget);
-    expect(find.text('openai'), findsOneWidget);
-
-    await tester.tap(find.text('Apps'));
-    await tester.pumpAndSettle();
-    expect(find.text('Apps'), findsWidgets);
-    expect(find.text('GIMP'), findsOneWidget);
-    expect(find.text('installed'), findsOneWidget);
-
-    await tester.tap(find.text('Automations'));
-    await tester.pumpAndSettle();
-    expect(find.text('Automations'), findsWidgets);
-    expect(find.text('Daily ping'), findsOneWidget);
-    expect(find.text('enabled'), findsOneWidget);
-
-    await tester.tap(find.text('Skills'));
-    await tester.pumpAndSettle();
-    expect(find.text('Skills'), findsWidgets);
-    expect(find.text('browser'), findsOneWidget);
-    expect(find.text('available'), findsOneWidget);
-
-    await tester.tap(find.text('Chats'));
-    await tester.pumpAndSettle();
-    final state = ProviderScope.containerOf(
+    expect(find.text('Pinned Roadmap'), findsOneWidget);
+    expect(find.text('Active Chat'), findsWidgets);
+    expect(find.text('Archived Chat'), findsNothing);
+    final container = ProviderScope.containerOf(
       tester.element(find.byType(NanobotWorkspacePage)),
-    ).read(nanobotWorkspaceControllerProvider);
-    expect(state.activeView, NanobotShellView.chat);
-    expect(find.text('Start a chat'), findsOneWidget);
+    );
+    expect(
+      container
+          .read(nanobotWorkspaceControllerProvider)
+          .visibleSessions
+          .map((session) => session.key),
+      ['websocket:chat-2', 'websocket:chat-1'],
+    );
+
+    await tester.tap(find.text('Show archived'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Archived Chat'), findsOneWidget);
+    expect(repository.persistedSidebarState?.showArchived, isTrue);
+
+    await container
+        .read(nanobotWorkspaceControllerProvider.notifier)
+        .toggleSessionPinned('websocket:chat-1');
+
+    expect(repository.persistedSidebarState?.pinnedKeys, [
+      'websocket:chat-2',
+      'websocket:chat-1',
+    ]);
   });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
+  NanobotSidebarState? persistedSidebarState;
+
   final _sessions = [
     NanobotSessionSummary(
       key: 'websocket:chat-1',
       channel: 'websocket',
       chatId: 'chat-1',
-      preview: '',
+      title: 'Active Chat',
+      preview: 'Active preview',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(1000),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(3000),
+    ),
+    NanobotSessionSummary(
+      key: 'websocket:chat-2',
+      channel: 'websocket',
+      chatId: 'chat-2',
+      title: 'Roadmap',
+      preview: 'Roadmap preview',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(2000),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(2000),
+    ),
+    NanobotSessionSummary(
+      key: 'websocket:chat-3',
+      channel: 'websocket',
+      chatId: 'chat-3',
+      title: 'Archived Chat',
+      preview: 'Archived preview',
       createdAt: DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
     ),
@@ -103,18 +121,6 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<List<NanobotSessionSummary>> listSessions() async => _sessions;
 
   @override
-  Future<NanobotSidebarState> fetchSidebarState() async {
-    return const NanobotSidebarState();
-  }
-
-  @override
-  Future<NanobotSidebarState> updateSidebarState(
-    NanobotSidebarState state,
-  ) async {
-    return state;
-  }
-
-  @override
   Future<List<NanobotMessage>> fetchThread(
     NanobotSessionSummary session,
   ) async {
@@ -134,49 +140,40 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }) async {}
 
   @override
-  Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
-    return const NanobotSettingsSnapshot(
-      model: 'MiniMax-M3',
-      provider: 'openai',
-      totalTokens: 42,
-      requiresRestart: false,
+  Future<NanobotSidebarState> fetchSidebarState() async {
+    return const NanobotSidebarState(
+      pinnedKeys: ['websocket:chat-2'],
+      archivedKeys: ['websocket:chat-3'],
+      titleOverrides: {'websocket:chat-2': 'Pinned Roadmap'},
     );
   }
 
   @override
+  Future<NanobotSidebarState> updateSidebarState(
+    NanobotSidebarState state,
+  ) async {
+    persistedSidebarState = state;
+    return state;
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
+    return const NanobotSettingsSnapshot();
+  }
+
+  @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
-    return const [
-      NanobotCatalogItem(
-        id: 'gimp',
-        title: 'GIMP',
-        subtitle: 'Image editor',
-        status: 'installed',
-      ),
-    ];
+    return const [];
   }
 
   @override
   Future<List<NanobotCatalogItem>> fetchAutomationItems() async {
-    return const [
-      NanobotCatalogItem(
-        id: 'job-1',
-        title: 'Daily ping',
-        subtitle: 'cron',
-        status: 'enabled',
-      ),
-    ];
+    return const [];
   }
 
   @override
   Future<List<NanobotCatalogItem>> fetchSkillItems() async {
-    return const [
-      NanobotCatalogItem(
-        id: 'browser',
-        title: 'browser',
-        subtitle: 'Browse',
-        status: 'available',
-      ),
-    ];
+    return const [];
   }
 
   @override

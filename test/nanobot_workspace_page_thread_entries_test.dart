@@ -111,6 +111,18 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<List<NanobotSessionSummary>> listSessions() async => _sessions;
 
   @override
+  Future<NanobotSidebarState> fetchSidebarState() async {
+    return const NanobotSidebarState();
+  }
+
+  @override
+  Future<NanobotSidebarState> updateSidebarState(
+    NanobotSidebarState state,
+  ) async {
+    return state;
+  }
+
+  @override
   Future<void> attach(String chatId) async {}
 
   @override

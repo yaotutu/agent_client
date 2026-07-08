@@ -51,6 +51,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
                   onOpenApps: controller.openApps,
                   onOpenAutomations: controller.openAutomations,
                   onOpenSkills: controller.openSkills,
+                  onToggleShowArchived: controller.toggleShowArchived,
                 ),
               ),
             )
@@ -88,6 +89,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
                     onOpenApps: controller.openApps,
                     onOpenAutomations: controller.openAutomations,
                     onOpenSkills: controller.openSkills,
+                    onToggleShowArchived: controller.toggleShowArchived,
                   ),
                 ),
                 const VerticalDivider(width: 1, color: AppThemeTokens.border),
@@ -122,6 +124,7 @@ class _SessionList extends StatelessWidget {
     required this.onOpenApps,
     required this.onOpenAutomations,
     required this.onOpenSkills,
+    required this.onToggleShowArchived,
   });
 
   final NanobotWorkspaceState state;
@@ -133,6 +136,7 @@ class _SessionList extends StatelessWidget {
   final VoidCallback onOpenApps;
   final VoidCallback onOpenAutomations;
   final VoidCallback onOpenSkills;
+  final VoidCallback onToggleShowArchived;
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +213,7 @@ class _SessionList extends StatelessWidget {
           Expanded(
             child: state.isBootstrapping
                 ? const Center(child: CircularProgressIndicator())
-                : state.sessions.isEmpty
+                : state.visibleSessions.isEmpty
                 ? const Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
@@ -221,17 +225,41 @@ class _SessionList extends StatelessWidget {
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: state.sessions.length,
+                    itemCount: state.visibleSessions.length,
                     itemBuilder: (context, index) {
-                      final session = state.sessions[index];
+                      final session = state.visibleSessions[index];
                       return _SessionTile(
                         session: session,
+                        title: state.displayTitleFor(session),
+                        pinned: state.sidebarState.pinnedKeys.contains(
+                          session.key,
+                        ),
+                        archived: state.sidebarState.archivedKeys.contains(
+                          session.key,
+                        ),
                         selected: session.key == state.selectedSessionKey,
                         onTap: () => onSelected(session),
                       );
                     },
                   ),
           ),
+          if (state.sidebarState.archivedKeys.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+              child: TextButton.icon(
+                onPressed: onToggleShowArchived,
+                icon: Icon(
+                  state.sidebarState.showArchived
+                      ? Icons.inventory_2_outlined
+                      : Icons.unarchive_outlined,
+                ),
+                label: Text(
+                  state.sidebarState.showArchived
+                      ? 'Hide archived'
+                      : 'Show archived',
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -285,11 +313,17 @@ class _ShellNavTile extends StatelessWidget {
 class _SessionTile extends StatelessWidget {
   const _SessionTile({
     required this.session,
+    required this.title,
+    required this.pinned,
+    required this.archived,
     required this.selected,
     required this.onTap,
   });
 
   final NanobotSessionSummary session;
+  final String title;
+  final bool pinned;
+  final bool archived;
   final bool selected;
   final VoidCallback onTap;
 
@@ -312,7 +346,7 @@ class _SessionTile extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        session.displayTitle,
+                        title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -328,6 +362,24 @@ class _SessionTile extends StatelessWidget {
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    if (pinned)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 8),
+                        child: Icon(
+                          Icons.push_pin_outlined,
+                          size: 16,
+                          color: AppThemeTokens.mutedText,
+                        ),
+                      ),
+                    if (archived)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 8),
+                        child: Icon(
+                          Icons.inventory_2_outlined,
+                          size: 16,
+                          color: AppThemeTokens.mutedText,
                         ),
                       ),
                   ],

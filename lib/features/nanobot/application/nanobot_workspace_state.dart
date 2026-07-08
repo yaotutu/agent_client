@@ -17,6 +17,7 @@ class NanobotWorkspaceState {
     this.automationItems = const [],
     this.skillItems = const [],
     this.isLoadingSurface = false,
+    this.sidebarState = const NanobotSidebarState(),
     this.modelName,
     this.socketStatus = NanobotSocketStatus.idle,
     this.isBootstrapping = false,
@@ -38,6 +39,7 @@ class NanobotWorkspaceState {
   final List<NanobotCatalogItem> automationItems;
   final List<NanobotCatalogItem> skillItems;
   final bool isLoadingSurface;
+  final NanobotSidebarState sidebarState;
   final String? modelName;
   final NanobotSocketStatus socketStatus;
   final bool isBootstrapping;
@@ -64,6 +66,38 @@ class NanobotWorkspaceState {
     return !isBootstrapping && !isLoadingThread;
   }
 
+  List<NanobotSessionSummary> get visibleSessions {
+    final archived = sidebarState.archivedKeys.toSet();
+    final pinnedIndex = <String, int>{
+      for (var i = 0; i < sidebarState.pinnedKeys.length; i += 1)
+        sidebarState.pinnedKeys[i]: i,
+    };
+    final rows = [
+      for (final session in sessions)
+        if (sidebarState.showArchived || !archived.contains(session.key))
+          session,
+    ];
+    rows.sort((a, b) {
+      final aPinned = pinnedIndex[a.key];
+      final bPinned = pinnedIndex[b.key];
+      if (aPinned != null || bPinned != null) {
+        if (aPinned == null) return 1;
+        if (bPinned == null) return -1;
+        return aPinned.compareTo(bPinned);
+      }
+      return _sessionTime(b).compareTo(_sessionTime(a));
+    });
+    return rows;
+  }
+
+  String displayTitleFor(NanobotSessionSummary session) {
+    final override = sidebarState.titleOverrides[session.key]?.trim();
+    if (override != null && override.isNotEmpty) {
+      return override;
+    }
+    return session.displayTitle;
+  }
+
   NanobotWorkspaceState copyWith({
     List<NanobotSessionSummary>? sessions,
     List<NanobotMessage>? messages,
@@ -76,6 +110,7 @@ class NanobotWorkspaceState {
     List<NanobotCatalogItem>? automationItems,
     List<NanobotCatalogItem>? skillItems,
     bool? isLoadingSurface,
+    NanobotSidebarState? sidebarState,
     String? modelName,
     NanobotSocketStatus? socketStatus,
     bool? isBootstrapping,
@@ -113,6 +148,7 @@ class NanobotWorkspaceState {
           : automationItems ?? this.automationItems,
       skillItems: clearSurfaceItems ? const [] : skillItems ?? this.skillItems,
       isLoadingSurface: isLoadingSurface ?? this.isLoadingSurface,
+      sidebarState: sidebarState ?? this.sidebarState,
       modelName: clearModelName ? null : modelName ?? this.modelName,
       socketStatus: socketStatus ?? this.socketStatus,
       isBootstrapping: isBootstrapping ?? this.isBootstrapping,
@@ -124,5 +160,10 @@ class NanobotWorkspaceState {
       activityText: clearActivity ? null : activityText ?? this.activityText,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
+  }
+
+  static int _sessionTime(NanobotSessionSummary session) {
+    return (session.updatedAt ?? session.createdAt)?.millisecondsSinceEpoch ??
+        0;
   }
 }

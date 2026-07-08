@@ -29,3 +29,47 @@ class NanobotCatalogItem {
   final String subtitle;
   final String status;
 }
+
+class NanobotSidebarState {
+  const NanobotSidebarState({
+    this.pinnedKeys = const [],
+    this.archivedKeys = const [],
+    this.titleOverrides = const {},
+    this.projectNameOverrides = const {},
+    this.collapsedGroups = const {},
+    this.showArchived = false,
+    this.sort = 'updated_desc',
+    this.density = 'comfortable',
+  });
+
+  final List<String> pinnedKeys;
+  final List<String> archivedKeys;
+  final Map<String, String> titleOverrides;
+  final Map<String, String> projectNameOverrides;
+  final Map<String, bool> collapsedGroups;
+  final bool showArchived;
+  final String sort;
+  final String density;
+
+  NanobotSidebarState copyWith({
+    List<String>? pinnedKeys,
+    List<String>? archivedKeys,
+    Map<String, String>? titleOverrides,
+    Map<String, String>? projectNameOverrides,
+    Map<String, bool>? collapsedGroups,
+    bool? showArchived,
+    String? sort,
+    String? density,
+  }) {
+    return NanobotSidebarState(
+      pinnedKeys: pinnedKeys ?? this.pinnedKeys,
+      archivedKeys: archivedKeys ?? this.archivedKeys,
+      titleOverrides: titleOverrides ?? this.titleOverrides,
+      projectNameOverrides: projectNameOverrides ?? this.projectNameOverrides,
+      collapsedGroups: collapsedGroups ?? this.collapsedGroups,
+      showArchived: showArchived ?? this.showArchived,
+      sort: sort ?? this.sort,
+      density: density ?? this.density,
+    );
+  }
+}

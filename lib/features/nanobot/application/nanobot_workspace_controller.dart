@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agent_client/features/nanobot/application/nanobot_thread_reducer.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_state.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_providers.dart';
+import 'package:agent_client/features/nanobot/data/nanobot_repository.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
@@ -51,8 +52,13 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       if (!_isActive(generation)) {
         return;
       }
+      final sidebarState = await _loadSidebarState(repository);
+      if (!_isActive(generation)) {
+        return;
+      }
       state = state.copyWith(
         sessions: sessions,
+        sidebarState: sidebarState,
         modelName: bootstrap.modelName,
         isBootstrapping: false,
         socketStatus: repository.currentStatus,
@@ -78,6 +84,16 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       state = state.copyWith(sessions: sessions, clearError: true);
     } on Object catch (error) {
       state = state.copyWith(errorMessage: _friendlyError(error));
+    }
+  }
+
+  Future<NanobotSidebarState> _loadSidebarState(
+    NanobotRepositoryPort repository,
+  ) async {
+    try {
+      return await repository.fetchSidebarState();
+    } on Object {
+      return const NanobotSidebarState();
     }
   }
 
@@ -142,6 +158,36 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         clearError: true,
       ),
     );
+  }
+
+  Future<void> toggleShowArchived() {
+    return _updateSidebarState(
+      state.sidebarState.copyWith(
+        showArchived: !state.sidebarState.showArchived,
+      ),
+    );
+  }
+
+  Future<void> toggleSessionPinned(String key) {
+    final pinned = [...state.sidebarState.pinnedKeys];
+    if (pinned.contains(key)) {
+      pinned.remove(key);
+    } else {
+      pinned.add(key);
+    }
+    return _updateSidebarState(state.sidebarState.copyWith(pinnedKeys: pinned));
+  }
+
+  Future<void> _updateSidebarState(NanobotSidebarState next) async {
+    state = state.copyWith(sidebarState: next, clearError: true);
+    try {
+      final persisted = await ref
+          .read(nanobotRepositoryProvider)
+          .updateSidebarState(next);
+      state = state.copyWith(sidebarState: persisted, clearError: true);
+    } on Object catch (error) {
+      state = state.copyWith(errorMessage: _friendlyError(error));
+    }
   }
 
   Future<void> _openCatalog(
