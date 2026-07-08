@@ -207,6 +207,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(NanobotWorkspacePage)),
+    );
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
@@ -219,6 +222,15 @@ void main() {
 
     expect(find.widgetWithText(ListTile, 'Pinned Roadmap'), findsOneWidget);
     expect(find.widgetWithText(ListTile, 'Active Chat'), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Results'), findsNothing);
+    expect(
+      container.read(nanobotWorkspaceControllerProvider).selectedSessionKey,
+      'websocket:chat-2',
+    );
   });
 
   testWidgets('new chat shortcut closes search and starts a chat', (

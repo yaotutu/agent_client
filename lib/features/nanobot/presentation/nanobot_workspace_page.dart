@@ -865,16 +865,27 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
     final results = _searchResults(query);
     return AlertDialog(
       titlePadding: EdgeInsets.zero,
-      title: TextField(
-        controller: _queryController,
-        autofocus: true,
-        decoration: const InputDecoration(
-          hintText: 'Search',
-          prefixIcon: Icon(Icons.search),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      title: Focus(
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.enter) {
+            _selectFirstResult();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: TextField(
+          controller: _queryController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Search',
+            prefixIcon: Icon(Icons.search),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          ),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _selectFirstResult(),
         ),
-        onChanged: (_) => setState(() {}),
       ),
       contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       content: SizedBox(
@@ -942,6 +953,15 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
       session.preview,
     ].join(' ').toLowerCase();
     return terms.every(haystack.contains);
+  }
+
+  void _selectFirstResult() {
+    final query = _queryController.text.trim().toLowerCase();
+    final results = _searchResults(query);
+    if (results.isEmpty) {
+      return;
+    }
+    Navigator.of(context).pop(results.first);
   }
 }
 
