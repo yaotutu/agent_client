@@ -89,7 +89,13 @@ void main() {
           'accepts_args': false,
         },
         {
-          'command': '/bad',
+          'command': '/help',
+          'title': 'Show help',
+          'description': 'List available slash commands.',
+          'icon': 'circle-help',
+        },
+        {
+          'command': '',
           'title': 'Bad',
           'description': 'Ignored',
           'icon': 'x',
@@ -98,10 +104,12 @@ void main() {
       ],
     });
 
-    expect(commands, hasLength(1));
-    expect(commands.single.command, '/stop');
-    expect(commands.single.lifecycle, 'stop_active_turn');
-    expect(commands.single.acceptsArgs, isFalse);
+    expect(commands, hasLength(2));
+    expect(commands.first.command, '/stop');
+    expect(commands.first.lifecycle, 'stop_active_turn');
+    expect(commands.first.acceptsArgs, isFalse);
+    expect(commands.last.command, '/help');
+    expect(commands.last.lifecycle, 'side_channel');
   });
 
   test('file preview dto preserves truncation metadata', () {

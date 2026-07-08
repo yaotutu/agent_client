@@ -30,6 +30,26 @@ class NanobotCatalogItem {
   final String status;
 }
 
+class NanobotSlashCommand {
+  const NanobotSlashCommand({
+    required this.command,
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.lifecycle,
+    this.argHint = '',
+    this.acceptsArgs = false,
+  });
+
+  final String command;
+  final String title;
+  final String description;
+  final String icon;
+  final String argHint;
+  final String lifecycle;
+  final bool acceptsArgs;
+}
+
 class NanobotSessionDeleteResult {
   const NanobotSessionDeleteResult({
     required this.deleted,

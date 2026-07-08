@@ -254,6 +254,11 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<List<NanobotSessionSummary>> listSessions() async => _sessions;
 
   @override
+  Future<List<NanobotSlashCommand>> listSlashCommands() async {
+    return const [];
+  }
+
+  @override
   Future<List<NanobotMessage>> fetchThread(
     NanobotSessionSummary session,
   ) async {

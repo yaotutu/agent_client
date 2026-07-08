@@ -210,21 +210,23 @@ class NanobotSlashCommandDto {
   final bool acceptsArgs;
 
   factory NanobotSlashCommandDto.fromJson(Map<String, Object?> json) {
+    final command = json['command'] as String? ?? '';
+    final argHint = json['arg_hint'] as String? ?? '';
     return NanobotSlashCommandDto(
-      command: json['command'] as String? ?? '',
+      command: command,
       title: json['title'] as String? ?? '',
       description: json['description'] as String? ?? '',
       icon: json['icon'] as String? ?? '',
-      argHint: json['arg_hint'] as String? ?? '',
-      lifecycle: json['lifecycle'] as String? ?? '',
-      acceptsArgs: json['accepts_args'] == true,
+      argHint: argHint,
+      lifecycle: _slashLifecycleFor(command, json['lifecycle'] as String?),
+      acceptsArgs: json['accepts_args'] == true || argHint.trim().isNotEmpty,
     );
   }
 
   static List<NanobotSlashCommandDto> listFromJson(Map<String, Object?> json) {
     return [
       for (final row in _mapListFrom(json['commands']))
-        if (_supportedSlashCommandLifecycles.contains(row['lifecycle']))
+        if (_isSupportedSlashCommandRow(row))
           NanobotSlashCommandDto.fromJson(row),
     ];
   }
@@ -573,6 +575,30 @@ const _supportedSlashCommandLifecycles = {
   'agent_turn',
   'agent_turn_with_args',
 };
+
+bool _isSupportedSlashCommandRow(Map<String, Object?> row) {
+  final command = row['command'] as String? ?? '';
+  if (!command.startsWith('/')) {
+    return false;
+  }
+  final lifecycle = row['lifecycle'];
+  return lifecycle == null ||
+      lifecycle == '' ||
+      _supportedSlashCommandLifecycles.contains(lifecycle);
+}
+
+String _slashLifecycleFor(String command, String? lifecycle) {
+  if (lifecycle != null &&
+      _supportedSlashCommandLifecycles.contains(lifecycle)) {
+    return lifecycle;
+  }
+  return switch (command) {
+    '/new' => 'finalize_active_turn',
+    '/stop' => 'stop_active_turn',
+    '/goal' => 'agent_turn_with_args',
+    _ => 'side_channel',
+  };
+}
 
 int? _intFrom(Object? value) {
   if (value is int) return value;

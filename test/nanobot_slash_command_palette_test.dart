@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
-  testWidgets('composer workspace scope mirrors webui access controls', (
+  testWidgets('composer slash command palette inserts a selected command', (
     tester,
   ) async {
     final repository = _FakeNanobotRepository();
@@ -28,87 +28,29 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('nanobot'), findsOneWidget);
-    expect(find.text('Default Permission'), findsOneWidget);
-
-    await tester.tap(find.text('Default Permission'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Full Access').last);
+    await tester.enterText(find.byType(TextField).last, '/');
     await tester.pumpAndSettle();
 
-    expect(repository.workspaceChatId, 'chat-1');
-    expect(repository.workspaceScope?['access_mode'], 'full');
-    expect(repository.workspaceScope?['restrict_to_workspace'], isFalse);
-    expect(find.text('Full Access'), findsOneWidget);
+    expect(find.text('Stop current task'), findsOneWidget);
+    expect(find.text('Cancel the active agent turn.'), findsOneWidget);
+    expect(find.text('/stop'), findsOneWidget);
 
-    repository.emit({
-      'event': 'error',
-      'detail': 'workspace_scope_rejected',
-      'reason': 'outside workspace',
-    });
+    await tester.tap(find.text('Stop current task'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Workspace scope was rejected. Choose another project.'),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('workspace project picker validates and applies manual paths', (
-    tester,
-  ) async {
-    final repository = _FakeNanobotRepository();
-    addTearDown(repository.dispose);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(home: NanobotWorkspacePage()),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('nanobot'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Default workspace'), findsOneWidget);
-    expect(find.text('/home/yaotutu/Desktop/code/nanobot'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField).last, 'relative/path');
-    await tester.tap(find.text('Use Path'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text('Enter an absolute folder path on this machine.'),
-      findsOneWidget,
-    );
-    expect(repository.workspaceScope, isNull);
-
-    await tester.enterText(find.byType(TextField).last, '/tmp/nanobot-app');
-    await tester.tap(find.text('Use Path'));
-    await tester.pumpAndSettle();
-
-    expect(repository.workspaceChatId, 'chat-1');
-    expect(repository.workspaceScope?['project_path'], '/tmp/nanobot-app');
-    expect(repository.workspaceScope?['project_name'], 'nanobot-app');
-    expect(repository.workspaceScope?['access_mode'], 'restricted');
-    expect(repository.workspaceScope?['restrict_to_workspace'], isTrue);
-    expect(find.text('nanobot-app'), findsOneWidget);
+    final input = tester.widget<TextField>(find.byType(TextField).last);
+    expect(input.controller?.text, '/stop');
   });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
-  String? workspaceChatId;
-  Map<String, Object?>? workspaceScope;
-
   final _sessions = [
     NanobotSessionSummary(
       key: 'websocket:chat-1',
       channel: 'websocket',
       chatId: 'chat-1',
-      title: 'Workspace Chat',
       preview: '',
       createdAt: DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
@@ -123,10 +65,6 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   NanobotSocketStatus get currentStatus => NanobotSocketStatus.open;
-
-  void emit(Map<String, Object?> frame) {
-    _events.add(NanobotEvent.fromJson(frame));
-  }
 
   @override
   Future<NanobotBootstrap> bootstrap({bool forceRefresh = false}) async {
@@ -146,29 +84,24 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<List<NanobotSlashCommand>> listSlashCommands() async {
-    return const [];
-  }
-
-  @override
-  Future<NanobotWorkspaceSnapshot> fetchWorkspacesSnapshot() async {
-    return const NanobotWorkspaceSnapshot(
-      defaultScope: NanobotWorkspaceScope(
-        projectPath: '/home/yaotutu/Desktop/code/nanobot',
-        projectName: 'nanobot',
-        accessMode: 'restricted',
-        restrictToWorkspace: true,
+    return const [
+      NanobotSlashCommand(
+        command: '/stop',
+        title: 'Stop current task',
+        description: 'Cancel the active agent turn.',
+        icon: 'square',
+        lifecycle: 'stop_active_turn',
       ),
-      controls: {'can_change_project': true, 'can_use_full_access': true},
-    );
-  }
-
-  @override
-  Future<void> setWorkspaceScope({
-    required String chatId,
-    required NanobotWorkspaceScope workspaceScope,
-  }) async {
-    workspaceChatId = chatId;
-    this.workspaceScope = workspaceScope.toJson();
+      NanobotSlashCommand(
+        command: '/history',
+        title: 'Show conversation history',
+        description: 'Print the last N persisted messages.',
+        icon: 'history',
+        argHint: '[n]',
+        lifecycle: 'side_channel',
+        acceptsArgs: true,
+      ),
+    ];
   }
 
   @override
@@ -192,6 +125,25 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotWorkspaceSnapshot> fetchWorkspacesSnapshot() async {
+    return const NanobotWorkspaceSnapshot(
+      defaultScope: NanobotWorkspaceScope(
+        projectPath: '/tmp/project',
+        accessMode: 'restricted',
+      ),
+    );
+  }
+
+  @override
+  Future<void> setWorkspaceScope({
+    required String chatId,
+    required NanobotWorkspaceScope workspaceScope,
+  }) async {}
+
+  @override
+  Future<void> attach(String chatId) async {}
+
+  @override
   Future<List<NanobotMessage>> fetchThread(
     NanobotSessionSummary session,
   ) async {
@@ -201,9 +153,6 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   @override
   Future<String> newChat({NanobotWorkspaceScope? workspaceScope}) async =>
       'chat-1';
-
-  @override
-  Future<void> attach(String chatId) async {}
 
   @override
   Future<void> sendMessage({

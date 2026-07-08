@@ -757,6 +757,7 @@ class _ChatPane extends StatelessWidget {
               focusNode: focusNode,
               canSend: state.canSend,
               isStreaming: state.isStreaming,
+              slashCommands: state.slashCommands,
               workspaceScope: state.activeWorkspaceScope,
               defaultWorkspaceScope: state.workspacesSnapshot?.defaultScope,
               workspaceError: state.workspaceError,
@@ -1774,12 +1775,13 @@ bool _isAbsoluteWorkspacePath(String path) {
       RegExp(r'^[A-Za-z]:[\\/]').hasMatch(trimmed);
 }
 
-class _InputBar extends StatelessWidget {
+class _InputBar extends StatefulWidget {
   const _InputBar({
     required this.controller,
     required this.focusNode,
     required this.canSend,
     required this.isStreaming,
+    required this.slashCommands,
     required this.workspaceScope,
     required this.defaultWorkspaceScope,
     required this.workspaceError,
@@ -1795,6 +1797,7 @@ class _InputBar extends StatelessWidget {
   final FocusNode focusNode;
   final bool canSend;
   final bool isStreaming;
+  final List<NanobotSlashCommand> slashCommands;
   final NanobotWorkspaceScope? workspaceScope;
   final NanobotWorkspaceScope? defaultWorkspaceScope;
   final String? workspaceError;
@@ -1805,6 +1808,13 @@ class _InputBar extends StatelessWidget {
   final ValueChanged<String> onWorkspaceAccessMode;
   final Future<void> Function(String path, {String? projectName})
   onWorkspaceProjectPath;
+
+  @override
+  State<_InputBar> createState() => _InputBarState();
+}
+
+class _InputBarState extends State<_InputBar> {
+  String? _dismissedSlashText;
 
   @override
   Widget build(BuildContext context) {
@@ -1823,19 +1833,33 @@ class _InputBar extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (workspaceScope != null)
+                  if (widget.workspaceScope != null)
                     _WorkspaceScopeBar(
-                      scope: workspaceScope!,
-                      defaultScope: defaultWorkspaceScope,
-                      error: workspaceError,
-                      canChangeProject: canChangeProject,
-                      canUseFullAccess: canUseFullAccess,
-                      onAccessMode: onWorkspaceAccessMode,
-                      onProjectPath: onWorkspaceProjectPath,
+                      scope: widget.workspaceScope!,
+                      defaultScope: widget.defaultWorkspaceScope,
+                      error: widget.workspaceError,
+                      canChangeProject: widget.canChangeProject,
+                      canUseFullAccess: widget.canUseFullAccess,
+                      onAccessMode: widget.onWorkspaceAccessMode,
+                      onProjectPath: widget.onWorkspaceProjectPath,
                     ),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: widget.controller,
+                    builder: (context, value, _) {
+                      final commands = _filteredSlashCommands(value.text);
+                      if (commands.isEmpty ||
+                          _dismissedSlashText == value.text) {
+                        return const SizedBox.shrink();
+                      }
+                      return _SlashCommandPalette(
+                        commands: commands,
+                        onSelected: _chooseSlashCommand,
+                      );
+                    },
+                  ),
                   TextField(
-                    controller: controller,
-                    focusNode: focusNode,
+                    controller: widget.controller,
+                    focusNode: widget.focusNode,
                     minLines: 1,
                     maxLines: 5,
                     textInputAction: TextInputAction.newline,
@@ -1854,11 +1878,11 @@ class _InputBar extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             IconButton.filled(
-              tooltip: isStreaming ? 'Stop' : 'Send',
-              onPressed: isStreaming
-                  ? onStop
-                  : canSend
-                  ? onSend
+              tooltip: widget.isStreaming ? 'Stop' : 'Send',
+              onPressed: widget.isStreaming
+                  ? widget.onStop
+                  : widget.canSend
+                  ? widget.onSend
                   : null,
               style: ButtonStyle(
                 fixedSize: const WidgetStatePropertyAll(Size.square(44)),
@@ -1872,11 +1896,164 @@ class _InputBar extends StatelessWidget {
                   ),
                 ),
               ),
-              icon: Icon(isStreaming ? Icons.stop : Icons.arrow_upward),
+              icon: Icon(widget.isStreaming ? Icons.stop : Icons.arrow_upward),
             ),
           ],
         ),
       ),
     );
   }
+
+  List<NanobotSlashCommand> _filteredSlashCommands(String text) {
+    final query = _slashQuery(text);
+    if (query == null) {
+      return const [];
+    }
+    return widget.slashCommands
+        .where((command) {
+          if (query.isEmpty) {
+            return true;
+          }
+          final haystack = [
+            command.command,
+            command.title,
+            command.description,
+            command.argHint,
+          ].join(' ').toLowerCase();
+          return haystack.contains(query);
+        })
+        .take(8)
+        .toList();
+  }
+
+  String? _slashQuery(String text) {
+    if (!text.startsWith('/')) {
+      return null;
+    }
+    final token = text.substring(1);
+    if (RegExp(r'\s').hasMatch(token)) {
+      return null;
+    }
+    return token.toLowerCase();
+  }
+
+  void _chooseSlashCommand(NanobotSlashCommand command) {
+    final inserted = command.argHint.trim().isEmpty
+        ? command.command
+        : '${command.command} ';
+    setState(() {
+      _dismissedSlashText = inserted;
+      widget.controller.value = TextEditingValue(
+        text: inserted,
+        selection: TextSelection.collapsed(offset: inserted.length),
+      );
+    });
+    widget.focusNode.requestFocus();
+  }
+}
+
+class _SlashCommandPalette extends StatelessWidget {
+  const _SlashCommandPalette({
+    required this.commands,
+    required this.onSelected,
+  });
+
+  final List<NanobotSlashCommand> commands;
+  final ValueChanged<NanobotSlashCommand> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      constraints: const BoxConstraints(maxHeight: 260),
+      decoration: BoxDecoration(
+        color: AppThemeTokens.workspaceAlt,
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        border: Border.all(color: AppThemeTokens.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1F000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        itemCount: commands.length,
+        itemBuilder: (context, index) {
+          final command = commands[index];
+          return InkWell(
+            onTap: () => onSelected(command),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    _iconForSlashCommand(command.icon),
+                    size: 18,
+                    color: AppThemeTokens.mutedText,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          command.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppThemeTokens.headingText,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          command.description,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppThemeTokens.mutedText,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    command.argHint.trim().isEmpty
+                        ? command.command
+                        : '${command.command} ${command.argHint}',
+                    style: const TextStyle(
+                      color: AppThemeTokens.mutedText,
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+IconData _iconForSlashCommand(String icon) {
+  return switch (icon) {
+    'activity' => Icons.monitor_heart_outlined,
+    'brain' => Icons.psychology_outlined,
+    'history' => Icons.history,
+    'rotate-cw' => Icons.sync,
+    'sparkles' => Icons.auto_awesome,
+    'square' => Icons.stop,
+    'square-pen' => Icons.edit_square,
+    'shield' => Icons.shield_outlined,
+    'wrench' => Icons.build_outlined,
+    _ => Icons.help_outline,
+  };
 }

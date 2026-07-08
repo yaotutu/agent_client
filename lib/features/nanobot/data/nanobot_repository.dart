@@ -23,6 +23,10 @@ abstract class NanobotRepositoryPort {
 
   Future<List<NanobotMessage>> fetchThread(NanobotSessionSummary session);
 
+  Future<List<NanobotSlashCommand>> listSlashCommands() {
+    throw UnimplementedError('listSlashCommands');
+  }
+
   Future<String> newChat({NanobotWorkspaceScope? workspaceScope});
 
   Future<void> attach(String chatId);
@@ -139,8 +143,21 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
-  Future<List<NanobotSlashCommandDto>> listSlashCommands() {
-    return api.listSlashCommands();
+  @override
+  Future<List<NanobotSlashCommand>> listSlashCommands() async {
+    final commands = await api.listSlashCommands();
+    return [
+      for (final command in commands)
+        NanobotSlashCommand(
+          command: command.command,
+          title: command.title,
+          description: command.description,
+          icon: command.icon,
+          argHint: command.argHint,
+          lifecycle: command.lifecycle,
+          acceptsArgs: command.acceptsArgs,
+        ),
+    ];
   }
 
   @override

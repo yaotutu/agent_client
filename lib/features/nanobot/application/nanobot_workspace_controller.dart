@@ -60,10 +60,15 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       if (!_isActive(generation)) {
         return;
       }
+      final slashCommands = await _loadSlashCommands(repository);
+      if (!_isActive(generation)) {
+        return;
+      }
       state = state.copyWith(
         sessions: sessions,
         sidebarState: sidebarState,
         workspacesSnapshot: workspacesSnapshot,
+        slashCommands: slashCommands,
         modelName: bootstrap.modelName,
         isBootstrapping: false,
         socketStatus: repository.currentStatus,
@@ -109,6 +114,16 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       return await repository.fetchWorkspacesSnapshot();
     } on Object {
       return null;
+    }
+  }
+
+  Future<List<NanobotSlashCommand>> _loadSlashCommands(
+    NanobotRepositoryPort repository,
+  ) async {
+    try {
+      return await repository.listSlashCommands();
+    } on Object {
+      return const [];
     }
   }
 

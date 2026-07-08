@@ -16,6 +16,7 @@ class NanobotWorkspaceState {
     this.appItems = const [],
     this.automationItems = const [],
     this.skillItems = const [],
+    this.slashCommands = const [],
     this.isLoadingSurface = false,
     this.sidebarState = const NanobotSidebarState(),
     this.workspacesSnapshot,
@@ -41,6 +42,7 @@ class NanobotWorkspaceState {
   final List<NanobotCatalogItem> appItems;
   final List<NanobotCatalogItem> automationItems;
   final List<NanobotCatalogItem> skillItems;
+  final List<NanobotSlashCommand> slashCommands;
   final bool isLoadingSurface;
   final NanobotSidebarState sidebarState;
   final NanobotWorkspaceSnapshot? workspacesSnapshot;
@@ -125,6 +127,7 @@ class NanobotWorkspaceState {
     List<NanobotCatalogItem>? appItems,
     List<NanobotCatalogItem>? automationItems,
     List<NanobotCatalogItem>? skillItems,
+    List<NanobotSlashCommand>? slashCommands,
     bool? isLoadingSurface,
     NanobotSidebarState? sidebarState,
     NanobotWorkspaceSnapshot? workspacesSnapshot,
@@ -168,6 +171,7 @@ class NanobotWorkspaceState {
           ? const []
           : automationItems ?? this.automationItems,
       skillItems: clearSurfaceItems ? const [] : skillItems ?? this.skillItems,
+      slashCommands: slashCommands ?? this.slashCommands,
       isLoadingSurface: isLoadingSurface ?? this.isLoadingSurface,
       sidebarState: sidebarState ?? this.sidebarState,
       workspacesSnapshot: workspacesSnapshot ?? this.workspacesSnapshot,

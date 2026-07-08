@@ -103,6 +103,11 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<List<NanobotSessionSummary>> listSessions() async => _sessions;
 
   @override
+  Future<List<NanobotSlashCommand>> listSlashCommands() async {
+    return const [];
+  }
+
+  @override
   Future<NanobotSidebarState> fetchSidebarState() async {
     return const NanobotSidebarState();
   }
