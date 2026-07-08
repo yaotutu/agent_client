@@ -2908,6 +2908,7 @@ class _AutomationEditDialogState extends State<_AutomationEditDialog> {
   late final TextEditingController _everyValueController;
   late final TextEditingController _cronController;
   late final TextEditingController _tzController;
+  late final TextEditingController _atLocalController;
   late String _scheduleKind;
   late String _everyUnit;
 
@@ -2931,6 +2932,12 @@ class _AutomationEditDialogState extends State<_AutomationEditDialog> {
       text: widget.item.automationCronExpr ?? '0 9 * * *',
     );
     _tzController = TextEditingController(text: widget.item.automationTz ?? '');
+    _atLocalController = TextEditingController(
+      text: _formatLocalDateTimeInput(
+        widget.item.automationAtMs ??
+            DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch,
+      ),
+    );
   }
 
   @override
@@ -2940,12 +2947,14 @@ class _AutomationEditDialogState extends State<_AutomationEditDialog> {
     _everyValueController.dispose();
     _cronController.dispose();
     _tzController.dispose();
+    _atLocalController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final localTrigger = widget.item.isLocalTriggerAutomation;
+    final validation = _validationMessage();
     return AlertDialog(
       title: const Text('Edit automation'),
       content: SingleChildScrollView(
@@ -2956,6 +2965,7 @@ class _AutomationEditDialogState extends State<_AutomationEditDialog> {
               key: const ValueKey('automation-edit-name'),
               controller: _nameController,
               decoration: const InputDecoration(labelText: 'Name'),
+              onChanged: (_) => setState(() {}),
             ),
             if (!localTrigger) ...[
               const SizedBox(height: 12),
@@ -2965,6 +2975,7 @@ class _AutomationEditDialogState extends State<_AutomationEditDialog> {
                 decoration: const InputDecoration(labelText: 'Message'),
                 minLines: 3,
                 maxLines: 6,
+                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -2988,6 +2999,7 @@ class _AutomationEditDialogState extends State<_AutomationEditDialog> {
                   controller: _everyValueController,
                   decoration: const InputDecoration(labelText: 'Every'),
                   keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -3013,6 +3025,7 @@ class _AutomationEditDialogState extends State<_AutomationEditDialog> {
                     labelText: 'Cron expression',
                     hintText: '0 9 * * *',
                   ),
+                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -3022,8 +3035,33 @@ class _AutomationEditDialogState extends State<_AutomationEditDialog> {
                     labelText: 'Timezone',
                     hintText: 'Asia/Shanghai',
                   ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ] else if (_scheduleKind == 'at') ...[
+                TextField(
+                  key: const ValueKey('automation-edit-at-local'),
+                  controller: _atLocalController,
+                  decoration: const InputDecoration(
+                    labelText: 'Run at',
+                    hintText: 'YYYY-MM-DDTHH:mm',
+                  ),
+                  keyboardType: TextInputType.datetime,
+                  onChanged: (_) => setState(() {}),
                 ),
               ],
+            ],
+            if (validation != null) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  validation,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
             ],
           ],
         ),
@@ -3034,7 +3072,7 @@ class _AutomationEditDialogState extends State<_AutomationEditDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () => _save(context),
+          onPressed: validation == null ? () => _save(context) : null,
           child: const Text('Save'),
         ),
       ],
@@ -3059,13 +3097,46 @@ class _AutomationEditDialogState extends State<_AutomationEditDialog> {
     return (value: '${(raw / 60000).round().clamp(1, 999999)}', unit: 'minute');
   }
 
+  String? _validationMessage() {
+    if (_nameController.text.trim().isEmpty) {
+      return 'Name is required.';
+    }
+    if (widget.item.isLocalTriggerAutomation) {
+      return null;
+    }
+    if (_messageController.text.trim().isEmpty) {
+      return 'Message is required.';
+    }
+    if (_scheduleKind == 'every') {
+      final value = int.tryParse(_everyValueController.text.trim());
+      if (value == null || value <= 0) {
+        return 'Interval must be a positive number.';
+      }
+    }
+    if (_scheduleKind == 'cron' && _cronController.text.trim().isEmpty) {
+      return 'Cron expression is required.';
+    }
+    if (_scheduleKind == 'at') {
+      final atMs = _parseLocalDateTimeMs(_atLocalController.text.trim());
+      if (atMs == null) {
+        return 'Run time is required.';
+      }
+      if (atMs <= DateTime.now().millisecondsSinceEpoch && _scheduleChanged()) {
+        return 'Run time must be in the future.';
+      }
+    }
+    return null;
+  }
+
   void _save(BuildContext context) {
     final values = <String, Object?>{'name': _nameController.text.trim()};
     if (!widget.item.isLocalTriggerAutomation) {
       values['message'] = _messageController.text.trim();
-      final schedule = _schedulePayload();
-      if (schedule != null) {
-        values['schedule'] = schedule;
+      if (_scheduleChanged()) {
+        final schedule = _schedulePayload();
+        if (schedule != null) {
+          values['schedule'] = schedule;
+        }
       }
     }
     Navigator.of(context).pop(values);
@@ -3092,12 +3163,52 @@ class _AutomationEditDialogState extends State<_AutomationEditDialog> {
           'tz': _tzController.text.trim(),
       };
     }
-    final atMs = widget.item.automationAtMs;
-    final schedule = <String, Object?>{'kind': 'at'};
-    if (atMs != null) {
-      schedule['at_ms'] = atMs;
+    final atMs = _parseLocalDateTimeMs(_atLocalController.text.trim());
+    if (atMs == null) {
+      return null;
     }
-    return schedule;
+    return {'kind': 'at', 'at_ms': atMs};
+  }
+
+  bool _scheduleChanged() {
+    final initialKind = _initialScheduleKind();
+    if (_scheduleKind != initialKind) {
+      return true;
+    }
+    if (_scheduleKind == 'every') {
+      final value = int.tryParse(_everyValueController.text.trim());
+      final unitMs = _units[_everyUnit];
+      return value == null ||
+          unitMs == null ||
+          value * unitMs != widget.item.automationEveryMs;
+    }
+    if (_scheduleKind == 'cron') {
+      final initialTz = widget.item.automationTz ?? '';
+      return _cronController.text.trim() !=
+              (widget.item.automationCronExpr ?? '0 9 * * *') ||
+          _tzController.text.trim() != initialTz;
+    }
+    final atMs = widget.item.automationAtMs;
+    if (atMs == null) {
+      return true;
+    }
+    return _atLocalController.text.trim() != _formatLocalDateTimeInput(atMs);
+  }
+
+  int? _parseLocalDateTimeMs(String value) {
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) {
+      return null;
+    }
+    return parsed.millisecondsSinceEpoch;
+  }
+
+  String _formatLocalDateTimeInput(int ms) {
+    final date = DateTime.fromMillisecondsSinceEpoch(ms);
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '${date.year.toString().padLeft(4, '0')}-'
+        '${two(date.month)}-${two(date.day)}T'
+        '${two(date.hour)}:${two(date.minute)}';
   }
 }
 

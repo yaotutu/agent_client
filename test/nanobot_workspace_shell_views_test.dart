@@ -642,6 +642,140 @@ void main() {
     expect(find.text('Updated job'), findsWidgets);
   });
 
+  testWidgets('automations edit dialog validates webui required fields', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      automationItems: const [
+        NanobotCatalogItem(
+          id: 'job-1',
+          title: 'Daily job',
+          subtitle: 'Check the repo status',
+          status: 'Active',
+          filterKeys: ['active'],
+          automationScheduleKind: 'every',
+          automationEveryMs: 7200000,
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byTooltip('Edit').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit').last);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('automation-edit-name')),
+      '',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Name is required.'), findsOneWidget);
+    var save = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(save.onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('automation-edit-name')),
+      'Daily job',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('automation-edit-message')),
+      '',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Message is required.'), findsOneWidget);
+    save = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(save.onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('automation-edit-message')),
+      'Check the repo status',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('automation-edit-every-value')),
+      '0',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Interval must be a positive number.'), findsOneWidget);
+    save = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(save.onPressed, isNull);
+    expect(repository.updateRequests, isEmpty);
+  });
+
+  testWidgets('automations edit dialog sends once schedule run time', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      automationItems: [
+        NanobotCatalogItem(
+          id: 'job-1',
+          title: 'One shot',
+          subtitle: 'Send launch note',
+          status: 'Active',
+          filterKeys: const ['active'],
+          automationScheduleKind: 'at',
+          automationAtMs: DateTime(2099).millisecondsSinceEpoch,
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byTooltip('Edit').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Run at'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('automation-edit-at-local')),
+      '2099-01-02T03:04',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(repository.updateRequests, hasLength(1));
+    expect(repository.updateRequests.single.values, {
+      'name': 'One shot',
+      'message': 'Send launch note',
+      'schedule': {
+        'kind': 'at',
+        'at_ms': DateTime(2099, 1, 2, 3, 4).millisecondsSinceEpoch,
+      },
+    });
+  });
+
   testWidgets('automations surface shows queue and selected detail panel', (
     tester,
   ) async {
