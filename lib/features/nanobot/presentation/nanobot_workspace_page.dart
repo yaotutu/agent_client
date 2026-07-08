@@ -1601,6 +1601,7 @@ class _MessageContentText extends ConsumerWidget {
         blocks.single.heading == null &&
         blocks.single.quote == null &&
         blocks.single.table == null &&
+        blocks.single.details == null &&
         !blocks.single.horizontalRule) {
       return _buildInlineContent(text, ref);
     }
@@ -1609,36 +1610,50 @@ class _MessageContentText extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final block in blocks) ...[
-          if (block.heading != null)
-            _MessageHeading(text: block.heading!, level: block.headingLevel)
-          else if (block.table != null)
-            _MessageTableBlock(
-              table: block.table!,
-              cellBuilder: (cell) => _buildInlineSegments(cell, ref),
-            )
-          else if (block.horizontalRule)
-            const Divider(
-              key: ValueKey('nanobot-markdown-horizontal-rule'),
-              color: AppThemeTokens.border,
-              height: 18,
-            )
-          else if (block.quote != null)
-            _MessageQuoteBlock(
-              quote: block.quote!,
-              itemBuilder: (line) => _buildInlineSegments(line, ref),
-            )
-          else if (block.code == null)
-            _buildInlineContent(block.text, ref)
-          else
-            _MessageCodeBlock(
-              language: block.language,
-              code: block.code!,
-              textColor: textColor,
-            ),
+          _buildContentBlock(block, ref),
           if (block != blocks.last) const SizedBox(height: 8),
         ],
       ],
     );
+  }
+
+  Widget _buildContentBlock(_MessageContentBlock block, WidgetRef ref) {
+    if (block.heading != null) {
+      return _MessageHeading(text: block.heading!, level: block.headingLevel);
+    }
+    if (block.table != null) {
+      return _MessageTableBlock(
+        table: block.table!,
+        cellBuilder: (cell) => _buildInlineSegments(cell, ref),
+      );
+    }
+    if (block.horizontalRule) {
+      return const Divider(
+        key: ValueKey('nanobot-markdown-horizontal-rule'),
+        color: AppThemeTokens.border,
+        height: 18,
+      );
+    }
+    if (block.quote != null) {
+      return _MessageQuoteBlock(
+        quote: block.quote!,
+        itemBuilder: (line) => _buildInlineSegments(line, ref),
+      );
+    }
+    if (block.details != null) {
+      return _MessageDetailsBlock(
+        details: block.details!,
+        itemBuilder: (nestedBlock) => _buildContentBlock(nestedBlock, ref),
+      );
+    }
+    if (block.code != null) {
+      return _MessageCodeBlock(
+        language: block.language,
+        code: block.code!,
+        textColor: textColor,
+      );
+    }
+    return _buildInlineContent(block.text, ref);
   }
 
   Widget _buildInlineContent(String value, WidgetRef ref) {
@@ -1684,6 +1699,60 @@ class _MessageContentText extends ConsumerWidget {
           else
             _InlineFormattedText(text: segment.text, color: textColor),
       ],
+    );
+  }
+}
+
+class _MessageDetailsBlock extends StatelessWidget {
+  const _MessageDetailsBlock({
+    required this.details,
+    required this.itemBuilder,
+  });
+
+  final _MarkdownDetails details;
+  final Widget Function(_MessageContentBlock block) itemBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final bodyBlocks = _messageContentBlocks(details.body);
+    return Material(
+      key: const ValueKey('nanobot-markdown-details'),
+      clipBehavior: Clip.antiAlias,
+      color: AppThemeTokens.panelMuted.withValues(alpha: 0.5),
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          iconColor: AppThemeTokens.mutedText,
+          collapsedIconColor: AppThemeTokens.mutedText,
+          title: Text(
+            details.summary,
+            style: const TextStyle(
+              color: AppThemeTokens.text,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+            ),
+          ),
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final block in bodyBlocks) ...[
+                  itemBuilder(block),
+                  if (block != bodyBlocks.last) const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2059,6 +2128,7 @@ class _MessageContentBlock {
       headingLevel = 0,
       quote = null,
       table = null,
+      details = null,
       horizontalRule = false;
   const _MessageContentBlock.code({required this.language, required this.code})
     : text = '',
@@ -2066,6 +2136,7 @@ class _MessageContentBlock {
       headingLevel = 0,
       quote = null,
       table = null,
+      details = null,
       horizontalRule = false;
   const _MessageContentBlock.heading({
     required this.heading,
@@ -2075,6 +2146,7 @@ class _MessageContentBlock {
        code = null,
        quote = null,
        table = null,
+       details = null,
        horizontalRule = false;
   const _MessageContentBlock.quote({required this.quote})
     : text = '',
@@ -2083,6 +2155,7 @@ class _MessageContentBlock {
       heading = null,
       headingLevel = 0,
       table = null,
+      details = null,
       horizontalRule = false;
   const _MessageContentBlock.table({required this.table})
     : text = '',
@@ -2091,6 +2164,16 @@ class _MessageContentBlock {
       heading = null,
       headingLevel = 0,
       quote = null,
+      details = null,
+      horizontalRule = false;
+  const _MessageContentBlock.details({required this.details})
+    : text = '',
+      language = null,
+      code = null,
+      heading = null,
+      headingLevel = 0,
+      quote = null,
+      table = null,
       horizontalRule = false;
   const _MessageContentBlock.horizontalRule()
     : text = '',
@@ -2100,6 +2183,7 @@ class _MessageContentBlock {
       headingLevel = 0,
       quote = null,
       table = null,
+      details = null,
       horizontalRule = true;
 
   final String text;
@@ -2109,7 +2193,15 @@ class _MessageContentBlock {
   final int headingLevel;
   final String? quote;
   final _MarkdownTable? table;
+  final _MarkdownDetails? details;
   final bool horizontalRule;
+}
+
+class _MarkdownDetails {
+  const _MarkdownDetails({required this.summary, required this.body});
+
+  final String summary;
+  final String body;
 }
 
 class _MarkdownTable {
@@ -2180,6 +2272,14 @@ List<_MessageContentBlock> _markdownTextBlocks(String text) {
   var index = 0;
   while (index < lines.length) {
     final line = lines[index];
+    final details = _markdownDetailsAt(lines, index);
+    if (details != null) {
+      flushBuffer();
+      blocks.add(_MessageContentBlock.details(details: details.details));
+      index = details.nextIndex;
+      continue;
+    }
+
     if (_isMarkdownHorizontalRule(line)) {
       flushBuffer();
       blocks.add(const _MessageContentBlock.horizontalRule());
@@ -2224,6 +2324,55 @@ List<_MessageContentBlock> _markdownTextBlocks(String text) {
   }
   flushBuffer();
   return blocks.isEmpty ? [_MessageContentBlock.text(text)] : blocks;
+}
+
+({_MarkdownDetails details, int nextIndex})? _markdownDetailsAt(
+  List<String> lines,
+  int index,
+) {
+  final open = _markdownDetailsOpen(lines[index]);
+  if (open == null) {
+    return null;
+  }
+  final body = <String>[];
+  var cursor = index + 1;
+  while (cursor < lines.length) {
+    if (_isMarkdownDetailsClose(lines[cursor])) {
+      return (
+        details: _MarkdownDetails(
+          summary: open.summary,
+          body: _trimBlockText(body.join('\n')),
+        ),
+        nextIndex: cursor + 1,
+      );
+    }
+    body.add(lines[cursor]);
+    cursor += 1;
+  }
+  return null;
+}
+
+({String summary})? _markdownDetailsOpen(String line) {
+  final value = line.trim();
+  final withSummary = RegExp(
+    r'^<\s*details\s*>\s*<\s*summary\s*>([\s\S]*?)<\s*/\s*summary\s*>$',
+    caseSensitive: false,
+  ).firstMatch(value);
+  if (withSummary != null) {
+    final summary = withSummary.group(1)!.trim();
+    return (summary: summary.isEmpty ? 'Details' : summary);
+  }
+  if (RegExp(r'^<\s*details\s*>$', caseSensitive: false).hasMatch(value)) {
+    return (summary: 'Details');
+  }
+  return null;
+}
+
+bool _isMarkdownDetailsClose(String line) {
+  return RegExp(
+    r'^<\s*/\s*details\s*>$',
+    caseSensitive: false,
+  ).hasMatch(line.trim());
 }
 
 bool _isMarkdownHorizontalRule(String line) {

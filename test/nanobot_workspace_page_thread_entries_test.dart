@@ -262,6 +262,49 @@ void main() {
     expect(_richTextWithSmallSpanCount('2', 2), findsOneWidget);
   });
 
+  testWidgets('message safe details html renders expandable markdown', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text':
+          '<details><summary>点击展开更多内容</summary>\n\n'
+          '这里是被折叠的内容。\n\n'
+          '- **可以放列表**\n\n'
+          '</details>',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('<details'), findsNothing);
+    expect(find.textContaining('<summary'), findsNothing);
+    expect(find.textContaining('</details>'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('nanobot-markdown-details')),
+      findsOneWidget,
+    );
+    expect(find.text('点击展开更多内容'), findsOneWidget);
+    expect(find.text('这里是被折叠的内容。'), findsNothing);
+
+    await tester.tap(find.text('点击展开更多内容'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('这里是被折叠的内容。'), findsOneWidget);
+    expect(find.text('•'), findsOneWidget);
+    expect(_richTextWithBoldSpan('可以放列表'), findsOneWidget);
+  });
+
   testWidgets('message markdown bullet lists render list rows', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
