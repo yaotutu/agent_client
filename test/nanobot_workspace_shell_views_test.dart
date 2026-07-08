@@ -91,6 +91,38 @@ void main() {
     expect(find.text('No automations yet.'), findsOneWidget);
     expect(find.text('No automations'), findsNothing);
   });
+
+  testWidgets('skills surface opens unavailable skill details', (tester) async {
+    final repository = _FakeNanobotRepository(
+      skillItems: const [
+        NanobotCatalogItem(
+          id: 'github',
+          title: 'github',
+          subtitle: 'Work with GitHub.',
+          status: 'Missing: CLI: gh',
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Skills'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('github').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unavailable reason'), findsOneWidget);
+    expect(find.text('CLI: gh'), findsOneWidget);
+    expect(find.text('Description'), findsOneWidget);
+    expect(find.text('Work with GitHub.'), findsWidgets);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {

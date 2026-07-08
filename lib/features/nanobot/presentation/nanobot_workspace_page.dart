@@ -1423,10 +1423,88 @@ class _SecondarySurface extends StatelessWidget {
           title: 'Skills',
           emptyText: 'No skills are available.',
           items: state.skillItems,
+          onItemSelected: (item) => _showSkillDetail(context, item),
         ),
         NanobotShellView.chat => const SizedBox.shrink(),
       },
     );
+  }
+
+  Future<void> _showSkillDetail(
+    BuildContext context,
+    NanobotCatalogItem item,
+  ) {
+    final unavailableReason = _skillUnavailableReason(item);
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: const TextStyle(
+                    color: AppThemeTokens.headingText,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const _DetailHeading('Description'),
+                const SizedBox(height: 8),
+                Text(
+                  item.subtitle,
+                  style: const TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    height: 1.45,
+                  ),
+                ),
+                if (item.status.trim().isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  const _DetailHeading('Status'),
+                  const SizedBox(height: 8),
+                  Text(
+                    item.status,
+                    style: const TextStyle(
+                      color: AppThemeTokens.text,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (unavailableReason != null) ...[
+                  const SizedBox(height: 20),
+                  const _DetailHeading('Unavailable reason'),
+                  const SizedBox(height: 8),
+                  Text(
+                    unavailableReason,
+                    style: const TextStyle(
+                      color: AppThemeTokens.brandPressed,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String? _skillUnavailableReason(NanobotCatalogItem item) {
+    const prefix = 'Missing: ';
+    final status = item.status.trim();
+    if (!status.startsWith(prefix)) {
+      return null;
+    }
+    final reason = status.substring(prefix.length).trim();
+    return reason.isEmpty ? null : reason;
   }
 }
 
@@ -1465,11 +1543,13 @@ class _CatalogSurface extends StatelessWidget {
     required this.title,
     required this.emptyText,
     required this.items,
+    this.onItemSelected,
   });
 
   final String title;
   final String emptyText;
   final List<NanobotCatalogItem> items;
+  final ValueChanged<NanobotCatalogItem>? onItemSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -1482,20 +1562,29 @@ class _CatalogSurface extends StatelessWidget {
           _EmptySurface(text: emptyText)
         else
           for (final item in items)
-            _CatalogRow(key: ValueKey(item.id), item: item),
+            _CatalogRow(
+              key: ValueKey(item.id),
+              item: item,
+              onSelected: onItemSelected,
+            ),
       ],
     );
   }
 }
 
 class _CatalogRow extends StatelessWidget {
-  const _CatalogRow({super.key, required this.item});
+  const _CatalogRow({
+    super.key,
+    required this.item,
+    this.onSelected,
+  });
 
   final NanobotCatalogItem item;
+  final ValueChanged<NanobotCatalogItem>? onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final content = Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1539,6 +1628,36 @@ class _CatalogRow extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+    final onTap = onSelected;
+    if (onTap == null) {
+      return content;
+    }
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        onTap: () => onTap(item),
+        child: content,
+      ),
+    );
+  }
+}
+
+class _DetailHeading extends StatelessWidget {
+  const _DetailHeading(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: AppThemeTokens.headingText,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
       ),
     );
   }
