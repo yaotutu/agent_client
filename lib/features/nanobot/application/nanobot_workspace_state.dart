@@ -1,6 +1,7 @@
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 
 class NanobotWorkspaceState {
   const NanobotWorkspaceState({
@@ -8,6 +9,7 @@ class NanobotWorkspaceState {
     this.messages = const [],
     this.selectedSessionKey,
     this.selectedChatId,
+    this.threadState,
     this.modelName,
     this.socketStatus = NanobotSocketStatus.idle,
     this.isBootstrapping = false,
@@ -22,6 +24,7 @@ class NanobotWorkspaceState {
   final List<NanobotMessage> messages;
   final String? selectedSessionKey;
   final String? selectedChatId;
+  final NanobotThreadState? threadState;
   final String? modelName;
   final NanobotSocketStatus socketStatus;
   final bool isBootstrapping;
@@ -53,6 +56,7 @@ class NanobotWorkspaceState {
     List<NanobotMessage>? messages,
     String? selectedSessionKey,
     String? selectedChatId,
+    NanobotThreadState? threadState,
     String? modelName,
     NanobotSocketStatus? socketStatus,
     bool? isBootstrapping,
@@ -62,6 +66,7 @@ class NanobotWorkspaceState {
     String? activityText,
     String? errorMessage,
     bool clearSelectedSession = false,
+    bool clearThreadState = false,
     bool clearModelName = false,
     bool clearReasoning = false,
     bool clearActivity = false,
@@ -76,6 +81,7 @@ class NanobotWorkspaceState {
       selectedChatId: clearSelectedSession
           ? null
           : selectedChatId ?? this.selectedChatId,
+      threadState: clearThreadState ? null : threadState ?? this.threadState,
       modelName: clearModelName ? null : modelName ?? this.modelName,
       socketStatus: socketStatus ?? this.socketStatus,
       isBootstrapping: isBootstrapping ?? this.isBootstrapping,

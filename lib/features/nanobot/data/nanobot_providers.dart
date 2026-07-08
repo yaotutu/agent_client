@@ -25,7 +25,7 @@ final nanobotWsClientProvider = Provider<NanobotWsClient>((ref) {
   return client;
 });
 
-final nanobotRepositoryProvider = Provider<NanobotRepository>((ref) {
+final nanobotRepositoryProvider = Provider<NanobotRepositoryPort>((ref) {
   return NanobotRepository(
     api: ref.watch(nanobotApiClientProvider),
     ws: ref.watch(nanobotWsClientProvider),

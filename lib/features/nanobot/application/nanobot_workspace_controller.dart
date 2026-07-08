@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:agent_client/features/nanobot/application/nanobot_thread_reducer.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_state.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_providers.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 final nanobotWorkspaceControllerProvider =
@@ -83,6 +85,12 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     state = state.copyWith(
       selectedSessionKey: session.key,
       selectedChatId: session.chatId,
+      threadState: NanobotThreadState(
+        sessionKey: session.key,
+        chatId: session.chatId,
+        isStreaming: session.runStartedAt != null,
+        runStartedAt: session.runStartedAt,
+      ),
       messages: const [],
       isLoadingThread: true,
       isStreaming: session.runStartedAt != null,
@@ -99,6 +107,13 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       }
       state = state.copyWith(
         messages: _recentMessages(messages),
+        threadState: _threadStateFromMessages(
+          sessionKey: session.key,
+          chatId: session.chatId,
+          messages: _recentMessages(messages),
+          isStreaming: session.runStartedAt != null,
+          runStartedAt: session.runStartedAt,
+        ),
         isLoadingThread: false,
         clearError: true,
       );
@@ -120,6 +135,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     state = state.copyWith(
       isLoadingThread: true,
       clearSelectedSession: true,
+      clearThreadState: true,
       messages: const [],
       clearReasoning: true,
       clearActivity: true,
@@ -139,6 +155,10 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         sessions: [session, ...state.sessions],
         selectedSessionKey: session.key,
         selectedChatId: session.chatId,
+        threadState: NanobotThreadState(
+          sessionKey: session.key,
+          chatId: session.chatId,
+        ),
         isLoadingThread: false,
         clearError: true,
       );
@@ -178,6 +198,12 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     );
     state = state.copyWith(
       messages: [...state.messages, userMessage],
+      threadState: _appendUserThreadEntry(
+        state.threadState,
+        sessionKey: sessionKey,
+        chatId: chatId,
+        content: content,
+      ),
       isStreaming: true,
       clearReasoning: true,
       clearActivity: true,
@@ -235,51 +261,18 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       case NanobotEventKind.sessionUpdated:
         unawaited(refreshSessions());
       case NanobotEventKind.reasoningDelta:
-        if (_isSelectedChat(event.chatId)) {
-          state = state.copyWith(
-            reasoningText: (state.reasoningText ?? '') + (event.text ?? ''),
-            isStreaming: true,
-          );
-        }
       case NanobotEventKind.reasoningEnd:
-        if (_isSelectedChat(event.chatId)) {
-          state = state.copyWith(clearReasoning: true);
-        }
       case NanobotEventKind.delta:
-        if (_isSelectedChat(event.chatId)) {
-          _appendAssistantDelta(event.text ?? '');
-        }
       case NanobotEventKind.message:
-        if (_isSelectedChat(event.chatId) &&
-            (event.text ?? '').trim().isNotEmpty) {
-          _appendCompleteAssistantMessage(event.text!);
-        }
       case NanobotEventKind.streamEnd:
-        if (_isSelectedChat(event.chatId)) {
-          _completeStreamingAssistant();
-        }
       case NanobotEventKind.goalStatus:
-        if (_isSelectedChat(event.chatId)) {
-          final isRunning = event.status == 'running';
-          state = state.copyWith(
-            activityText: isRunning ? event.status : null,
-            isStreaming: isRunning || state.isStreaming,
-            clearActivity: !isRunning,
-          );
-        }
       case NanobotEventKind.fileEdit:
-        if (_isSelectedChat(event.chatId)) {
-          state = state.copyWith(activityText: 'Editing files');
-        }
       case NanobotEventKind.turnEnd:
         if (_isSelectedChat(event.chatId)) {
-          _completeStreamingAssistant();
-          state = state.copyWith(
-            isStreaming: false,
-            clearReasoning: true,
-            clearActivity: true,
-          );
-          unawaited(refreshSessions());
+          _applyThreadEvent(event);
+          if (event.kind == NanobotEventKind.turnEnd) {
+            unawaited(refreshSessions());
+          }
         }
       case NanobotEventKind.error:
         state = state.copyWith(
@@ -289,86 +282,32 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       case NanobotEventKind.transcriptionResult:
       case NanobotEventKind.transcriptionError:
       case NanobotEventKind.goalState:
+        if (_isSelectedChat(event.chatId)) {
+          _applyThreadEvent(event);
+        }
       case NanobotEventKind.unknown:
         break;
     }
   }
 
-  void _appendAssistantDelta(String delta) {
-    if (delta.isEmpty) {
+  void _applyThreadEvent(NanobotEvent event) {
+    final current = _currentThreadState();
+    if (current == null) {
       return;
     }
-    final sessionKey = state.selectedSessionKey;
-    final chatId = state.selectedChatId;
-    if (sessionKey == null || chatId == null) {
-      return;
-    }
-    final messages = [...state.messages];
-    final index = _lastStreamingAssistantIndex(messages);
-    if (index >= 0) {
-      final message = messages[index];
-      messages[index] = message.copyWith(content: message.content + delta);
-    } else {
-      messages.add(
-        NanobotMessage(
-          id: _newMessageId('assistant'),
-          sessionKey: sessionKey,
-          chatId: chatId,
-          role: NanobotMessageRole.assistant,
-          content: delta,
-          createdAt: DateTime.now(),
-          status: NanobotMessageStatus.streaming,
-        ),
-      );
-    }
-    state = state.copyWith(messages: messages, isStreaming: true);
-  }
-
-  void _appendCompleteAssistantMessage(String text) {
-    final sessionKey = state.selectedSessionKey;
-    final chatId = state.selectedChatId;
-    if (sessionKey == null || chatId == null) {
-      return;
-    }
+    final next = NanobotThreadReducer.reduce(current, event);
+    final reasoningText = _activeReasoningText(next);
+    final activityText = _activeActivityText(next);
     state = state.copyWith(
-      messages: [
-        ...state.messages,
-        NanobotMessage(
-          id: _newMessageId('assistant'),
-          sessionKey: sessionKey,
-          chatId: chatId,
-          role: NanobotMessageRole.assistant,
-          content: text,
-          createdAt: DateTime.now(),
-        ),
-      ],
-      isStreaming: false,
+      threadState: next,
+      messages: _messagesFromThreadState(next),
+      isStreaming: next.isStreaming,
+      reasoningText: reasoningText,
+      activityText: activityText,
+      clearReasoning: reasoningText == null,
+      clearActivity: activityText == null,
+      clearError: true,
     );
-  }
-
-  void _completeStreamingAssistant() {
-    final messages = [...state.messages];
-    final index = _lastStreamingAssistantIndex(messages);
-    if (index >= 0) {
-      messages[index] = messages[index].copyWith(
-        status: NanobotMessageStatus.completed,
-      );
-    }
-    state = state.copyWith(messages: messages, isStreaming: false);
-  }
-
-  int _lastStreamingAssistantIndex(List<NanobotMessage> messages) {
-    for (var i = messages.length - 1; i >= 0; i -= 1) {
-      final message = messages[i];
-      if (message.role == NanobotMessageRole.assistant &&
-          message.status == NanobotMessageStatus.streaming) {
-        return i;
-      }
-      if (message.role == NanobotMessageRole.user) {
-        break;
-      }
-    }
-    return -1;
   }
 
   bool _isSelectedChat(String? chatId) {
@@ -389,6 +328,137 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
 
   String _newMessageId(String prefix) {
     return '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  NanobotThreadState? _currentThreadState() {
+    final existing = state.threadState;
+    if (existing != null) {
+      return existing;
+    }
+    final sessionKey = state.selectedSessionKey;
+    final chatId = state.selectedChatId;
+    if (sessionKey == null || chatId == null) {
+      return null;
+    }
+    return _threadStateFromMessages(
+      sessionKey: sessionKey,
+      chatId: chatId,
+      messages: state.messages,
+      isStreaming: state.isStreaming,
+    );
+  }
+
+  NanobotThreadState _threadStateFromMessages({
+    required String sessionKey,
+    required String chatId,
+    required List<NanobotMessage> messages,
+    bool isStreaming = false,
+    int? runStartedAt,
+  }) {
+    return NanobotThreadState(
+      sessionKey: sessionKey,
+      chatId: chatId,
+      entries: [
+        for (final message in messages)
+          NanobotThreadEntry(
+            id: message.id,
+            role: _threadRoleFromMessage(message.role),
+            content: message.content,
+            createdAt: message.createdAt,
+            isStreaming: message.status == NanobotMessageStatus.streaming,
+            reasoning: message.reasoning,
+          ),
+      ],
+      isStreaming: isStreaming,
+      runStartedAt: runStartedAt,
+    );
+  }
+
+  NanobotThreadState _appendUserThreadEntry(
+    NanobotThreadState? current, {
+    required String sessionKey,
+    required String chatId,
+    required String content,
+  }) {
+    final base =
+        current ?? NanobotThreadState(sessionKey: sessionKey, chatId: chatId);
+    return base.copyWith(
+      entries: [
+        ...base.entries,
+        NanobotThreadEntry(
+          id: _newMessageId('user'),
+          role: NanobotThreadRole.user,
+          content: content,
+          createdAt: DateTime.now(),
+        ),
+      ],
+      isStreaming: true,
+    );
+  }
+
+  List<NanobotMessage> _messagesFromThreadState(NanobotThreadState thread) {
+    return [
+      for (final entry in thread.entries)
+        if (entry.kind == NanobotThreadEntryKind.message &&
+            (entry.content.trim().isNotEmpty ||
+                entry.reasoning?.trim().isNotEmpty == true))
+          NanobotMessage(
+            id: entry.id,
+            sessionKey: thread.sessionKey,
+            chatId: thread.chatId,
+            role: _messageRoleFromThread(entry.role),
+            content: entry.content,
+            createdAt: entry.createdAt,
+            status: entry.isStreaming
+                ? NanobotMessageStatus.streaming
+                : NanobotMessageStatus.completed,
+            reasoning: entry.reasoning,
+          ),
+    ];
+  }
+
+  String? _activeReasoningText(NanobotThreadState thread) {
+    if (!thread.isStreaming) {
+      return null;
+    }
+    for (var i = thread.entries.length - 1; i >= 0; i -= 1) {
+      final entry = thread.entries[i];
+      if (entry.reasoningStreaming &&
+          entry.reasoning?.trim().isNotEmpty == true) {
+        return entry.reasoning;
+      }
+    }
+    return null;
+  }
+
+  String? _activeActivityText(NanobotThreadState thread) {
+    if (!thread.isStreaming || thread.entries.isEmpty) {
+      return null;
+    }
+    final last = thread.entries.last;
+    return switch (last.kind) {
+      NanobotThreadEntryKind.trace => last.content,
+      NanobotThreadEntryKind.fileEdit => last.content,
+      NanobotThreadEntryKind.message => null,
+    };
+  }
+
+  NanobotThreadRole _threadRoleFromMessage(NanobotMessageRole role) {
+    return switch (role) {
+      NanobotMessageRole.system => NanobotThreadRole.system,
+      NanobotMessageRole.user => NanobotThreadRole.user,
+      NanobotMessageRole.assistant => NanobotThreadRole.assistant,
+      NanobotMessageRole.tool => NanobotThreadRole.tool,
+    };
+  }
+
+  NanobotMessageRole _messageRoleFromThread(NanobotThreadRole role) {
+    return switch (role) {
+      NanobotThreadRole.system => NanobotMessageRole.system,
+      NanobotThreadRole.user => NanobotMessageRole.user,
+      NanobotThreadRole.assistant => NanobotMessageRole.assistant,
+      NanobotThreadRole.tool => NanobotMessageRole.tool,
+    };
   }
 
   String _friendlyError(Object error) {
