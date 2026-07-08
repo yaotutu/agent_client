@@ -1551,18 +1551,78 @@ void main() {
       'Existing draft transcribed text',
     );
   });
+
+  testWidgets('composer voice input maps permission errors to webui copy', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    final recorder = _FakeNanobotVoiceInputRecorder(
+      const NanobotRecordedAudio(dataUrl: 'data:audio/webm;base64,abc'),
+      error: StateError('microphone_permission_denied'),
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          nanobotRepositoryProvider.overrideWithValue(repository),
+          nanobotVoiceInputRecorderProvider.overrideWithValue(recorder),
+        ],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Voice input'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Microphone permission is required.'), findsOneWidget);
+  });
+
+  testWidgets('composer voice input maps transcription setup errors', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      transcribeError: StateError('not_configured'),
+    );
+    final recorder = _FakeNanobotVoiceInputRecorder(
+      const NanobotRecordedAudio(dataUrl: 'data:audio/webm;base64,abc'),
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          nanobotRepositoryProvider.overrideWithValue(repository),
+          nanobotVoiceInputRecorderProvider.overrideWithValue(recorder),
+        ],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Voice input'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Configure a transcription provider first.'),
+      findsOneWidget,
+    );
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
   _FakeNanobotRepository({
     this.threadMessages = const [],
     this.threadUserMessageOffset = 0,
+    this.transcribeError,
   });
 
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
   final List<NanobotMessage> threadMessages;
   final int threadUserMessageOffset;
+  final Object? transcribeError;
   final _sessions = [
     NanobotSessionSummary(
       key: 'websocket:chat-1',
@@ -1734,6 +1794,10 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     required String dataUrl,
     int? durationMs,
   }) async {
+    final error = transcribeError;
+    if (error != null) {
+      throw error;
+    }
     transcribeRequestId = requestId;
     transcribeDataUrl = dataUrl;
     transcribeDurationMs = durationMs;
@@ -1785,14 +1849,19 @@ class _FakeNanobotImageAttachmentPicker
 }
 
 class _FakeNanobotVoiceInputRecorder implements NanobotVoiceInputRecorder {
-  _FakeNanobotVoiceInputRecorder(this.result);
+  _FakeNanobotVoiceInputRecorder(this.result, {this.error});
 
   final NanobotRecordedAudio result;
+  final Object? error;
   var recorded = false;
 
   @override
   Future<NanobotRecordedAudio?> record(BuildContext context) async {
     recorded = true;
+    final error = this.error;
+    if (error != null) {
+      throw error;
+    }
     return result;
   }
 }

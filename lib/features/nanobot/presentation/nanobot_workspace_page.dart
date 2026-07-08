@@ -284,7 +284,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
       );
     } on Object catch (error) {
       if (mounted) {
-        setState(() => _composerInlineError = 'Voice input failed: $error');
+        setState(() => _composerInlineError = _voiceInputErrorMessage(error));
       }
     } finally {
       if (mounted) {
@@ -5558,6 +5558,30 @@ String? _composerImageSizeLabel(String dataUrl) {
     return '${(bytes / 1024).toStringAsFixed(1)} KB';
   }
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+String _voiceInputErrorMessage(Object error) {
+  final detail = error.toString();
+  if (detail.contains('unsupported')) {
+    return 'Voice input is not supported in this browser.';
+  }
+  if (detail.contains('microphone_permission_denied') ||
+      detail.contains('permission')) {
+    return 'Microphone permission is required.';
+  }
+  if (detail.contains('not_configured')) {
+    return 'Configure a transcription provider first.';
+  }
+  if (detail.contains('duration')) {
+    return 'Recording is too long.';
+  }
+  if (detail.contains('too_short') || detail.contains('tooShort')) {
+    return 'Hold a little longer to record voice.';
+  }
+  if (detail.contains('no_input') || detail.contains('noInput')) {
+    return 'No microphone input detected.';
+  }
+  return 'Could not transcribe audio.';
 }
 
 class _RunGoalStrip extends StatefulWidget {
