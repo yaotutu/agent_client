@@ -4,6 +4,7 @@ import 'package:agent_client/features/nanobot/data/protocol/nanobot_ws_envelope.
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_media_attachment.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
@@ -48,6 +49,7 @@ abstract class NanobotRepositoryPort {
   Future<void> sendMessage({
     required String chatId,
     required String content,
+    List<NanobotSendMedia> media = const [],
     List<NanobotCapabilityMention> cliApps = const [],
     List<NanobotCapabilityMention> mcpPresets = const [],
   });
@@ -344,12 +346,17 @@ class NanobotRepository implements NanobotRepositoryPort {
   Future<void> sendMessage({
     required String chatId,
     required String content,
+    List<NanobotSendMedia> media = const [],
     List<NanobotCapabilityMention> cliApps = const [],
     List<NanobotCapabilityMention> mcpPresets = const [],
   }) {
     return ws.sendMessage(
       chatId: chatId,
       content: content,
+      media: [
+        for (final item in media)
+          NanobotOutboundMedia(dataUrl: item.dataUrl, name: item.name),
+      ],
       cliApps: [for (final item in cliApps) _outboundMention(item)],
       mcpPresets: [for (final item in mcpPresets) _outboundMention(item)],
     );

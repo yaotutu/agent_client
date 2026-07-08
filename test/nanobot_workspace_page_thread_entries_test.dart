@@ -5,6 +5,7 @@ import 'package:agent_client/features/nanobot/data/nanobot_repository.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_media_attachment.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
@@ -1351,6 +1352,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<void> sendMessage({
     required String chatId,
     required String content,
+    List<NanobotSendMedia> media = const [],
     List<NanobotCapabilityMention> cliApps = const [],
     List<NanobotCapabilityMention> mcpPresets = const [],
   }) async {}

@@ -6,6 +6,7 @@ import 'package:agent_client/features/nanobot/data/nanobot_repository.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_media_attachment.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
@@ -141,6 +142,43 @@ void main() {
       'https://example.invalid/browserbase.svg',
     );
     expect(repository.sentMcpPresets.single.brandColor, '#111827');
+  });
+
+  test('workspace controller forwards outbound media attachments', () async {
+    final repository = _FakeNanobotRepository();
+    final container = ProviderContainer(
+      overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    addTearDown(repository.dispose);
+
+    final controller = container.read(
+      nanobotWorkspaceControllerProvider.notifier,
+    );
+    container.read(nanobotWorkspaceControllerProvider);
+    await pumpEventQueue();
+
+    await controller.sendMessage(
+      'describe this',
+      media: const [
+        NanobotSendMedia(
+          dataUrl: 'data:image/png;base64,abc',
+          name: 'screen.png',
+        ),
+      ],
+    );
+
+    expect(repository.sentMedia, hasLength(1));
+    expect(repository.sentMedia.single.dataUrl, 'data:image/png;base64,abc');
+    expect(repository.sentMedia.single.name, 'screen.png');
+
+    final state = container.read(nanobotWorkspaceControllerProvider);
+    expect(state.messages.last.media.single.url, 'data:image/png;base64,abc');
+    expect(state.messages.last.media.single.name, 'screen.png');
+    expect(
+      state.threadState?.entries.last.media.single.url,
+      'data:image/png;base64,abc',
+    );
   });
 
   test(
@@ -292,6 +330,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   int? forkBeforeUserIndex;
   String? forkTitle;
   final attachedChatIds = <String>[];
+  List<NanobotSendMedia> sentMedia = const [];
   List<NanobotCapabilityMention> sentCliApps = const [];
   List<NanobotCapabilityMention> sentMcpPresets = const [];
 
@@ -435,11 +474,13 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   Future<void> sendMessage({
     required String chatId,
     required String content,
+    List<NanobotSendMedia> media = const [],
     List<NanobotCapabilityMention> cliApps = const [],
     List<NanobotCapabilityMention> mcpPresets = const [],
   }) async {
     sentChatId = chatId;
     sentContent = content;
+    sentMedia = media;
     sentCliApps = cliApps;
     sentMcpPresets = mcpPresets;
   }

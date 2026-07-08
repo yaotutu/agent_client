@@ -5,6 +5,7 @@ import 'package:agent_client/features/nanobot/application/nanobot_workspace_stat
 import 'package:agent_client/features/nanobot/data/nanobot_providers.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_repository.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_media_attachment.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
@@ -610,7 +611,10 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     }
   }
 
-  Future<void> sendMessage(String input) async {
+  Future<void> sendMessage(
+    String input, {
+    List<NanobotSendMedia> media = const [],
+  }) async {
     final content = input.trim();
     if (content.isEmpty || !state.canSend) {
       return;
@@ -637,6 +641,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     final nextStreaming = sideChannel
         ? (finalizeActiveTurn ? false : state.isStreaming)
         : true;
+    final messageMedia = [for (final item in media) item.toAttachment()];
     final userMessage = NanobotMessage(
       id: _newMessageId('user'),
       sessionKey: sessionKey,
@@ -644,6 +649,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       role: NanobotMessageRole.user,
       content: content,
       createdAt: DateTime.now(),
+      media: messageMedia,
     );
     state = state.copyWith(
       messages: [...state.messages, userMessage],
@@ -653,6 +659,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         chatId: chatId,
         content: content,
         isStreaming: nextStreaming,
+        media: messageMedia,
       ),
       isStreaming: nextStreaming,
       clearReasoning: !sideChannel || finalizeActiveTurn,
@@ -667,6 +674,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
           .sendMessage(
             chatId: chatId,
             content: content,
+            media: media,
             cliApps: mentions.cliApps,
             mcpPresets: mentions.mcpPresets,
           );
@@ -1006,6 +1014,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     required String chatId,
     required String content,
     required bool isStreaming,
+    List<NanobotMediaAttachment> media = const [],
   }) {
     final base =
         current ?? NanobotThreadState(sessionKey: sessionKey, chatId: chatId);
@@ -1017,6 +1026,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
           role: NanobotThreadRole.user,
           content: content,
           createdAt: DateTime.now(),
+          media: media,
         ),
       ],
       isStreaming: isStreaming,

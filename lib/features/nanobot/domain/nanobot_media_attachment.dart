@@ -49,3 +49,18 @@ class NanobotMediaAttachment {
     return parts.isEmpty ? null : parts.last;
   }
 }
+
+class NanobotSendMedia {
+  const NanobotSendMedia({required this.dataUrl, this.name});
+
+  final String dataUrl;
+  final String? name;
+
+  NanobotMediaAttachment toAttachment() {
+    return NanobotMediaAttachment(
+      kind: NanobotMediaAttachment._inferKind(url: dataUrl, name: name),
+      url: dataUrl,
+      name: name,
+    );
+  }
+}
