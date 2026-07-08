@@ -178,6 +178,51 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     return _updateSidebarState(state.sidebarState.copyWith(pinnedKeys: pinned));
   }
 
+  Future<void> toggleSessionArchived(String key) async {
+    final archived = [...state.sidebarState.archivedKeys];
+    final wasArchived = archived.contains(key);
+    if (wasArchived) {
+      archived.remove(key);
+    } else {
+      archived.add(key);
+    }
+    final pinned = state.sidebarState.pinnedKeys
+        .where((item) => item != key)
+        .toList();
+    await _updateSidebarState(
+      state.sidebarState.copyWith(pinnedKeys: pinned, archivedKeys: archived),
+    );
+    if (!wasArchived && state.selectedSessionKey == key) {
+      final archivedSet = state.sidebarState.archivedKeys.toSet();
+      for (final session in state.sessions) {
+        if (!archivedSet.contains(session.key)) {
+          await selectSession(session);
+          return;
+        }
+      }
+      state = state.copyWith(
+        clearSelectedSession: true,
+        clearThreadState: true,
+        messages: const [],
+        clearReasoning: true,
+        clearActivity: true,
+      );
+    }
+  }
+
+  Future<void> renameSession(String key, String title) {
+    final overrides = {...state.sidebarState.titleOverrides};
+    final cleaned = title.trim();
+    if (cleaned.isEmpty) {
+      overrides.remove(key);
+    } else {
+      overrides[key] = cleaned;
+    }
+    return _updateSidebarState(
+      state.sidebarState.copyWith(titleOverrides: overrides),
+    );
+  }
+
   Future<void> _updateSidebarState(NanobotSidebarState next) async {
     state = state.copyWith(sidebarState: next, clearError: true);
     try {

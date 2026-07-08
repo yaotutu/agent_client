@@ -58,6 +58,64 @@ void main() {
       'websocket:chat-1',
     ]);
   });
+
+  testWidgets('session action menu persists pin archive and rename', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(NanobotWorkspacePage)),
+    );
+
+    await tester.tap(find.byTooltip('Actions for Active Chat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pin'));
+    await tester.pumpAndSettle();
+
+    expect(repository.persistedSidebarState?.pinnedKeys, [
+      'websocket:chat-2',
+      'websocket:chat-1',
+    ]);
+
+    await tester.tap(find.byTooltip('Actions for Active Chat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archive'));
+    await tester.pumpAndSettle();
+
+    expect(repository.persistedSidebarState?.pinnedKeys, ['websocket:chat-2']);
+    expect(repository.persistedSidebarState?.archivedKeys, [
+      'websocket:chat-3',
+      'websocket:chat-1',
+    ]);
+    expect(
+      container.read(nanobotWorkspaceControllerProvider).selectedSessionKey,
+      'websocket:chat-2',
+    );
+
+    await tester.tap(find.byTooltip('Actions for Pinned Roadmap'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rename'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rename chat'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'Roadmap v2');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(repository.persistedSidebarState?.titleOverrides, {
+      'websocket:chat-2': 'Roadmap v2',
+    });
+    expect(find.text('Roadmap v2'), findsOneWidget);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {

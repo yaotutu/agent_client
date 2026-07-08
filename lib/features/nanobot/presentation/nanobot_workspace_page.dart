@@ -52,6 +52,9 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
                   onOpenAutomations: controller.openAutomations,
                   onOpenSkills: controller.openSkills,
                   onToggleShowArchived: controller.toggleShowArchived,
+                  onTogglePinned: controller.toggleSessionPinned,
+                  onToggleArchived: controller.toggleSessionArchived,
+                  onRenameSession: controller.renameSession,
                 ),
               ),
             )
@@ -90,6 +93,9 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
                     onOpenAutomations: controller.openAutomations,
                     onOpenSkills: controller.openSkills,
                     onToggleShowArchived: controller.toggleShowArchived,
+                    onTogglePinned: controller.toggleSessionPinned,
+                    onToggleArchived: controller.toggleSessionArchived,
+                    onRenameSession: controller.renameSession,
                   ),
                 ),
                 const VerticalDivider(width: 1, color: AppThemeTokens.border),
@@ -125,6 +131,9 @@ class _SessionList extends StatelessWidget {
     required this.onOpenAutomations,
     required this.onOpenSkills,
     required this.onToggleShowArchived,
+    required this.onTogglePinned,
+    required this.onToggleArchived,
+    required this.onRenameSession,
   });
 
   final NanobotWorkspaceState state;
@@ -137,6 +146,9 @@ class _SessionList extends StatelessWidget {
   final VoidCallback onOpenAutomations;
   final VoidCallback onOpenSkills;
   final VoidCallback onToggleShowArchived;
+  final ValueChanged<String> onTogglePinned;
+  final ValueChanged<String> onToggleArchived;
+  final Future<void> Function(String key, String title) onRenameSession;
 
   @override
   Widget build(BuildContext context) {
@@ -239,6 +251,9 @@ class _SessionList extends StatelessWidget {
                         ),
                         selected: session.key == state.selectedSessionKey,
                         onTap: () => onSelected(session),
+                        onTogglePinned: () => onTogglePinned(session.key),
+                        onToggleArchived: () => onToggleArchived(session.key),
+                        onRename: () => _renameSession(context, session),
                       );
                     },
                   ),
@@ -263,6 +278,21 @@ class _SessionList extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _renameSession(
+    BuildContext context,
+    NanobotSessionSummary session,
+  ) async {
+    final title = state.displayTitleFor(session);
+    final next = await showDialog<String>(
+      context: context,
+      builder: (context) => _RenameSessionDialog(initialTitle: title),
+    );
+    if (next == null) {
+      return;
+    }
+    await onRenameSession(session.key, next);
   }
 }
 
@@ -318,6 +348,9 @@ class _SessionTile extends StatelessWidget {
     required this.archived,
     required this.selected,
     required this.onTap,
+    required this.onTogglePinned,
+    required this.onToggleArchived,
+    required this.onRename,
   });
 
   final NanobotSessionSummary session;
@@ -326,6 +359,9 @@ class _SessionTile extends StatelessWidget {
   final bool archived;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback onTogglePinned;
+  final VoidCallback onToggleArchived;
+  final VoidCallback onRename;
 
   @override
   Widget build(BuildContext context) {
@@ -382,6 +418,36 @@ class _SessionTile extends StatelessWidget {
                           color: AppThemeTokens.mutedText,
                         ),
                       ),
+                    PopupMenuButton<_SessionAction>(
+                      tooltip: 'Actions for $title',
+                      icon: const Icon(Icons.more_horiz, size: 18),
+                      padding: EdgeInsets.zero,
+                      position: PopupMenuPosition.under,
+                      onSelected: (action) {
+                        switch (action) {
+                          case _SessionAction.pin:
+                            onTogglePinned();
+                          case _SessionAction.rename:
+                            onRename();
+                          case _SessionAction.archive:
+                            onToggleArchived();
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: _SessionAction.pin,
+                          child: Text(pinned ? 'Unpin' : 'Pin'),
+                        ),
+                        const PopupMenuItem(
+                          value: _SessionAction.rename,
+                          child: Text('Rename'),
+                        ),
+                        PopupMenuItem(
+                          value: _SessionAction.archive,
+                          child: Text(archived ? 'Unarchive' : 'Archive'),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
                 if (session.preview.trim().isNotEmpty) ...[
@@ -402,6 +468,66 @@ class _SessionTile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+enum _SessionAction { pin, rename, archive }
+
+class _RenameSessionDialog extends StatefulWidget {
+  const _RenameSessionDialog({required this.initialTitle});
+
+  final String initialTitle;
+
+  @override
+  State<_RenameSessionDialog> createState() => _RenameSessionDialogState();
+}
+
+class _RenameSessionDialogState extends State<_RenameSessionDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialTitle);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Rename chat'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLength: 160,
+        decoration: const InputDecoration(hintText: 'Chat name'),
+        onSubmitted: _submit,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
+  }
+
+  void _save() {
+    _submit(_controller.text);
+  }
+
+  void _submit(String value) {
+    final cleaned = value.trim();
+    if (cleaned.isEmpty) {
+      return;
+    }
+    Navigator.of(context).pop(cleaned);
   }
 }
 
