@@ -5,6 +5,7 @@ import 'package:agent_client/features/nanobot/application/nanobot_workspace_stat
 import 'package:agent_client/features/nanobot/data/nanobot_ws_client.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -457,6 +458,33 @@ class _MessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final threadEntries = state.threadState?.entries;
+    if (threadEntries != null) {
+      if (threadEntries.isEmpty) {
+        return const Center(
+          child: Text(
+            'Start a chat',
+            style: TextStyle(color: AppThemeTokens.mutedText),
+          ),
+        );
+      }
+      return ListView.builder(
+        reverse: true,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+        addAutomaticKeepAlives: false,
+        addSemanticIndexes: false,
+        itemCount: threadEntries.length,
+        itemBuilder: (context, index) {
+          final entry = threadEntries[threadEntries.length - 1 - index];
+          return RepaintBoundary(
+            key: ValueKey(entry.id),
+            child: _ThreadEntryBubble(entry: entry),
+          );
+        },
+      );
+    }
+
     final hasActivity =
         state.reasoningText?.trim().isNotEmpty == true ||
         state.activityText?.trim().isNotEmpty == true;
@@ -490,6 +518,192 @@ class _MessageList extends StatelessWidget {
           child: _MessageBubble(message: message),
         );
       },
+    );
+  }
+}
+
+class _ThreadEntryBubble extends StatelessWidget {
+  const _ThreadEntryBubble({required this.entry});
+
+  final NanobotThreadEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (entry.kind) {
+      NanobotThreadEntryKind.message => _ThreadMessageBubble(entry: entry),
+      NanobotThreadEntryKind.trace => _ThreadTraceBubble(entry: entry),
+      NanobotThreadEntryKind.fileEdit => _ThreadFileEditBubble(entry: entry),
+    };
+  }
+}
+
+class _ThreadMessageBubble extends StatelessWidget {
+  const _ThreadMessageBubble({required this.entry});
+
+  final NanobotThreadEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final isUser = entry.role == NanobotThreadRole.user;
+    final color = isUser ? AppThemeTokens.brand : AppThemeTokens.workspaceAlt;
+    final textColor = isUser ? Colors.white : AppThemeTokens.text;
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+            border: isUser ? null : Border.all(color: AppThemeTokens.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (entry.reasoning?.trim().isNotEmpty == true) ...[
+                Text(
+                  entry.reasoning!,
+                  style: TextStyle(
+                    color: isUser ? Colors.white70 : AppThemeTokens.mutedText,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+                if (entry.content.trim().isNotEmpty) const SizedBox(height: 8),
+              ],
+              if (entry.content.trim().isNotEmpty)
+                Text(
+                  entry.content,
+                  style: TextStyle(color: textColor, height: 1.4),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThreadTraceBubble extends StatelessWidget {
+  const _ThreadTraceBubble({required this.entry});
+
+  final NanobotThreadEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final traces = entry.traces.isNotEmpty ? entry.traces : [entry.content];
+    return _ThreadActivityShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final trace in traces)
+            if (trace.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  trace,
+                  style: const TextStyle(
+                    color: AppThemeTokens.text,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThreadFileEditBubble extends StatelessWidget {
+  const _ThreadFileEditBubble({required this.entry});
+
+  final NanobotThreadEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ThreadActivityShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Editing files',
+            style: TextStyle(
+              color: AppThemeTokens.brandPressed,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          for (final edit in entry.fileEdits) ...[
+            const SizedBox(height: 8),
+            _ThreadFileEditRow(edit: edit),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ThreadFileEditRow extends StatelessWidget {
+  const _ThreadFileEditRow({required this.edit});
+
+  final Map<String, Object?> edit;
+
+  @override
+  Widget build(BuildContext context) {
+    final path = edit['path'] as String? ?? '';
+    final added = edit['added'] is num ? (edit['added'] as num).toInt() : 0;
+    final deleted = edit['deleted'] is num
+        ? (edit['deleted'] as num).toInt()
+        : 0;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            path.isEmpty ? 'Pending file edit' : path,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppThemeTokens.text,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          '+$added -$deleted',
+          style: const TextStyle(color: AppThemeTokens.mutedText, fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+class _ThreadActivityShell extends StatelessWidget {
+  const _ThreadActivityShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 5),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppThemeTokens.brandSofter,
+            borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+            border: Border.all(color: AppThemeTokens.selectedBorder),
+          ),
+          child: child,
+        ),
+      ),
     );
   }
 }
