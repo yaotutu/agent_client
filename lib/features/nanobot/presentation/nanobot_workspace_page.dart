@@ -1621,7 +1621,7 @@ class _MessageContentText extends ConsumerWidget {
   Widget _buildInlineContent(String value, WidgetRef ref) {
     final segments = _messageContentSegments(value);
     if (segments.length == 1 && segments.single.isPlainText) {
-      return Text(value, style: TextStyle(color: textColor, height: 1.4));
+      return _InlineFormattedText(text: value, color: textColor);
     }
     final mediaBaseUrl = ref.watch(nanobotConfigProvider).baseUrl;
     return Wrap(
@@ -1645,8 +1645,27 @@ class _MessageContentText extends ConsumerWidget {
           else if (segment.href != null)
             _InlineMarkdownLink(label: segment.text, href: segment.href!)
           else
-            Text(segment.text, style: TextStyle(color: textColor, height: 1.4)),
+            _InlineFormattedText(text: segment.text, color: textColor),
       ],
+    );
+  }
+}
+
+class _InlineFormattedText extends StatelessWidget {
+  const _InlineFormattedText({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final spans = _boldMarkdownSpans(text, color);
+    if (spans == null) {
+      return Text(text, style: TextStyle(color: color, height: 1.4));
+    }
+    return Text.rich(
+      TextSpan(children: spans),
+      style: TextStyle(color: color, height: 1.4),
     );
   }
 }
@@ -1865,6 +1884,31 @@ String _trimBlockText(String text) {
   return text
       .replaceAll(RegExp(r'^\s*\n'), '')
       .replaceAll(RegExp(r'\n\s*$'), '');
+}
+
+List<InlineSpan>? _boldMarkdownSpans(String text, Color color) {
+  final matches = RegExp(r'\*\*([^*]+)\*\*').allMatches(text).toList();
+  if (matches.isEmpty) {
+    return null;
+  }
+  final spans = <InlineSpan>[];
+  var cursor = 0;
+  for (final match in matches) {
+    if (match.start > cursor) {
+      spans.add(TextSpan(text: text.substring(cursor, match.start)));
+    }
+    spans.add(
+      TextSpan(
+        text: match.group(1) ?? '',
+        style: TextStyle(color: color, fontWeight: FontWeight.w700),
+      ),
+    );
+    cursor = match.end;
+  }
+  if (cursor < text.length) {
+    spans.add(TextSpan(text: text.substring(cursor)));
+  }
+  return spans;
 }
 
 List<_MessageContentSegment> _messageContentSegments(String text) {

@@ -161,6 +161,29 @@ void main() {
     expect(find.text('File preview'), findsNothing);
   });
 
+  testWidgets('message bold markdown renders emphasized spans', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Primary **192.168.200.149** address',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('**'), findsNothing);
+    expect(_richTextWithBoldSpan('192.168.200.149'), findsOneWidget);
+  });
+
   testWidgets('message markdown images render inline previews', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
@@ -501,4 +524,24 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     await _events.close();
     await _status.close();
   }
+}
+
+Finder _richTextWithBoldSpan(String text) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! RichText) {
+      return false;
+    }
+    var found = false;
+    void visit(InlineSpan span) {
+      if (span is TextSpan) {
+        if (span.text == text && span.style?.fontWeight == FontWeight.w700) {
+          found = true;
+        }
+        span.children?.forEach(visit);
+      }
+    }
+
+    visit(widget.text);
+    return found;
+  });
 }
