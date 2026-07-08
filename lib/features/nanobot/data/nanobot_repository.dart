@@ -23,6 +23,13 @@ abstract class NanobotRepositoryPort {
 
   Future<List<NanobotMessage>> fetchThread(NanobotSessionSummary session);
 
+  Future<NanobotFilePreview> fetchFilePreview({
+    required String sessionKey,
+    required String path,
+  }) {
+    throw UnimplementedError('fetchFilePreview');
+  }
+
   Future<List<NanobotSlashCommand>> listSlashCommands() {
     throw UnimplementedError('listSlashCommands');
   }
@@ -133,11 +140,21 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
-  Future<NanobotFilePreviewDto> fetchFilePreview({
+  @override
+  Future<NanobotFilePreview> fetchFilePreview({
     required String sessionKey,
     required String path,
-  }) {
-    return api.fetchFilePreview(sessionKey: sessionKey, path: path);
+  }) async {
+    final dto = await api.fetchFilePreview(sessionKey: sessionKey, path: path);
+    return NanobotFilePreview(
+      path: dto.path,
+      displayPath: dto.displayPath,
+      projectPath: dto.projectPath,
+      language: dto.language,
+      content: dto.content,
+      size: dto.size,
+      truncated: dto.truncated,
+    );
   }
 
   Future<NanobotWorkspacesDto> fetchWorkspaces() => api.fetchWorkspaces();

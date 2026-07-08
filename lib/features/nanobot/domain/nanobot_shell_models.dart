@@ -32,6 +32,26 @@ class NanobotCatalogItem {
   final String status;
 }
 
+class NanobotFilePreview {
+  const NanobotFilePreview({
+    required this.path,
+    required this.displayPath,
+    required this.projectPath,
+    required this.language,
+    required this.content,
+    required this.size,
+    required this.truncated,
+  });
+
+  final String path;
+  final String displayPath;
+  final String projectPath;
+  final String language;
+  final String content;
+  final int size;
+  final bool truncated;
+}
+
 class NanobotCapabilityMention {
   const NanobotCapabilityMention({
     required this.kind,

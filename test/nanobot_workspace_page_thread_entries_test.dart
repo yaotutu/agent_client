@@ -65,6 +65,38 @@ void main() {
     expect(find.text('lib/main.dart'), findsOneWidget);
     expect(find.text('+3 -1'), findsOneWidget);
   });
+
+  testWidgets('file edit rows open a file preview panel', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'file_edit',
+      'chat_id': 'chat-1',
+      'edits': [
+        {'path': 'lib/main.dart', 'added': 3, 'deleted': 1, 'status': 'done'},
+      ],
+    });
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('lib/main.dart'));
+    await tester.pumpAndSettle();
+
+    expect(repository.previewSessionKey, 'websocket:chat-1');
+    expect(repository.previewPath, 'lib/main.dart');
+    expect(find.text('File preview'), findsOneWidget);
+    expect(find.text('lib/main.dart'), findsWidgets);
+    expect(find.text('void main() {}'), findsOneWidget);
+    expect(find.text('Preview truncated'), findsOneWidget);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -135,6 +167,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     return const NanobotSessionDeleteResult(deleted: true);
   }
 
+  String? previewSessionKey;
+  String? previewPath;
+
   @override
   Future<NanobotWorkspaceSnapshot> fetchWorkspacesSnapshot() async {
     return const NanobotWorkspaceSnapshot(
@@ -159,6 +194,24 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     NanobotSessionSummary session,
   ) async {
     return const [];
+  }
+
+  @override
+  Future<NanobotFilePreview> fetchFilePreview({
+    required String sessionKey,
+    required String path,
+  }) async {
+    previewSessionKey = sessionKey;
+    previewPath = path;
+    return const NanobotFilePreview(
+      path: 'lib/main.dart',
+      displayPath: 'lib/main.dart',
+      projectPath: '/tmp/project',
+      language: 'dart',
+      content: 'void main() {}',
+      size: 2048,
+      truncated: true,
+    );
   }
 
   @override

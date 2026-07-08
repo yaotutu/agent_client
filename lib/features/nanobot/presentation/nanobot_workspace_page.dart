@@ -73,6 +73,8 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onStop: controller.stopActiveTurn,
               onWorkspaceAccessMode: controller.applyWorkspaceAccessMode,
               onWorkspaceProjectPath: controller.applyWorkspaceProjectPath,
+              onOpenFilePreview: controller.openFilePreview,
+              onCloseFilePreview: controller.closeFilePreview,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -713,6 +715,8 @@ class _ChatPane extends StatelessWidget {
     required this.onStop,
     required this.onWorkspaceAccessMode,
     required this.onWorkspaceProjectPath,
+    required this.onOpenFilePreview,
+    required this.onCloseFilePreview,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -726,6 +730,8 @@ class _ChatPane extends StatelessWidget {
   final ValueChanged<String> onWorkspaceAccessMode;
   final Future<void> Function(String path, {String? projectName})
   onWorkspaceProjectPath;
+  final ValueChanged<String> onOpenFilePreview;
+  final VoidCallback onCloseFilePreview;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -747,7 +753,11 @@ class _ChatPane extends StatelessWidget {
             child: state.isLoadingThread
                 ? const Center(child: CircularProgressIndicator())
                 : state.activeView == NanobotShellView.chat
-                ? _MessageList(state: state)
+                ? _ChatMessageArea(
+                    state: state,
+                    onOpenFilePreview: onOpenFilePreview,
+                    onCloseFilePreview: onCloseFilePreview,
+                  )
                 : _SecondarySurface(state: state),
           ),
           if (state.errorMessage != null)
@@ -1104,10 +1114,47 @@ class _EmptySurface extends StatelessWidget {
   }
 }
 
-class _MessageList extends StatelessWidget {
-  const _MessageList({required this.state});
+class _ChatMessageArea extends StatelessWidget {
+  const _ChatMessageArea({
+    required this.state,
+    required this.onOpenFilePreview,
+    required this.onCloseFilePreview,
+  });
 
   final NanobotWorkspaceState state;
+  final ValueChanged<String> onOpenFilePreview;
+  final VoidCallback onCloseFilePreview;
+
+  @override
+  Widget build(BuildContext context) {
+    final previewPath = state.filePreviewPath;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: _MessageList(
+            state: state,
+            onOpenFilePreview: onOpenFilePreview,
+          ),
+        ),
+        if (previewPath != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: _FilePreviewPanel(
+              state: state,
+              path: previewPath,
+              onClose: onCloseFilePreview,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _MessageList extends StatelessWidget {
+  const _MessageList({required this.state, required this.onOpenFilePreview});
+
+  final NanobotWorkspaceState state;
+  final ValueChanged<String> onOpenFilePreview;
 
   @override
   Widget build(BuildContext context) {
@@ -1132,7 +1179,10 @@ class _MessageList extends StatelessWidget {
           final entry = threadEntries[threadEntries.length - 1 - index];
           return RepaintBoundary(
             key: ValueKey(entry.id),
-            child: _ThreadEntryBubble(entry: entry),
+            child: _ThreadEntryBubble(
+              entry: entry,
+              onOpenFilePreview: onOpenFilePreview,
+            ),
           );
         },
       );
@@ -1175,17 +1225,155 @@ class _MessageList extends StatelessWidget {
   }
 }
 
+class _FilePreviewPanel extends StatelessWidget {
+  const _FilePreviewPanel({
+    required this.state,
+    required this.path,
+    required this.onClose,
+  });
+
+  final NanobotWorkspaceState state;
+  final String path;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final panelWidth = width < 520 ? width * 0.92 : 420.0;
+    final preview = state.filePreview;
+    return Material(
+      elevation: 18,
+      color: AppThemeTokens.panel,
+      child: Container(
+        width: panelWidth,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          border: Border(left: BorderSide(color: AppThemeTokens.border)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 52,
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Close file preview',
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close),
+                  ),
+                  const SizedBox(width: 4),
+                  const Expanded(
+                    child: Text(
+                      'File preview',
+                      style: TextStyle(
+                        color: AppThemeTokens.headingText,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: AppThemeTokens.border),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Text(
+                preview?.displayPath ?? path,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppThemeTokens.text,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Divider(height: 1, color: AppThemeTokens.border),
+            Expanded(child: _FilePreviewPanelBody(state: state)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilePreviewPanelBody extends StatelessWidget {
+  const _FilePreviewPanelBody({required this.state});
+
+  final NanobotWorkspaceState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.isLoadingFilePreview) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final error = state.filePreviewError;
+    if (error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          error,
+          style: const TextStyle(color: AppThemeTokens.dangerText),
+        ),
+      );
+    }
+    final preview = state.filePreview;
+    if (preview == null) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (preview.truncated)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            color: AppThemeTokens.panelMuted,
+            child: const Text(
+              'Preview truncated',
+              style: TextStyle(
+                color: AppThemeTokens.mutedText,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(14),
+            child: SelectableText(
+              preview.content,
+              style: const TextStyle(
+                color: AppThemeTokens.text,
+                fontFamily: 'monospace',
+                fontSize: 13,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ThreadEntryBubble extends StatelessWidget {
-  const _ThreadEntryBubble({required this.entry});
+  const _ThreadEntryBubble({
+    required this.entry,
+    required this.onOpenFilePreview,
+  });
 
   final NanobotThreadEntry entry;
+  final ValueChanged<String> onOpenFilePreview;
 
   @override
   Widget build(BuildContext context) {
     return switch (entry.kind) {
       NanobotThreadEntryKind.message => _ThreadMessageBubble(entry: entry),
       NanobotThreadEntryKind.trace => _ThreadTraceBubble(entry: entry),
-      NanobotThreadEntryKind.fileEdit => _ThreadFileEditBubble(entry: entry),
+      NanobotThreadEntryKind.fileEdit => _ThreadFileEditBubble(
+        entry: entry,
+        onOpenFilePreview: onOpenFilePreview,
+      ),
     };
   }
 }
@@ -1272,9 +1460,13 @@ class _ThreadTraceBubble extends StatelessWidget {
 }
 
 class _ThreadFileEditBubble extends StatelessWidget {
-  const _ThreadFileEditBubble({required this.entry});
+  const _ThreadFileEditBubble({
+    required this.entry,
+    required this.onOpenFilePreview,
+  });
 
   final NanobotThreadEntry entry;
+  final ValueChanged<String> onOpenFilePreview;
 
   @override
   Widget build(BuildContext context) {
@@ -1292,7 +1484,10 @@ class _ThreadFileEditBubble extends StatelessWidget {
           ),
           for (final edit in entry.fileEdits) ...[
             const SizedBox(height: 8),
-            _ThreadFileEditRow(edit: edit),
+            _ThreadFileEditRow(
+              edit: edit,
+              onOpenFilePreview: onOpenFilePreview,
+            ),
           ],
         ],
       ),
@@ -1301,9 +1496,13 @@ class _ThreadFileEditBubble extends StatelessWidget {
 }
 
 class _ThreadFileEditRow extends StatelessWidget {
-  const _ThreadFileEditRow({required this.edit});
+  const _ThreadFileEditRow({
+    required this.edit,
+    required this.onOpenFilePreview,
+  });
 
   final Map<String, Object?> edit;
+  final ValueChanged<String> onOpenFilePreview;
 
   @override
   Widget build(BuildContext context) {
@@ -1312,25 +1511,42 @@ class _ThreadFileEditRow extends StatelessWidget {
     final deleted = edit['deleted'] is num
         ? (edit['deleted'] as num).toInt()
         : 0;
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            path.isEmpty ? 'Pending file edit' : path,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppThemeTokens.text,
-              fontWeight: FontWeight.w600,
+    final label = path.isEmpty ? 'Pending file edit' : path;
+    return InkWell(
+      onTap: path.isEmpty ? null : () => onOpenFilePreview(path),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.description_outlined,
+              size: 16,
+              color: AppThemeTokens.mutedText,
             ),
-          ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppThemeTokens.text,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '+$added -$deleted',
+              style: const TextStyle(
+                color: AppThemeTokens.mutedText,
+                fontSize: 12,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Text(
-          '+$added -$deleted',
-          style: const TextStyle(color: AppThemeTokens.mutedText, fontSize: 12),
-        ),
-      ],
+      ),
     );
   }
 }

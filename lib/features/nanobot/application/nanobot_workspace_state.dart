@@ -23,10 +23,14 @@ class NanobotWorkspaceState {
     this.workspacesSnapshot,
     this.draftWorkspaceScope,
     this.workspaceError,
+    this.filePreviewPath,
+    this.filePreview,
+    this.filePreviewError,
     this.modelName,
     this.socketStatus = NanobotSocketStatus.idle,
     this.isBootstrapping = false,
     this.isLoadingThread = false,
+    this.isLoadingFilePreview = false,
     this.isStreaming = false,
     this.reasoningText,
     this.activityText,
@@ -50,10 +54,14 @@ class NanobotWorkspaceState {
   final NanobotWorkspaceSnapshot? workspacesSnapshot;
   final NanobotWorkspaceScope? draftWorkspaceScope;
   final String? workspaceError;
+  final String? filePreviewPath;
+  final NanobotFilePreview? filePreview;
+  final String? filePreviewError;
   final String? modelName;
   final NanobotSocketStatus socketStatus;
   final bool isBootstrapping;
   final bool isLoadingThread;
+  final bool isLoadingFilePreview;
   final bool isStreaming;
   final String? reasoningText;
   final String? activityText;
@@ -136,10 +144,14 @@ class NanobotWorkspaceState {
     NanobotWorkspaceSnapshot? workspacesSnapshot,
     NanobotWorkspaceScope? draftWorkspaceScope,
     String? workspaceError,
+    String? filePreviewPath,
+    NanobotFilePreview? filePreview,
+    String? filePreviewError,
     String? modelName,
     NanobotSocketStatus? socketStatus,
     bool? isBootstrapping,
     bool? isLoadingThread,
+    bool? isLoadingFilePreview,
     bool? isStreaming,
     String? reasoningText,
     String? activityText,
@@ -150,6 +162,8 @@ class NanobotWorkspaceState {
     bool clearSurfaceItems = false,
     bool clearDraftWorkspaceScope = false,
     bool clearWorkspaceError = false,
+    bool clearFilePreview = false,
+    bool clearFilePreviewError = false,
     bool clearModelName = false,
     bool clearReasoning = false,
     bool clearActivity = false,
@@ -185,10 +199,18 @@ class NanobotWorkspaceState {
       workspaceError: clearWorkspaceError
           ? null
           : workspaceError ?? this.workspaceError,
+      filePreviewPath: clearFilePreview
+          ? null
+          : filePreviewPath ?? this.filePreviewPath,
+      filePreview: clearFilePreview ? null : filePreview ?? this.filePreview,
+      filePreviewError: clearFilePreview || clearFilePreviewError
+          ? null
+          : filePreviewError ?? this.filePreviewError,
       modelName: clearModelName ? null : modelName ?? this.modelName,
       socketStatus: socketStatus ?? this.socketStatus,
       isBootstrapping: isBootstrapping ?? this.isBootstrapping,
       isLoadingThread: isLoadingThread ?? this.isLoadingThread,
+      isLoadingFilePreview: isLoadingFilePreview ?? this.isLoadingFilePreview,
       isStreaming: isStreaming ?? this.isStreaming,
       reasoningText: clearReasoning
           ? null

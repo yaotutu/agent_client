@@ -265,6 +265,22 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotFilePreview> fetchFilePreview({
+    required String sessionKey,
+    required String path,
+  }) async {
+    return NanobotFilePreview(
+      path: path,
+      displayPath: path,
+      projectPath: '',
+      language: '',
+      content: '',
+      size: 0,
+      truncated: false,
+    );
+  }
+
+  @override
   Future<String> newChat({NanobotWorkspaceScope? workspaceScope}) async =>
       'chat-1';
 

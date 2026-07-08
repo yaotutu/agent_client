@@ -20,6 +20,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
   StreamSubscription<NanobotEvent>? _eventSubscription;
   StreamSubscription<Object?>? _statusSubscription;
   var _loadGeneration = 0;
+  var _filePreviewGeneration = 0;
 
   @override
   NanobotWorkspaceState build() {
@@ -218,6 +219,49 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         clearError: true,
       ),
     );
+  }
+
+  Future<void> openFilePreview(String path) async {
+    final sessionKey = state.selectedSessionKey;
+    final trimmed = path.trim();
+    if (sessionKey == null || trimmed.isEmpty) {
+      return;
+    }
+    final generation = ++_filePreviewGeneration;
+    state = state.copyWith(
+      filePreviewPath: trimmed,
+      isLoadingFilePreview: true,
+      clearFilePreview: false,
+      clearFilePreviewError: true,
+    );
+    try {
+      final preview = await ref
+          .read(nanobotRepositoryProvider)
+          .fetchFilePreview(sessionKey: sessionKey, path: trimmed);
+      if (generation != _filePreviewGeneration) {
+        return;
+      }
+      state = state.copyWith(
+        filePreviewPath: trimmed,
+        filePreview: preview,
+        isLoadingFilePreview: false,
+        clearFilePreviewError: true,
+      );
+    } on Object catch (error) {
+      if (generation != _filePreviewGeneration) {
+        return;
+      }
+      state = state.copyWith(
+        filePreviewPath: trimmed,
+        filePreviewError: _friendlyError(error),
+        isLoadingFilePreview: false,
+      );
+    }
+  }
+
+  void closeFilePreview() {
+    _filePreviewGeneration += 1;
+    state = state.copyWith(isLoadingFilePreview: false, clearFilePreview: true);
   }
 
   Future<void> toggleShowArchived() {
