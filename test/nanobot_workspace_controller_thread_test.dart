@@ -556,6 +556,14 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<List<NanobotCatalogItem>> runNanobotFeatureAction({
+    required String action,
+    required String name,
+  }) async {
+    return const [];
+  }
+
+  @override
   Future<List<NanobotCatalogItem>> fetchAutomationItems() async {
     return const [];
   }

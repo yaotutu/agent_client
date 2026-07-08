@@ -124,6 +124,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onOpenSkillDetail: controller.openSkillDetail,
               onCloseSkillDetail: controller.closeSkillDetail,
               onCliAppAction: controller.runCliAppAction,
+              onNanobotFeatureAction: controller.runNanobotFeatureAction,
               onAutomationAction: controller.runAutomationAction,
               onAutomationUpdate: controller.updateAutomation,
               onOpenSessions: wide
@@ -1189,6 +1190,7 @@ class _ChatPane extends StatelessWidget {
     required this.onOpenSkillDetail,
     required this.onCloseSkillDetail,
     required this.onCliAppAction,
+    required this.onNanobotFeatureAction,
     required this.onAutomationAction,
     required this.onAutomationUpdate,
     required this.onOpenSettings,
@@ -1226,6 +1228,8 @@ class _ChatPane extends StatelessWidget {
   final VoidCallback onCloseSkillDetail;
   final Future<void> Function(String action, NanobotCatalogItem item)
   onCliAppAction;
+  final Future<void> Function(String action, NanobotCatalogItem item)
+  onNanobotFeatureAction;
   final Future<void> Function(
     NanobotAutomationAction action,
     NanobotCatalogItem item,
@@ -1268,6 +1272,7 @@ class _ChatPane extends StatelessWidget {
                     onOpenSkillDetail: onOpenSkillDetail,
                     onCloseSkillDetail: onCloseSkillDetail,
                     onCliAppAction: onCliAppAction,
+                    onNanobotFeatureAction: onNanobotFeatureAction,
                     onAutomationAction: onAutomationAction,
                     onAutomationUpdate: onAutomationUpdate,
                   ),
@@ -1430,6 +1435,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onOpenSkillDetail,
     required this.onCloseSkillDetail,
     required this.onCliAppAction,
+    required this.onNanobotFeatureAction,
     required this.onAutomationAction,
     required this.onAutomationUpdate,
   });
@@ -1439,6 +1445,8 @@ class _SecondarySurface extends StatelessWidget {
   final VoidCallback onCloseSkillDetail;
   final Future<void> Function(String action, NanobotCatalogItem item)
   onCliAppAction;
+  final Future<void> Function(String action, NanobotCatalogItem item)
+  onNanobotFeatureAction;
   final Future<void> Function(
     NanobotAutomationAction action,
     NanobotCatalogItem item,
@@ -1464,6 +1472,7 @@ class _SecondarySurface extends StatelessWidget {
         NanobotShellView.apps => _AppsCatalogSurface(
           items: state.appItems,
           onCliAppAction: onCliAppAction,
+          onNanobotFeatureAction: onNanobotFeatureAction,
         ),
         NanobotShellView.automations => _CatalogSurface(
           title: 'Automations',
@@ -1867,11 +1876,14 @@ class _AppsCatalogSurface extends StatefulWidget {
   const _AppsCatalogSurface({
     required this.items,
     required this.onCliAppAction,
+    required this.onNanobotFeatureAction,
   });
 
   final List<NanobotCatalogItem> items;
   final Future<void> Function(String action, NanobotCatalogItem item)
   onCliAppAction;
+  final Future<void> Function(String action, NanobotCatalogItem item)
+  onNanobotFeatureAction;
 
   @override
   State<_AppsCatalogSurface> createState() => _AppsCatalogSurfaceState();
@@ -1971,6 +1983,7 @@ class _AppsCatalogSurfaceState extends State<_AppsCatalogSurface> {
               key: ValueKey(item.id),
               item: item,
               onCliAppAction: widget.onCliAppAction,
+              onNanobotFeatureAction: widget.onNanobotFeatureAction,
             ),
       ],
     );
@@ -2842,6 +2855,7 @@ class _CatalogRow extends StatelessWidget {
     this.selected = false,
     this.onSelected,
     this.onCliAppAction,
+    this.onNanobotFeatureAction,
     this.onAutomationAction,
     this.onAutomationUpdate,
   });
@@ -2851,6 +2865,8 @@ class _CatalogRow extends StatelessWidget {
   final ValueChanged<NanobotCatalogItem>? onSelected;
   final Future<void> Function(String action, NanobotCatalogItem item)?
   onCliAppAction;
+  final Future<void> Function(String action, NanobotCatalogItem item)?
+  onNanobotFeatureAction;
   final Future<void> Function(
     NanobotAutomationAction action,
     NanobotCatalogItem item,
@@ -2922,6 +2938,14 @@ class _CatalogRow extends StatelessWidget {
             const SizedBox(width: 8),
             _CliAppActionButtons(item: item, onAction: onCliAppAction!),
           ],
+          if (onNanobotFeatureAction != null &&
+              _isNanobotCatalogItem(item)) ...[
+            const SizedBox(width: 8),
+            _NanobotFeatureActionButtons(
+              item: item,
+              onAction: onNanobotFeatureAction!,
+            ),
+          ],
           if (onAutomationAction != null) ...[
             const SizedBox(width: 8),
             _AutomationActionButtons(
@@ -2944,6 +2968,52 @@ class _CatalogRow extends StatelessWidget {
         onTap: () => onTap(item),
         child: content,
       ),
+    );
+  }
+}
+
+class _NanobotFeatureActionButtons extends StatelessWidget {
+  const _NanobotFeatureActionButtons({
+    required this.item,
+    required this.onAction,
+  });
+
+  final NanobotCatalogItem item;
+  final Future<void> Function(String action, NanobotCatalogItem item) onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = item.filterKeys.contains('ready');
+    final channel =
+        item.filterKeys.contains('channel') || item.status == 'Channel';
+    final websocket = item.id == 'nanobot:websocket';
+    if (enabled && channel && !websocket) {
+      return IconButton(
+        tooltip: 'Disable',
+        constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        onPressed: () => onAction('disable', item),
+        icon: const Icon(Icons.close),
+      );
+    }
+    if (enabled) {
+      return const Tooltip(
+        message: 'Enabled',
+        child: SizedBox.square(
+          dimension: 36,
+          child: Icon(Icons.check_circle_outline),
+        ),
+      );
+    }
+    final supported = item.filterKeys.contains('install_supported');
+    return IconButton(
+      tooltip: supported ? 'Enable' : 'Unavailable',
+      constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      onPressed: supported ? () => onAction('enable', item) : null,
+      icon: const Icon(Icons.add_circle_outline),
     );
   }
 }
@@ -3000,6 +3070,10 @@ class _CliAppActionButtons extends StatelessWidget {
 
 bool _isCliCatalogItem(NanobotCatalogItem item) {
   return item.filterKeys.contains('cli') || item.id.startsWith('cli:');
+}
+
+bool _isNanobotCatalogItem(NanobotCatalogItem item) {
+  return item.filterKeys.contains('nanobot') || item.id.startsWith('nanobot:');
 }
 
 bool _isReadyCliApp(NanobotCatalogItem item) {

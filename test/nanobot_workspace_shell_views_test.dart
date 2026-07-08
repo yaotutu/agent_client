@@ -204,6 +204,66 @@ void main() {
     expect(find.text('GitHub'), findsOneWidget);
   });
 
+  testWidgets('apps surface runs nanobot feature actions and keeps other kinds', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      appItems: const [
+        NanobotCatalogItem(
+          id: 'nanobot:sms',
+          title: 'SMS',
+          subtitle: 'Enabled',
+          status: 'Channel',
+          filterKeys: ['nanobot', 'ready', 'channel'],
+        ),
+        NanobotCatalogItem(
+          id: 'cli:gimp',
+          title: 'GIMP',
+          subtitle: 'Image editor',
+          status: 'CLI',
+          filterKeys: ['cli', 'ready'],
+        ),
+        NanobotCatalogItem(
+          id: 'mcp:github',
+          title: 'GitHub',
+          subtitle: 'Repository tools',
+          status: 'Configured',
+          filterKeys: ['mcp', 'ready'],
+        ),
+      ],
+      actionAppItems: const [
+        NanobotCatalogItem(
+          id: 'nanobot:sms',
+          title: 'SMS',
+          subtitle: 'Disabled',
+          status: 'Channel',
+          filterKeys: ['nanobot', 'unavailable', 'channel'],
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Apps'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Disable'));
+    await tester.pumpAndSettle();
+
+    expect(repository.nanobotFeatureActionRequests, [
+      (action: 'disable', name: 'sms'),
+    ]);
+    expect(find.text('Disabled'), findsOneWidget);
+    expect(find.text('GIMP'), findsOneWidget);
+    expect(find.text('GitHub'), findsOneWidget);
+  });
+
   testWidgets('automations empty surface keeps heading and webui empty copy', (
     tester,
   ) async {
@@ -1153,6 +1213,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   final requestedSkillDetails = <String>[];
   final actionRequests = <({NanobotAutomationAction action, String id})>[];
   final cliActionRequests = <({String action, String name})>[];
+  final nanobotFeatureActionRequests = <({String action, String name})>[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -1318,6 +1379,15 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     required String name,
   }) async {
     cliActionRequests.add((action: action, name: name));
+    return _actionAppItems ?? _appItems;
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> runNanobotFeatureAction({
+    required String action,
+    required String name,
+  }) async {
+    nanobotFeatureActionRequests.add((action: action, name: name));
     return _actionAppItems ?? _appItems;
   }
 
