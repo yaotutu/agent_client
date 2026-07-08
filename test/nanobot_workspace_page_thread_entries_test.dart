@@ -633,6 +633,40 @@ void main() {
     expect(find.text('•'), findsNothing);
   });
 
+  testWidgets('message markdown compact link rows render favicon source', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text':
+          'Useful links:\n\n'
+          '- Savills Hong Kong Corporate Relocation — Corporate relocation services\n'
+          '  https://www.savills.com.hk/services/corporate-relocation.aspx',
+    });
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(
+        const ValueKey(
+          'nanobot-compact-link-favicon:https://www.savills.com.hk/favicon.ico',
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('message markdown keeps dollar amounts literal', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);

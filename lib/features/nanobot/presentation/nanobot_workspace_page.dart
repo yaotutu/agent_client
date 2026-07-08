@@ -2031,6 +2031,7 @@ class _CompactLinkPreviewRow extends StatelessWidget {
     final label = preview.prefix == null
         ? preview.title
         : '${preview.prefix} — ${preview.title}';
+    final host = Uri.parse(preview.href).host;
     return Semantics(
       label: 'Open link: $label',
       link: true,
@@ -2048,10 +2049,11 @@ class _CompactLinkPreviewRow extends StatelessWidget {
                 border: Border.all(color: AppThemeTokens.border),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Icon(
-                Icons.public,
-                size: 12,
-                color: AppThemeTokens.mutedText,
+              child: _CompactLinkFavicon(
+                key: ValueKey(
+                  'nanobot-compact-link-favicon:${_faviconUrls(host).first}',
+                ),
+                host: host,
               ),
             ),
             const SizedBox(width: 8),
@@ -2093,6 +2095,65 @@ class _InlineMath extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CompactLinkFavicon extends StatefulWidget {
+  const _CompactLinkFavicon({super.key, required this.host});
+
+  final String host;
+
+  @override
+  State<_CompactLinkFavicon> createState() => _CompactLinkFaviconState();
+}
+
+class _CompactLinkFaviconState extends State<_CompactLinkFavicon> {
+  var _candidateIndex = 0;
+
+  @override
+  void didUpdateWidget(_CompactLinkFavicon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.host != widget.host) {
+      _candidateIndex = 0;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final candidates = _faviconUrls(widget.host);
+    if (_candidateIndex >= candidates.length) {
+      return const Icon(
+        Icons.public,
+        size: 12,
+        color: AppThemeTokens.mutedText,
+      );
+    }
+    return Image.network(
+      candidates[_candidateIndex],
+      width: 12,
+      height: 12,
+      fit: BoxFit.contain,
+      excludeFromSemantics: true,
+      errorBuilder: (context, error, stackTrace) {
+        Future<void>.microtask(() {
+          if (mounted) {
+            setState(() {
+              _candidateIndex += 1;
+            });
+          }
+        });
+        return const SizedBox(width: 12, height: 12);
+      },
+    );
+  }
+}
+
+List<String> _faviconUrls(String host) {
+  final faviconHost = host.split('/').first.trim();
+  return [
+    'https://$faviconHost/favicon.ico',
+    'https://icons.duckduckgo.com/ip3/${Uri.encodeComponent(faviconHost)}.ico',
+    'https://www.google.com/s2/favicons?domain=${Uri.encodeComponent(host)}&sz=64',
+  ];
 }
 
 class _InlineFormattedText extends StatelessWidget {
