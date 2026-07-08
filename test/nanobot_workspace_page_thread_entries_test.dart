@@ -161,6 +161,33 @@ void main() {
     expect(find.text('File preview'), findsNothing);
   });
 
+  testWidgets('message markdown images render inline previews', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text':
+          'Preview ![Diagram](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEA'
+          'AAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==)',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Preview'), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
+    expect(find.bySemanticsLabel('Diagram'), findsOneWidget);
+    expect(find.text('Diagram'), findsNothing);
+  });
+
   testWidgets('message media attachments render attachment tiles', (
     tester,
   ) async {

@@ -1582,7 +1582,7 @@ class _ThreadFileEditRow extends StatelessWidget {
   }
 }
 
-class _MessageContentText extends StatelessWidget {
+class _MessageContentText extends ConsumerWidget {
   const _MessageContentText({
     required this.text,
     required this.textColor,
@@ -1594,29 +1594,34 @@ class _MessageContentText extends StatelessWidget {
   final ValueChanged<String> onOpenFilePreview;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final segments = _messageContentSegments(text);
-    if (segments.length == 1 && segments.single.filePath == null) {
+    if (segments.length == 1 && segments.single.isPlainText) {
       return Text(text, style: TextStyle(color: textColor, height: 1.4));
     }
+    final mediaBaseUrl = ref.watch(nanobotConfigProvider).baseUrl;
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final segment in segments)
-          if (segment.filePath == null)
-            if (segment.href == null)
-              Text(
-                segment.text,
-                style: TextStyle(color: textColor, height: 1.4),
-              )
-            else
-              _InlineMarkdownLink(label: segment.text, href: segment.href!)
-          else
+          if (segment.attachment != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: _MediaAttachmentTile(
+                attachment: segment.attachment!,
+                mediaBaseUrl: mediaBaseUrl,
+              ),
+            )
+          else if (segment.filePath != null)
             _InlineFileReferenceChip(
               label: segment.text,
               path: segment.filePath!,
               onOpenFilePreview: onOpenFilePreview,
-            ),
+            )
+          else if (segment.href != null)
+            _InlineMarkdownLink(label: segment.text, href: segment.href!)
+          else
+            Text(segment.text, style: TextStyle(color: textColor, height: 1.4)),
       ],
     );
   }
@@ -1692,44 +1697,69 @@ class _InlineFileReferenceChip extends StatelessWidget {
 }
 
 class _MessageContentSegment {
-  const _MessageContentSegment.text(this.text) : filePath = null, href = null;
+  const _MessageContentSegment.text(this.text)
+    : filePath = null,
+      href = null,
+      attachment = null;
   const _MessageContentSegment.link({required this.text, required this.href})
-    : filePath = null;
+    : filePath = null,
+      attachment = null;
   const _MessageContentSegment.file({
     required this.text,
     required this.filePath,
-  }) : href = null;
+  }) : href = null,
+       attachment = null;
+  const _MessageContentSegment.media({required this.attachment})
+    : text = '',
+      filePath = null,
+      href = null;
 
   final String text;
   final String? filePath;
   final String? href;
+  final NanobotMediaAttachment? attachment;
+
+  bool get isPlainText =>
+      filePath == null && href == null && attachment == null;
 }
 
 List<_MessageContentSegment> _messageContentSegments(String text) {
-  final matches = RegExp(r'\[([^\]]+)\]\(([^)]+)\)').allMatches(text).toList();
+  final matches = RegExp(
+    r'(!?)\[([^\]]+)\]\(([^)]+)\)',
+  ).allMatches(text).toList();
   if (matches.isEmpty) {
     return [if (text.isNotEmpty) _MessageContentSegment.text(text)];
   }
   final segments = <_MessageContentSegment>[];
   var cursor = 0;
   for (final match in matches) {
-    final href = match.group(2) ?? '';
+    final bang = match.group(1) ?? '';
+    final href = match.group(3) ?? '';
     final filePath = _localFilePreviewPath(href);
     if (match.start > cursor) {
       segments.add(
         _MessageContentSegment.text(text.substring(cursor, match.start)),
       );
     }
-    final label = (match.group(1) ?? filePath ?? href).trim();
+    final label = (match.group(2) ?? filePath ?? href).trim();
     final displayLabel = label.isEmpty
         ? (filePath == null ? href.trim() : _fileNameFromPath(filePath))
         : label;
-    final linkHref = _navigableMarkdownHref(href);
-    if (filePath != null) {
+    if (bang == '!') {
+      segments.add(
+        _MessageContentSegment.media(
+          attachment: NanobotMediaAttachment(
+            kind: _markdownAttachmentKind(href, displayLabel),
+            url: href.trim(),
+            name: displayLabel,
+          ),
+        ),
+      );
+    } else if (filePath != null) {
       segments.add(
         _MessageContentSegment.file(text: displayLabel, filePath: filePath),
       );
-    } else if (linkHref != null) {
+    } else if (_navigableMarkdownHref(href) != null) {
       segments.add(_MessageContentSegment.link(text: displayLabel, href: href));
     } else {
       segments.add(_MessageContentSegment.text(displayLabel));
@@ -1743,6 +1773,29 @@ List<_MessageContentSegment> _messageContentSegments(String text) {
     segments.add(_MessageContentSegment.text(text.substring(cursor)));
   }
   return segments;
+}
+
+String _markdownAttachmentKind(String source, String label) {
+  final attachment = NanobotMediaAttachment.fromJson({
+    'url': source,
+    'name': label,
+  });
+  if (attachment.kind != 'file') {
+    return attachment.kind;
+  }
+  return _extensionOf(label).isNotEmpty || _extensionOf(source).isNotEmpty
+      ? 'file'
+      : 'image';
+}
+
+String _extensionOf(String value) {
+  final clean = value.split('?').first.split('#').first.trim();
+  final name = _fileNameFromPath(clean);
+  final dotIndex = name.lastIndexOf('.');
+  if (dotIndex <= 0 || dotIndex == name.length - 1) {
+    return '';
+  }
+  return name.substring(dotIndex).toLowerCase();
 }
 
 String? _localFilePreviewPath(String href) {
