@@ -1211,7 +1211,9 @@ void main() {
     final repository = _FakeNanobotRepository();
     final picker = _FakeNanobotImageAttachmentPicker([
       const NanobotSendMedia(
-        dataUrl: 'data:image/png;base64,abc',
+        dataUrl:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
+            'AAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
         name: 'screen.png',
       ),
     ]);
@@ -1233,6 +1235,7 @@ void main() {
 
     const chipKey = ValueKey('composer-image-screen.png-0');
     expect(find.byKey(chipKey), findsOneWidget);
+    expect(find.text('70 B'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField).last, 'describe this');
     await tester.tap(find.byTooltip('Send'));
@@ -1240,7 +1243,11 @@ void main() {
 
     expect(repository.sentContent, 'describe this');
     expect(repository.sentMedia, hasLength(1));
-    expect(repository.sentMedia.single.dataUrl, 'data:image/png;base64,abc');
+    expect(
+      repository.sentMedia.single.dataUrl,
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
+      'AAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    );
     expect(repository.sentMedia.single.name, 'screen.png');
     expect(find.byKey(chipKey), findsNothing);
   });
@@ -1342,6 +1349,39 @@ void main() {
       ),
     );
     expect(attachButton.onPressed, isNull);
+  });
+
+  testWidgets('composer rejects unsupported image attachment data urls', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    final picker = _FakeNanobotImageAttachmentPicker([
+      const NanobotSendMedia(
+        dataUrl: 'data:text/plain;base64,aGVsbG8=',
+        name: 'note.txt',
+      ),
+    ]);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          nanobotRepositoryProvider.overrideWithValue(repository),
+          nanobotImageAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Attach image'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unsupported file type'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('composer-image-note.txt-0')),
+      findsNothing,
+    );
   });
 
   testWidgets(

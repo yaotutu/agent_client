@@ -308,10 +308,21 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
       }
       setState(() {
         final remaining = _maxImageAttachments - _attachedImages.length;
-        _composerInlineError = picked.length > remaining
-            ? 'Max $_maxImageAttachments images per message'
-            : null;
-        _attachedImages.addAll(picked.take(remaining));
+        final accepted = <NanobotSendMedia>[];
+        String? rejection;
+        for (final media in picked) {
+          if (!_isSupportedComposerImage(media.dataUrl)) {
+            rejection ??= 'Unsupported file type';
+            continue;
+          }
+          if (accepted.length >= remaining) {
+            rejection ??= 'Max $_maxImageAttachments images per message';
+            continue;
+          }
+          accepted.add(media);
+        }
+        _composerInlineError = rejection;
+        _attachedImages.addAll(accepted);
       });
     } on Object catch (error) {
       if (!mounted) {
@@ -5413,6 +5424,7 @@ class _ComposerImageChip extends StatelessWidget {
         ? media.name!.trim()
         : 'Image attachment';
     final thumbnail = _bytesFromDataUrl(media.dataUrl);
+    final sizeLabel = _composerImageSizeLabel(media.dataUrl);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppThemeTokens.panelMuted,
@@ -5448,15 +5460,31 @@ class _ComposerImageChip extends StatelessWidget {
             const SizedBox(width: 6),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 160),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppThemeTokens.text,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppThemeTokens.text,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (sizeLabel != null)
+                    Text(
+                      sizeLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppThemeTokens.mutedText,
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 4),
@@ -5485,6 +5513,51 @@ class _ComposerImageChip extends StatelessWidget {
       return null;
     }
   }
+}
+
+bool _isSupportedComposerImage(String dataUrl) {
+  final mime = _composerDataUrlMime(dataUrl);
+  return mime == 'image/png' ||
+      mime == 'image/jpeg' ||
+      mime == 'image/webp' ||
+      mime == 'image/gif';
+}
+
+String? _composerDataUrlMime(String dataUrl) {
+  if (!dataUrl.startsWith('data:')) {
+    return null;
+  }
+  final end = dataUrl.indexOf(RegExp('[;,]'), 5);
+  if (end <= 5) {
+    return null;
+  }
+  return dataUrl.substring(5, end).toLowerCase();
+}
+
+int? _composerDataUrlByteCount(String dataUrl) {
+  final comma = dataUrl.indexOf(',');
+  if (comma <= 0 || !dataUrl.substring(0, comma).contains(';base64')) {
+    return null;
+  }
+  try {
+    return base64Decode(dataUrl.substring(comma + 1)).length;
+  } on FormatException {
+    return null;
+  }
+}
+
+String? _composerImageSizeLabel(String dataUrl) {
+  final bytes = _composerDataUrlByteCount(dataUrl);
+  if (bytes == null) {
+    return null;
+  }
+  if (bytes < 1024) {
+    return '$bytes B';
+  }
+  if (bytes < 1024 * 1024) {
+    return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  }
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
 
 class _RunGoalStrip extends StatefulWidget {
