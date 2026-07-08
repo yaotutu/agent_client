@@ -286,6 +286,8 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
           isStreaming: false,
           errorMessage: event.reason ?? event.detail ?? 'nanobot error',
         );
+      case NanobotEventKind.transcriptionResult:
+      case NanobotEventKind.transcriptionError:
       case NanobotEventKind.goalState:
       case NanobotEventKind.unknown:
         break;

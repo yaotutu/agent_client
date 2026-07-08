@@ -66,6 +66,10 @@ void main() {
       'event': 'delta',
       'chat_id': 'chat-1',
       'text': 'chunk',
+      'stream_id': 'stream-1',
+      'turn_id': 'turn-1',
+      'turn_phase': 'answer',
+      'turn_seq': 2,
     });
     final goalStatus = NanobotEvent.fromJson({
       'event': 'goal_status',
@@ -73,12 +77,32 @@ void main() {
       'status': 'running',
       'started_at': 42,
     });
+    final message = NanobotEvent.fromJson({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Using tools',
+      'kind': 'tool_hint',
+      'latency_ms': 120,
+      'tool_events': [
+        {'name': 'read_file', 'phase': 'start'},
+      ],
+      'source': {'kind': 'cron'},
+    });
 
     expect(delta.kind, NanobotEventKind.delta);
     expect(delta.chatId, 'chat-1');
     expect(delta.text, 'chunk');
+    expect(delta.streamId, 'stream-1');
+    expect(delta.turnId, 'turn-1');
+    expect(delta.turnPhase, 'answer');
+    expect(delta.turnSeq, 2);
     expect(goalStatus.kind, NanobotEventKind.goalStatus);
     expect(goalStatus.status, 'running');
     expect(goalStatus.startedAt, 42);
+    expect(message.kind, NanobotEventKind.message);
+    expect(message.kindLabel, 'tool_hint');
+    expect(message.latencyMs, 120);
+    expect(message.toolEvents.single['name'], 'read_file');
+    expect(message.source?['kind'], 'cron');
   });
 }
