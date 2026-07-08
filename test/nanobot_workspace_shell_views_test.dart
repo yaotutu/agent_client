@@ -252,6 +252,48 @@ void main() {
     expect(find.text('Paused job'), findsNothing);
   });
 
+  testWidgets('automations surface sorts by next run and name', (tester) async {
+    final repository = _FakeNanobotRepository(
+      automationItems: const [
+        NanobotCatalogItem(
+          id: 'zeta',
+          title: 'Zeta job',
+          status: 'enabled',
+          filterKeys: ['active'],
+          nextRunAtMs: 1000,
+        ),
+        NanobotCatalogItem(
+          id: 'alpha',
+          title: 'Alpha job',
+          status: 'enabled',
+          filterKeys: ['active'],
+          nextRunAtMs: 2000,
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    expect(_isAbove(tester, 'Zeta job', 'Alpha job'), isTrue);
+
+    await tester.tap(find.text('Next run'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Name').last);
+    await tester.pumpAndSettle();
+
+    expect(_isAbove(tester, 'Alpha job', 'Zeta job'), isTrue);
+  });
+
   testWidgets('skills surface opens unavailable skill details', (tester) async {
     final repository = _FakeNanobotRepository(
       skillItems: const [
@@ -302,6 +344,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('# GitHub'), findsOneWidget);
   });
+}
+
+bool _isAbove(WidgetTester tester, String upperText, String lowerText) {
+  final upperTop = tester.getTopLeft(find.text(upperText)).dy;
+  final lowerTop = tester.getTopLeft(find.text(lowerText)).dy;
+  return upperTop < lowerTop;
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {

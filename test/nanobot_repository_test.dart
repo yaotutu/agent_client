@@ -199,6 +199,48 @@ void main() {
     expect(automations[2].filterKeys, contains('failed'));
     expect(automations[3].filterKeys, contains('system'));
   });
+
+  test('repository maps automation sort timestamps', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/webui/automations': {
+        'jobs': [
+          {
+            'id': 'job-1',
+            'name': 'Sort probe',
+            'enabled': true,
+            'updated_at_ms': 3000,
+            'state': {
+              'next_run_at_ms': 1000,
+              'last_run_at_ms': 2000,
+              'last_status': 'ok',
+            },
+          },
+        ],
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final automations = await repository.fetchAutomationItems();
+
+    expect(automations.single.nextRunAtMs, 1000);
+    expect(automations.single.lastRunAtMs, 2000);
+    expect(automations.single.updatedAtMs, 3000);
+  });
 }
 
 class _RouteAdapter implements HttpClientAdapter {

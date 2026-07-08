@@ -1901,6 +1901,7 @@ class _SearchableCatalogSurface extends StatefulWidget {
 class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
   final _queryController = TextEditingController();
   var _activeFilter = 'all';
+  var _activeSort = 'next';
 
   @override
   void dispose() {
@@ -1911,8 +1912,9 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
   @override
   Widget build(BuildContext context) {
     final query = _queryController.text.trim();
+    final sortedItems = _sortItems(widget.items, _activeSort);
     final visibleItems = [
-      for (final item in widget.items)
+      for (final item in sortedItems)
         if (_matchesFilter(item, _activeFilter) &&
             (query.isEmpty || _matches(item, query)))
           item,
@@ -1926,6 +1928,36 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
           items: widget.items,
           selected: _activeFilter,
           onSelected: (filter) => setState(() => _activeFilter = filter),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: PopupMenuButton<String>(
+            initialValue: _activeSort,
+            position: PopupMenuPosition.under,
+            onSelected: (sort) => setState(() => _activeSort = sort),
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'next', child: Text('Next run')),
+              PopupMenuItem(value: 'last', child: Text('Last run')),
+              PopupMenuItem(value: 'updated', child: Text('Updated')),
+              PopupMenuItem(value: 'name', child: Text('Name')),
+            ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppThemeTokens.border),
+                borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.sort, size: 18),
+                  const SizedBox(width: 8),
+                  Text(_sortLabel(_activeSort)),
+                ],
+              ),
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -1983,6 +2015,72 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
         .split(RegExp(r'\s+'))
         .where((token) => token.isNotEmpty);
     return tokens.every(haystack.contains);
+  }
+
+  List<NanobotCatalogItem> _sortItems(
+    List<NanobotCatalogItem> items,
+    String sort,
+  ) {
+    final sorted = [...items];
+    sorted.sort((left, right) {
+      final bySort = switch (sort) {
+        'last' => _compareNullableIntDesc(left.lastRunAtMs, right.lastRunAtMs),
+        'updated' => _compareNullableIntDesc(
+          left.updatedAtMs,
+          right.updatedAtMs,
+        ),
+        'name' => 0,
+        _ => _compareNullableIntAsc(left.nextRunAtMs, right.nextRunAtMs),
+      };
+      if (bySort != 0) {
+        return bySort;
+      }
+      return _compareByName(left, right);
+    });
+    return sorted;
+  }
+
+  int _compareNullableIntAsc(int? left, int? right) {
+    if (left == null && right == null) {
+      return 0;
+    }
+    if (left == null) {
+      return 1;
+    }
+    if (right == null) {
+      return -1;
+    }
+    return left.compareTo(right);
+  }
+
+  int _compareNullableIntDesc(int? left, int? right) {
+    if (left == null && right == null) {
+      return 0;
+    }
+    if (left == null) {
+      return 1;
+    }
+    if (right == null) {
+      return -1;
+    }
+    return right.compareTo(left);
+  }
+
+  int _compareByName(NanobotCatalogItem left, NanobotCatalogItem right) {
+    final leftName = (left.title.trim().isEmpty ? left.id : left.title)
+        .toLowerCase();
+    final rightName = (right.title.trim().isEmpty ? right.id : right.title)
+        .toLowerCase();
+    return leftName.compareTo(rightName);
+  }
+
+  String _sortLabel(String sort) {
+    return switch (sort) {
+      'last' => 'Last run',
+      'updated' => 'Updated',
+      'name' => 'Name',
+      _ => 'Next run',
+    };
   }
 }
 

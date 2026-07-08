@@ -26,6 +26,9 @@ class NanobotCatalogItem {
     this.details = '',
     this.status = '',
     this.filterKeys = const [],
+    this.nextRunAtMs,
+    this.lastRunAtMs,
+    this.updatedAtMs,
   });
 
   final String id;
@@ -34,6 +37,9 @@ class NanobotCatalogItem {
   final String details;
   final String status;
   final List<String> filterKeys;
+  final int? nextRunAtMs;
+  final int? lastRunAtMs;
+  final int? updatedAtMs;
 }
 
 class NanobotSkillDetail {

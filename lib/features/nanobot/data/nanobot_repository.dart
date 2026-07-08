@@ -294,6 +294,9 @@ class NanobotRepository implements NanobotRepositoryPort {
           details: _automationDetails(row),
           status: row['enabled'] == false ? 'disabled' : 'enabled',
           filterKeys: _automationFilterKeys(row),
+          nextRunAtMs: _automationStateInt(row, 'next_run_at_ms'),
+          lastRunAtMs: _automationStateInt(row, 'last_run_at_ms'),
+          updatedAtMs: _intValue(row['updated_at_ms']),
         ),
     ];
   }
@@ -557,6 +560,27 @@ class NanobotRepository implements NanobotRepositoryPort {
       return const ['paused'];
     }
     return const ['active'];
+  }
+
+  int? _automationStateInt(Map<String, Object?> row, String key) {
+    final state = row['state'];
+    if (state is! Map) {
+      return null;
+    }
+    return _intValue(state[key]);
+  }
+
+  int? _intValue(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is double && value.isFinite) {
+      return value.toInt();
+    }
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    return null;
   }
 
   String _skillStatus(Map<String, Object?> row) {
