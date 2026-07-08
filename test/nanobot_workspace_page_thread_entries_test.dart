@@ -1284,6 +1284,64 @@ void main() {
 
     expect(find.byKey(chipKey), findsNothing);
   });
+
+  testWidgets('composer caps image attachments at four and disables attach', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    final picker = _FakeNanobotImageAttachmentPicker([
+      for (var index = 0; index < 5; index += 1)
+        NanobotSendMedia(
+          dataUrl: 'data:image/png;base64,$index',
+          name: 'screen-$index.png',
+        ),
+    ]);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          nanobotRepositoryProvider.overrideWithValue(repository),
+          nanobotImageAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Attach image'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('composer-image-screen-0.png-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('composer-image-screen-1.png-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('composer-image-screen-2.png-2')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('composer-image-screen-3.png-3')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('composer-image-screen-4.png-4')),
+      findsNothing,
+    );
+    expect(find.text('Max 4 images per message'), findsOneWidget);
+
+    final attachButton = tester.widget<IconButton>(
+      find.ancestor(
+        of: find.byTooltip('Attach image'),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(attachButton.onPressed, isNull);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {

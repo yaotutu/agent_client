@@ -34,6 +34,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
   final _focusNode = FocusNode();
   final _attachedImages = <NanobotSendMedia>[];
   var _isPickingImages = false;
+  String? _composerInlineError;
 
   @override
   void dispose() {
@@ -84,6 +85,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               focusNode: _focusNode,
               attachedImages: _attachedImages,
               isPickingImages: _isPickingImages,
+              composerInlineError: _composerInlineError,
               onSend: () => _send(controller),
               onStop: controller.stopActiveTurn,
               onAttachImages: _pickImageAttachments,
@@ -141,7 +143,10 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
     }
     final media = List<NanobotSendMedia>.unmodifiable(_attachedImages);
     _inputController.clear();
-    setState(_attachedImages.clear);
+    setState(() {
+      _attachedImages.clear();
+      _composerInlineError = null;
+    });
     unawaited(controller.sendMessage(input, media: media));
     _focusNode.requestFocus();
   }
@@ -160,6 +165,9 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
       }
       setState(() {
         final remaining = _maxImageAttachments - _attachedImages.length;
+        _composerInlineError = picked.length > remaining
+            ? 'Max $_maxImageAttachments images per message'
+            : null;
         _attachedImages.addAll(picked.take(remaining));
       });
     } on Object catch (error) {
@@ -182,6 +190,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
     }
     setState(() {
       _attachedImages.removeAt(index);
+      _composerInlineError = null;
     });
   }
 }
@@ -773,6 +782,7 @@ class _ChatPane extends StatelessWidget {
     required this.focusNode,
     required this.attachedImages,
     required this.isPickingImages,
+    required this.composerInlineError,
     required this.onSend,
     required this.onStop,
     required this.onAttachImages,
@@ -793,6 +803,7 @@ class _ChatPane extends StatelessWidget {
   final FocusNode focusNode;
   final List<NanobotSendMedia> attachedImages;
   final bool isPickingImages;
+  final String? composerInlineError;
   final VoidCallback onSend;
   final VoidCallback onStop;
   final VoidCallback onAttachImages;
@@ -851,6 +862,7 @@ class _ChatPane extends StatelessWidget {
               goalState: state.threadState?.goalState,
               attachedImages: attachedImages,
               isPickingImages: isPickingImages,
+              inlineError: composerInlineError,
               slashCommands: state.slashCommands,
               skills: state.skillItems,
               capabilityMentions: state.capabilityMentions,
@@ -4468,6 +4480,7 @@ class _InputBar extends StatefulWidget {
     required this.goalState,
     required this.attachedImages,
     required this.isPickingImages,
+    required this.inlineError,
     required this.slashCommands,
     required this.skills,
     required this.capabilityMentions,
@@ -4492,6 +4505,7 @@ class _InputBar extends StatefulWidget {
   final Map<String, Object?>? goalState;
   final List<NanobotSendMedia> attachedImages;
   final bool isPickingImages;
+  final String? inlineError;
   final List<NanobotSlashCommand> slashCommands;
   final List<NanobotCatalogItem> skills;
   final List<NanobotCapabilityMention> capabilityMentions;
@@ -4633,6 +4647,36 @@ class _InputBarState extends State<_InputBar> {
                       ],
                     ),
                   ),
+                  if (widget.inlineError != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AppThemeTokens.dangerSoft,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: AppThemeTokens.dangerBorder,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            child: Text(
+                              widget.inlineError!,
+                              style: const TextStyle(
+                                color: AppThemeTokens.dangerText,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
