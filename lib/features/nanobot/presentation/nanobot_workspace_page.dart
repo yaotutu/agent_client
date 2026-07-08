@@ -1594,7 +1594,13 @@ class _MessageContentText extends StatelessWidget {
       children: [
         for (final segment in segments)
           if (segment.filePath == null)
-            Text(segment.text, style: TextStyle(color: textColor, height: 1.4))
+            if (segment.href == null)
+              Text(
+                segment.text,
+                style: TextStyle(color: textColor, height: 1.4),
+              )
+            else
+              _InlineMarkdownLink(label: segment.text, href: segment.href!)
           else
             _InlineFileReferenceChip(
               label: segment.text,
@@ -1602,6 +1608,33 @@ class _MessageContentText extends StatelessWidget {
               onOpenFilePreview: onOpenFilePreview,
             ),
       ],
+    );
+  }
+}
+
+class _InlineMarkdownLink extends StatelessWidget {
+  const _InlineMarkdownLink({required this.label, required this.href});
+
+  final String label;
+  final String href;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      link: true,
+      label: label,
+      child: Tooltip(
+        message: href,
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: AppThemeTokens.brandPressed,
+            decoration: TextDecoration.underline,
+            decorationColor: AppThemeTokens.brandPressed,
+            height: 1.4,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1649,14 +1682,17 @@ class _InlineFileReferenceChip extends StatelessWidget {
 }
 
 class _MessageContentSegment {
-  const _MessageContentSegment.text(this.text) : filePath = null;
+  const _MessageContentSegment.text(this.text) : filePath = null, href = null;
+  const _MessageContentSegment.link({required this.text, required this.href})
+    : filePath = null;
   const _MessageContentSegment.file({
     required this.text,
     required this.filePath,
-  });
+  }) : href = null;
 
   final String text;
   final String? filePath;
+  final String? href;
 }
 
 List<_MessageContentSegment> _messageContentSegments(String text) {
@@ -1669,21 +1705,25 @@ List<_MessageContentSegment> _messageContentSegments(String text) {
   for (final match in matches) {
     final href = match.group(2) ?? '';
     final filePath = _localFilePreviewPath(href);
-    if (filePath == null) {
-      continue;
-    }
     if (match.start > cursor) {
       segments.add(
         _MessageContentSegment.text(text.substring(cursor, match.start)),
       );
     }
-    final label = (match.group(1) ?? filePath).trim();
-    segments.add(
-      _MessageContentSegment.file(
-        text: label.isEmpty ? _fileNameFromPath(filePath) : label,
-        filePath: filePath,
-      ),
-    );
+    final label = (match.group(1) ?? filePath ?? href).trim();
+    final displayLabel = label.isEmpty
+        ? (filePath == null ? href.trim() : _fileNameFromPath(filePath))
+        : label;
+    final linkHref = _navigableMarkdownHref(href);
+    if (filePath != null) {
+      segments.add(
+        _MessageContentSegment.file(text: displayLabel, filePath: filePath),
+      );
+    } else if (linkHref != null) {
+      segments.add(_MessageContentSegment.link(text: displayLabel, href: href));
+    } else {
+      segments.add(_MessageContentSegment.text(displayLabel));
+    }
     cursor = match.end;
   }
   if (cursor == 0) {
@@ -1710,6 +1750,14 @@ String? _localFilePreviewPath(String href) {
     return null;
   }
   return withoutLine;
+}
+
+String? _navigableMarkdownHref(String href) {
+  final trimmed = href.trim();
+  if (trimmed.isEmpty || trimmed.contains('*')) {
+    return null;
+  }
+  return trimmed;
 }
 
 String _fileNameFromPath(String path) {

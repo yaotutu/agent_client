@@ -127,6 +127,40 @@ void main() {
     expect(find.text('void main() {}'), findsOneWidget);
   });
 
+  testWidgets('message markdown non-file links render labels without preview', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text':
+          'Download [index.html](/api/media/sig/html) and inspect [*.json](*.json).',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('index.html'), findsOneWidget);
+    expect(find.text('*.json'), findsOneWidget);
+    expect(find.textContaining('[index.html]'), findsNothing);
+    expect(find.textContaining('[*.json]'), findsNothing);
+
+    await tester.tap(find.text('index.html'));
+    await tester.pumpAndSettle();
+
+    expect(repository.previewPath, isNull);
+    expect(find.text('File preview'), findsNothing);
+  });
+
   testWidgets('message too large stream errors show a dismissible alert', (
     tester,
   ) async {
