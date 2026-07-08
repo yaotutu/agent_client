@@ -166,7 +166,8 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
       return false;
     }
     final keyboard = HardwareKeyboard.instance;
-    final commandOrControl = keyboard.isMetaPressed || keyboard.isControlPressed;
+    final commandOrControl =
+        keyboard.isMetaPressed || keyboard.isControlPressed;
     if (!commandOrControl || keyboard.isAltPressed) {
       return false;
     }
@@ -923,19 +924,27 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
                     )
                   : ListView.builder(
                       itemCount: results.length,
-                    itemBuilder: (context, index) {
-                      final session = results[index];
-                      final title = widget.state.displayTitleFor(session);
-                      final preview = session.preview.trim();
-                      return ListTile(
-                        selected: index == _clampedHighlightedIndex(results),
-                        title: Text(title),
-                        subtitle: preview.isEmpty ? null : Text(preview),
-                        trailing:
-                              session.key == widget.state.selectedSessionKey
-                              ? const Text('Current')
-                              : null,
-                          onTap: () => Navigator.of(context).pop(session),
+                      itemBuilder: (context, index) {
+                        final session = results[index];
+                        final title = widget.state.displayTitleFor(session);
+                        final preview = session.preview.trim();
+                        final showPreview =
+                            preview.isNotEmpty &&
+                            preview.toLowerCase() != title.trim().toLowerCase();
+                        return MouseRegion(
+                          onEnter: (_) =>
+                              setState(() => _highlightedIndex = index),
+                          child: ListTile(
+                            selected:
+                                index == _clampedHighlightedIndex(results),
+                            title: Text(title),
+                            subtitle: showPreview ? Text(preview) : null,
+                            trailing:
+                                session.key == widget.state.selectedSessionKey
+                                ? const Text('Current')
+                                : null,
+                            onTap: () => Navigator.of(context).pop(session),
+                          ),
                         );
                       },
                     ),
@@ -1642,10 +1651,8 @@ class _MessageList extends StatelessWidget {
         final offset = hasActivity ? 1 : 0;
         final messageIndex = state.messages.length - 1 - (index - offset);
         final message = state.messages[messageIndex];
-        final forkIndex = _assistantMessageActionsVisible(
-          state.messages,
-          messageIndex,
-        )
+        final forkIndex =
+            _assistantMessageActionsVisible(state.messages, messageIndex)
             ? _userCountBeforeMessage(state.messages, messageIndex)
             : null;
         return RepaintBoundary(
@@ -3373,9 +3380,10 @@ bool _isMarkdownListContinuation(String line) {
 }
 
 _CompactLinkPreview? _compactLinkPreview(String text) {
-  final hrefMatch = RegExp(r'https?://\S+', caseSensitive: false).firstMatch(
-    text,
-  );
+  final hrefMatch = RegExp(
+    r'https?://\S+',
+    caseSensitive: false,
+  ).firstMatch(text);
   if (hrefMatch == null) {
     return null;
   }
@@ -4057,9 +4065,7 @@ class _VideoAttachmentFrameState extends State<_VideoAttachmentFrame> {
                 !controller.value.isInitialized) {
               return const SizedBox(
                 height: 128,
-                child: Center(
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
               );
             }
             final aspectRatio = controller.value.aspectRatio > 0

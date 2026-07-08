@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_controller.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_providers.dart';
@@ -280,9 +281,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<ListTile>(
-        find.widgetWithText(ListTile, 'Active Chat'),
-      ).selected,
+      tester
+          .widget<ListTile>(find.widgetWithText(ListTile, 'Active Chat'))
+          .selected,
       isTrue,
     );
 
@@ -290,28 +291,114 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<ListTile>(
-        find.widgetWithText(ListTile, 'Active Chat'),
-      ).selected,
+      tester
+          .widget<ListTile>(find.widgetWithText(ListTile, 'Active Chat'))
+          .selected,
       isFalse,
     );
     expect(
-      tester.widget<ListTile>(
-        find.widgetWithText(ListTile, 'Pinned Roadmap'),
-      ).selected,
+      tester
+          .widget<ListTile>(find.widgetWithText(ListTile, 'Pinned Roadmap'))
+          .selected,
+      isTrue,
+    );
+  });
+
+  testWidgets('session search hides preview when it matches the title', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      sessions: [
+        NanobotSessionSummary(
+          key: 'websocket:chat-duplicate',
+          channel: 'websocket',
+          chatId: 'chat-duplicate',
+          title: 'Repeated summary',
+          preview: 'Repeated summary',
+          createdAt: DateTime.fromMillisecondsSinceEpoch(1000),
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(1000),
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Repeated summary'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('session search hover moves highlighted result', (tester) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<ListTile>(find.widgetWithText(ListTile, 'Active Chat'))
+          .selected,
+      isTrue,
+    );
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+    await gesture.addPointer();
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(find.text('Pinned Roadmap').last));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<ListTile>(find.widgetWithText(ListTile, 'Active Chat'))
+          .selected,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<ListTile>(find.widgetWithText(ListTile, 'Pinned Roadmap'))
+          .selected,
       isTrue,
     );
   });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
+  _FakeNanobotRepository({List<NanobotSessionSummary>? sessions})
+    : _sessions = sessions ?? _defaultSessions();
+
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
   NanobotSidebarState? persistedSidebarState;
   String? deletedSessionKey;
   var newChatCount = 0;
 
-  final _sessions = [
+  final List<NanobotSessionSummary> _sessions;
+
+  static List<NanobotSessionSummary> _defaultSessions() => [
     NanobotSessionSummary(
       key: 'websocket:chat-1',
       channel: 'websocket',
