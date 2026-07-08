@@ -789,6 +789,8 @@ class _ChatPane extends StatelessWidget {
               focusNode: focusNode,
               canSend: state.canSend,
               isStreaming: state.isStreaming,
+              runStartedAt: state.threadState?.runStartedAt,
+              goalState: state.threadState?.goalState,
               slashCommands: state.slashCommands,
               skills: state.skillItems,
               capabilityMentions: state.capabilityMentions,
@@ -4400,6 +4402,8 @@ class _InputBar extends StatefulWidget {
     required this.focusNode,
     required this.canSend,
     required this.isStreaming,
+    required this.runStartedAt,
+    required this.goalState,
     required this.slashCommands,
     required this.skills,
     required this.capabilityMentions,
@@ -4418,6 +4422,8 @@ class _InputBar extends StatefulWidget {
   final FocusNode focusNode;
   final bool canSend;
   final bool isStreaming;
+  final int? runStartedAt;
+  final Map<String, Object?>? goalState;
   final List<NanobotSlashCommand> slashCommands;
   final List<NanobotCatalogItem> skills;
   final List<NanobotCapabilityMention> capabilityMentions;
@@ -4467,6 +4473,10 @@ class _InputBarState extends State<_InputBar> {
                       onAccessMode: widget.onWorkspaceAccessMode,
                       onProjectPath: widget.onWorkspaceProjectPath,
                     ),
+                  _RunGoalStrip(
+                    startedAt: widget.runStartedAt,
+                    goalState: widget.goalState,
+                  ),
                   ValueListenableBuilder<TextEditingValue>(
                     valueListenable: widget.controller,
                     builder: (context, value, _) {
@@ -4784,6 +4794,276 @@ class _InputBarState extends State<_InputBar> {
     widget.focusNode.requestFocus();
   }
 }
+
+class _RunGoalStrip extends StatefulWidget {
+  const _RunGoalStrip({required this.startedAt, required this.goalState});
+
+  final int? startedAt;
+  final Map<String, Object?>? goalState;
+
+  @override
+  State<_RunGoalStrip> createState() => _RunGoalStripState();
+}
+
+class _RunGoalStripState extends State<_RunGoalStrip> {
+  Timer? _timer;
+  var _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RunGoalStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isGoalActive(widget.goalState)) {
+      _expanded = false;
+    }
+    if (oldWidget.startedAt != widget.startedAt) {
+      _syncTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showTimer = widget.startedAt != null;
+    final goalLabel = _goalStripPreview(widget.goalState);
+    final showGoal = goalLabel != null;
+    if (!showTimer && !showGoal) {
+      return const SizedBox.shrink();
+    }
+
+    final objective = _stringFrom(widget.goalState?['objective']);
+    final summary = _stringFrom(widget.goalState?['ui_summary']);
+    final canExpand =
+        _isGoalActive(widget.goalState) &&
+        (objective.trim().isNotEmpty || summary.trim().isNotEmpty);
+    final timerLabel = showTimer ? 'Running · ${_elapsedLabel()}' : null;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppThemeTokens.panelMuted,
+          borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+          border: Border.all(
+            color: _isGoalActive(widget.goalState)
+                ? AppThemeTokens.accent.withValues(alpha: 0.32)
+                : AppThemeTokens.border,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_expanded && canExpand)
+              _GoalPanel(summary: summary, objective: objective),
+            Semantics(
+              liveRegion: true,
+              label: [
+                ?timerLabel,
+                if (showGoal) 'Goal · $goalLabel',
+              ].join(' · '),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      showTimer ? Icons.radio_button_checked : Icons.adjust,
+                      size: 16,
+                      color: showTimer
+                          ? AppThemeTokens.accent
+                          : AppThemeTokens.mutedText,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 2,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (timerLabel != null)
+                            Text(
+                              timerLabel,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppThemeTokens.text,
+                              ),
+                            ),
+                          if (timerLabel != null && showGoal)
+                            const Text(
+                              '·',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppThemeTokens.mutedText,
+                              ),
+                            ),
+                          if (showGoal)
+                            Text(
+                              'Goal · $goalLabel',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppThemeTokens.text,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (canExpand)
+                      IconButton(
+                        tooltip: _expanded ? 'Close goal' : 'Show full goal',
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 32,
+                          height: 32,
+                        ),
+                        onPressed: () {
+                          setState(() => _expanded = !_expanded);
+                        },
+                        icon: Icon(
+                          _expanded
+                              ? Icons.keyboard_arrow_down
+                              : Icons.keyboard_arrow_up,
+                          size: 18,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _syncTimer() {
+    _timer?.cancel();
+    _timer = null;
+    if (widget.startedAt == null) {
+      return;
+    }
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  String _elapsedLabel() {
+    final startedAt = widget.startedAt;
+    if (startedAt == null) {
+      return '0s';
+    }
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final elapsed = (now - startedAt).clamp(0, 1 << 31);
+    final minutes = elapsed ~/ 60;
+    final seconds = elapsed % 60;
+    if (minutes > 0) {
+      return '$minutes:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '${seconds}s';
+  }
+}
+
+class _GoalPanel extends StatelessWidget {
+  const _GoalPanel({required this.summary, required this.objective});
+
+  final String summary;
+  final String objective;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppThemeTokens.border)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Goal',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppThemeTokens.text,
+              ),
+            ),
+            if (summary.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                summary.trim(),
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.35,
+                  color: AppThemeTokens.text,
+                ),
+              ),
+            ],
+            if (objective.trim().isNotEmpty) ...[
+              if (summary.trim().isNotEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Divider(height: 1, color: AppThemeTokens.border),
+                )
+              else
+                const SizedBox(height: 8),
+              Text(
+                objective.trim(),
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.35,
+                  color: AppThemeTokens.text,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+bool _isGoalActive(Map<String, Object?>? goalState) {
+  return goalState?['active'] == true;
+}
+
+String? _goalStripPreview(Map<String, Object?>? goalState) {
+  if (!_isGoalActive(goalState)) {
+    return null;
+  }
+  final summary = _stringFrom(goalState?['ui_summary']).trim();
+  if (summary.isNotEmpty) {
+    return summary;
+  }
+  final objective = _stringFrom(goalState?['objective']).trim();
+  if (objective.isNotEmpty) {
+    return objective.length > 72
+        ? '${objective.substring(0, 72)}…'
+        : objective;
+  }
+  return 'Goal';
+}
+
+String _stringFrom(Object? value) => value is String ? value : '';
 
 enum _ActivePaletteKind { none, slash, skills, capabilities }
 

@@ -1156,6 +1156,51 @@ void main() {
 
     expect(find.text('Message too large'), findsNothing);
   });
+
+  testWidgets('composer shows run timer and expandable goal strip', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final startedAt = DateTime.now().millisecondsSinceEpoch ~/ 1000 - 125;
+    const objective =
+        'Review every WebUI composer state and keep the Flutter client aligned.';
+    repository.emit({
+      'event': 'goal_status',
+      'chat_id': 'chat-1',
+      'status': 'running',
+      'started_at': startedAt,
+    });
+    repository.emit({
+      'event': 'goal_state',
+      'chat_id': 'chat-1',
+      'goal_state': {
+        'active': true,
+        'ui_summary': 'Short summary for strip',
+        'objective': objective,
+      },
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Running · 2:'), findsOneWidget);
+    expect(find.text('Goal · Short summary for strip'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Show full goal'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Goal'), findsWidgets);
+    expect(find.text('Short summary for strip'), findsWidgets);
+    expect(find.text(objective), findsOneWidget);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
