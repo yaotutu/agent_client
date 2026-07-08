@@ -10,6 +10,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:agent_client/features/nanobot/presentation/nanobot_workspace_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -98,6 +99,61 @@ void main() {
 
     final input = tester.widget<TextField>(find.byType(TextField).last);
     expect(input.controller?.text, '@gimp ');
+  });
+
+  testWidgets('composer slash palette supports arrow and enter selection', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, '/');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    final input = tester.widget<TextField>(find.byType(TextField).last);
+    expect(input.controller?.text, '/history ');
+  });
+
+  testWidgets('composer mention palettes support tab completion', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, r'$br');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+
+    var input = tester.widget<TextField>(find.byType(TextField).last);
+    expect(input.controller?.text, r'$browser ');
+
+    await tester.enterText(find.byType(TextField).last, '@bro');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+
+    input = tester.widget<TextField>(find.byType(TextField).last);
+    expect(input.controller?.text, '@browserbase ');
   });
 }
 
@@ -270,6 +326,17 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
         entryPoint: 'cli-anything-krita',
         installed: false,
         status: 'not_installed',
+      ),
+      NanobotCapabilityMention(
+        kind: NanobotCapabilityMentionKind.mcp,
+        name: 'browserbase',
+        displayName: 'Browserbase',
+        category: 'browser',
+        description: 'Cloud browser automation',
+        transport: 'streamableHttp',
+        installed: true,
+        configured: true,
+        status: 'configured',
       ),
     ];
   }

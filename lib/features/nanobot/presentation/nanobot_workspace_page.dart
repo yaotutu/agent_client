@@ -7,6 +7,7 @@ import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_shell_models.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_thread_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class NanobotWorkspacePage extends ConsumerStatefulWidget {
@@ -1821,6 +1822,7 @@ class _InputBar extends StatefulWidget {
 
 class _InputBarState extends State<_InputBar> {
   String? _dismissedSlashText;
+  var _selectedPaletteIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -1857,6 +1859,7 @@ class _InputBarState extends State<_InputBar> {
                           _dismissedSlashText != value.text) {
                         return _SlashCommandPalette(
                           commands: commands,
+                          selectedIndex: _selectedIndex(commands.length),
                           onSelected: _chooseSlashCommand,
                         );
                       }
@@ -1865,6 +1868,7 @@ class _InputBarState extends State<_InputBar> {
                       if (query != null && skills.isNotEmpty) {
                         return _SkillMentionPalette(
                           skills: skills,
+                          selectedIndex: _selectedIndex(skills.length),
                           onSelected: (skill) => _chooseSkill(skill, query),
                         );
                       }
@@ -1875,6 +1879,7 @@ class _InputBarState extends State<_InputBar> {
                       if (mentionQuery != null && mentions.isNotEmpty) {
                         return _CapabilityMentionPalette(
                           mentions: mentions,
+                          selectedIndex: _selectedIndex(mentions.length),
                           onSelected: (mention) =>
                               _chooseCapabilityMention(mention, mentionQuery),
                         );
@@ -1882,19 +1887,22 @@ class _InputBarState extends State<_InputBar> {
                       return const SizedBox.shrink();
                     },
                   ),
-                  TextField(
-                    controller: widget.controller,
-                    focusNode: widget.focusNode,
-                    minLines: 1,
-                    maxLines: 5,
-                    textInputAction: TextInputAction.newline,
-                    decoration: const InputDecoration(
-                      hintText: 'Message nanobot',
-                      fillColor: AppThemeTokens.panelMuted,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
+                  Focus(
+                    onKeyEvent: _handleKeyEvent,
+                    child: TextField(
+                      controller: widget.controller,
+                      focusNode: widget.focusNode,
+                      minLines: 1,
+                      maxLines: 5,
+                      textInputAction: TextInputAction.newline,
+                      decoration: const InputDecoration(
+                        hintText: 'Message nanobot',
+                        fillColor: AppThemeTokens.panelMuted,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -1927,6 +1935,78 @@ class _InputBarState extends State<_InputBar> {
         ),
       ),
     );
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+    final active = _activePalette(widget.controller.value);
+    if (active.length == 0) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowDown) {
+      setState(() {
+        _selectedPaletteIndex =
+            (_selectedIndex(active.length) + 1) % active.length;
+      });
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowUp) {
+      setState(() {
+        _selectedPaletteIndex =
+            (_selectedIndex(active.length) - 1 + active.length) % active.length;
+      });
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.tab || key == LogicalKeyboardKey.enter) {
+      _chooseActivePaletteItem(active);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  int _selectedIndex(int length) {
+    if (length <= 0) {
+      return 0;
+    }
+    return _selectedPaletteIndex.clamp(0, length - 1);
+  }
+
+  _ActivePalette _activePalette(TextEditingValue value) {
+    final commands = _filteredSlashCommands(value.text);
+    if (commands.isNotEmpty && _dismissedSlashText != value.text) {
+      return _ActivePalette.slash(commands);
+    }
+    final skillQuery = _skillQuery(value);
+    final skills = _filteredSkills(skillQuery);
+    if (skillQuery != null && skills.isNotEmpty) {
+      return _ActivePalette.skills(skills, skillQuery);
+    }
+    final capabilityQuery = _capabilityMentionQuery(value);
+    final mentions = _filteredCapabilityMentions(capabilityQuery);
+    if (capabilityQuery != null && mentions.isNotEmpty) {
+      return _ActivePalette.capabilities(mentions, capabilityQuery);
+    }
+    return const _ActivePalette.none();
+  }
+
+  void _chooseActivePaletteItem(_ActivePalette active) {
+    final index = _selectedIndex(active.length);
+    switch (active.kind) {
+      case _ActivePaletteKind.none:
+        return;
+      case _ActivePaletteKind.slash:
+        _chooseSlashCommand(active.slashCommands[index]);
+      case _ActivePaletteKind.skills:
+        _chooseSkill(active.skills[index], active.skillQuery!);
+      case _ActivePaletteKind.capabilities:
+        _chooseCapabilityMention(
+          active.capabilityMentions[index],
+          active.capabilityQuery!,
+        );
+    }
   }
 
   List<NanobotSlashCommand> _filteredSlashCommands(String text) {
@@ -1968,6 +2048,7 @@ class _InputBarState extends State<_InputBar> {
         : '${command.command} ';
     setState(() {
       _dismissedSlashText = inserted;
+      _selectedPaletteIndex = 0;
       widget.controller.value = TextEditingValue(
         text: inserted,
         selection: TextSelection.collapsed(offset: inserted.length),
@@ -2024,6 +2105,7 @@ class _InputBarState extends State<_InputBar> {
       text: next,
       selection: TextSelection.collapsed(offset: cursor),
     );
+    _selectedPaletteIndex = 0;
     widget.focusNode.requestFocus();
   }
 
@@ -2082,7 +2164,57 @@ class _InputBarState extends State<_InputBar> {
       text: next,
       selection: TextSelection.collapsed(offset: cursor),
     );
+    _selectedPaletteIndex = 0;
     widget.focusNode.requestFocus();
+  }
+}
+
+enum _ActivePaletteKind { none, slash, skills, capabilities }
+
+class _ActivePalette {
+  const _ActivePalette.none()
+    : kind = _ActivePaletteKind.none,
+      slashCommands = const [],
+      skills = const [],
+      capabilityMentions = const [],
+      skillQuery = null,
+      capabilityQuery = null;
+
+  const _ActivePalette.slash(this.slashCommands)
+    : kind = _ActivePaletteKind.slash,
+      skills = const [],
+      capabilityMentions = const [],
+      skillQuery = null,
+      capabilityQuery = null;
+
+  const _ActivePalette.skills(this.skills, this.skillQuery)
+    : kind = _ActivePaletteKind.skills,
+      slashCommands = const [],
+      capabilityMentions = const [],
+      capabilityQuery = null;
+
+  const _ActivePalette.capabilities(
+    this.capabilityMentions,
+    this.capabilityQuery,
+  ) : kind = _ActivePaletteKind.capabilities,
+      slashCommands = const [],
+      skills = const [],
+      skillQuery = null;
+
+  final _ActivePaletteKind kind;
+  final List<NanobotSlashCommand> slashCommands;
+  final List<NanobotCatalogItem> skills;
+  final List<NanobotCapabilityMention> capabilityMentions;
+  final _SkillMentionQuery? skillQuery;
+  final _CapabilityMentionQuery? capabilityQuery;
+
+  int get length {
+    return switch (kind) {
+      _ActivePaletteKind.none => 0,
+      _ActivePaletteKind.slash => slashCommands.length,
+      _ActivePaletteKind.skills => skills.length,
+      _ActivePaletteKind.capabilities => capabilityMentions.length,
+    };
   }
 }
 
@@ -2113,10 +2245,12 @@ class _CapabilityMentionQuery {
 class _CapabilityMentionPalette extends StatelessWidget {
   const _CapabilityMentionPalette({
     required this.mentions,
+    required this.selectedIndex,
     required this.onSelected,
   });
 
   final List<NanobotCapabilityMention> mentions;
+  final int selectedIndex;
   final ValueChanged<NanobotCapabilityMention> onSelected;
 
   @override
@@ -2142,13 +2276,19 @@ class _CapabilityMentionPalette extends StatelessWidget {
         itemCount: mentions.length,
         itemBuilder: (context, index) {
           final mention = mentions[index];
+          final selected = index == selectedIndex;
           final badge = mention.kind == NanobotCapabilityMentionKind.cli
               ? 'CLI'
               : 'MCP';
           return InkWell(
             onTap: () => onSelected(mention),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              decoration: BoxDecoration(
+                color: selected ? AppThemeTokens.panelMuted : null,
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Row(
                 children: [
                   _CapabilityMentionBadge(mention: mention),
@@ -2276,9 +2416,14 @@ String _capabilityInitials(NanobotCapabilityMention mention) {
 }
 
 class _SkillMentionPalette extends StatelessWidget {
-  const _SkillMentionPalette({required this.skills, required this.onSelected});
+  const _SkillMentionPalette({
+    required this.skills,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
 
   final List<NanobotCatalogItem> skills;
+  final int selectedIndex;
   final ValueChanged<NanobotCatalogItem> onSelected;
 
   @override
@@ -2304,11 +2449,17 @@ class _SkillMentionPalette extends StatelessWidget {
         itemCount: skills.length,
         itemBuilder: (context, index) {
           final skill = skills[index];
+          final selected = index == selectedIndex;
           final name = skill.id.trim().isNotEmpty ? skill.id : skill.title;
           return InkWell(
             onTap: () => onSelected(skill),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              decoration: BoxDecoration(
+                color: selected ? AppThemeTokens.panelMuted : null,
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Row(
                 children: [
                   const Icon(
@@ -2366,10 +2517,12 @@ class _SkillMentionPalette extends StatelessWidget {
 class _SlashCommandPalette extends StatelessWidget {
   const _SlashCommandPalette({
     required this.commands,
+    required this.selectedIndex,
     required this.onSelected,
   });
 
   final List<NanobotSlashCommand> commands;
+  final int selectedIndex;
   final ValueChanged<NanobotSlashCommand> onSelected;
 
   @override
@@ -2395,10 +2548,16 @@ class _SlashCommandPalette extends StatelessWidget {
         itemCount: commands.length,
         itemBuilder: (context, index) {
           final command = commands[index];
+          final selected = index == selectedIndex;
           return InkWell(
             onTap: () => onSelected(command),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              decoration: BoxDecoration(
+                color: selected ? AppThemeTokens.panelMuted : null,
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Row(
                 children: [
                   Icon(
