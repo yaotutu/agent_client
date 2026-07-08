@@ -7,13 +7,22 @@ import 'package:agent_client/features/nanobot/data/protocol/nanobot_ws_envelope.
 import 'package:agent_client/features/nanobot/domain/nanobot_config.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 
-enum NanobotSocketStatus { idle, connecting, open, closed, error }
+enum NanobotSocketStatus { idle, connecting, open, reconnecting, closed, error }
 
 class NanobotWsClient {
-  NanobotWsClient({required this.config, required this.bootstrap});
+  NanobotWsClient({
+    required this.config,
+    required this.bootstrap,
+    this.reconnect = true,
+    this.reconnectDelay = const Duration(milliseconds: 500),
+    this.maxReconnectDelay = const Duration(seconds: 15),
+  });
 
   final NanobotConfig config;
   final Future<NanobotBootstrap> Function({bool forceRefresh}) bootstrap;
+  final bool reconnect;
+  final Duration reconnectDelay;
+  final Duration maxReconnectDelay;
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
   final _knownChats = <String>{};
@@ -25,8 +34,11 @@ class NanobotWsClient {
   static const _pendingInboundMax = 2000;
 
   WebSocket? _socket;
+  Timer? _reconnectTimer;
   Completer<String>? _pendingChatRequest;
   NanobotSocketStatus _currentStatus = NanobotSocketStatus.idle;
+  int _reconnectAttempts = 0;
+  bool _intentionallyClosed = false;
 
   Stream<NanobotEvent> get events => _events.stream;
 
@@ -77,11 +89,15 @@ class NanobotWsClient {
       return;
     }
 
+    _intentionallyClosed = false;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _setStatus(NanobotSocketStatus.connecting);
     try {
       final token = await bootstrap(forceRefresh: forceRefresh);
       final socket = await WebSocket.connect(_wsUrl(token));
       _socket = socket;
+      _reconnectAttempts = 0;
       _setStatus(NanobotSocketStatus.open);
       for (final chatId in _knownChats) {
         _rawSend(NanobotOutboundEnvelope.attach(chatId: chatId).toJson());
@@ -124,9 +140,12 @@ class NanobotWsClient {
     if (trimmed.isEmpty) {
       return;
     }
+    final wasOpen = _socket?.readyState == WebSocket.open;
     _knownChats.add(trimmed);
     await connect();
-    _queueSend(NanobotOutboundEnvelope.attach(chatId: trimmed).toJson());
+    if (wasOpen) {
+      _queueSend(NanobotOutboundEnvelope.attach(chatId: trimmed).toJson());
+    }
   }
 
   Future<void> sendMessage({
@@ -244,6 +263,9 @@ class NanobotWsClient {
   }
 
   Future<void> close() async {
+    _intentionallyClosed = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     final socket = _socket;
     _socket = null;
     await socket?.close();
@@ -252,6 +274,8 @@ class NanobotWsClient {
 
   Future<void> dispose() async {
     await close();
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     for (final controller in _chatStreams.values) {
       await controller.close();
     }
@@ -263,6 +287,7 @@ class NanobotWsClient {
   }
 
   Future<void> _read(WebSocket socket) async {
+    var failed = false;
     try {
       await for (final raw in socket) {
         if (raw is! String) {
@@ -312,8 +337,8 @@ class NanobotWsClient {
         }
         _emitEvent(event);
       }
-      _setStatus(NanobotSocketStatus.closed);
     } on Object {
+      failed = true;
       _setStatus(NanobotSocketStatus.error);
     } finally {
       if (identical(_socket, socket)) {
@@ -339,7 +364,29 @@ class NanobotWsClient {
         }
       }
       _pendingTranscriptions.clear();
+      if (_intentionallyClosed || !reconnect) {
+        _setStatus(
+          failed ? NanobotSocketStatus.error : NanobotSocketStatus.closed,
+        );
+      } else {
+        _scheduleReconnect();
+      }
     }
+  }
+
+  void _scheduleReconnect() {
+    _setStatus(NanobotSocketStatus.reconnecting);
+    final attempt = _reconnectAttempts++;
+    final baseMs = reconnectDelay.inMilliseconds;
+    final maxMs = maxReconnectDelay.inMilliseconds;
+    final delayMs = baseMs <= 0
+        ? 0
+        : (baseMs * (1 << attempt)).clamp(baseMs, maxMs);
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(milliseconds: delayMs), () {
+      _reconnectTimer = null;
+      unawaited(connect(forceRefresh: true));
+    });
   }
 
   void _emitEvent(NanobotEvent event) {

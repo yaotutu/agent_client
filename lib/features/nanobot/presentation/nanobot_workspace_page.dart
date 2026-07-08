@@ -883,6 +883,7 @@ class _ChatHeader extends StatelessWidget {
       NanobotSocketStatus.idle => 'idle',
       NanobotSocketStatus.connecting => 'connecting',
       NanobotSocketStatus.open => 'connected',
+      NanobotSocketStatus.reconnecting => 'reconnecting',
       NanobotSocketStatus.closed => 'closed',
       NanobotSocketStatus.error => 'error',
     };

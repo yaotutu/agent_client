@@ -30,6 +30,7 @@ void main() {
         wsUrl: harness.wsUrl,
         expiresAt: DateTime.now().add(const Duration(minutes: 5)),
       ),
+      reconnectDelay: const Duration(milliseconds: 1),
     );
   }
 
@@ -203,19 +204,23 @@ void main() {
     },
   );
 
-  test('reattaches known chats after reconnect', () async {
+  test('reauths and reattaches known chats after a dropped socket', () async {
     final ws = client();
     addTearDown(ws.dispose);
 
     await ws.attach('chat-1');
     expect(await harness.nextFrame(), {'type': 'attach', 'chat_id': 'chat-1'});
+    expect(harness.requestedUris.single.queryParameters['token'], 'token');
 
-    final closed = expectLater(ws.status, emits(NanobotSocketStatus.closed));
+    final reconnecting = expectLater(
+      ws.status,
+      emits(NanobotSocketStatus.reconnecting),
+    );
     await harness.closeSocket(WebSocketStatus.normalClosure, 'bye');
-    await closed;
+    await reconnecting;
 
-    await ws.connect(forceRefresh: true);
     expect(await harness.nextFrame(), {'type': 'attach', 'chat_id': 'chat-1'});
+    expect(harness.requestedUris.last.queryParameters['token'], 'fresh-token');
   });
 }
 
@@ -226,6 +231,7 @@ class _WsHarness {
   final String wsUrl;
   final _pendingFrames = Queue<Map<String, Object?>>();
   final _frameWaiters = Queue<Completer<Map<String, Object?>>>();
+  final requestedUris = <Uri>[];
   WebSocket? _socket;
 
   static Future<_WsHarness> start() async {
@@ -274,6 +280,7 @@ class _WsHarness {
         await request.response.close();
         continue;
       }
+      requestedUris.add(request.uri);
       final socket = await WebSocketTransformer.upgrade(request);
       _socket = socket;
       socket.listen((raw) {
