@@ -92,6 +92,49 @@ void main() {
     expect(find.text('No automations'), findsNothing);
   });
 
+  testWidgets('automations surface shows message origin and expands details', (
+    tester,
+  ) async {
+    const longMessage =
+        'Review the release plan and prepare a concise status update.\n'
+        'Include blockers, owners, follow-up dates, and risky assumptions.\n'
+        'Keep the output actionable and avoid repeated context.\n'
+        'Call out stale dependencies and ask for owner updates.\n'
+        'This message is long enough to need progressive disclosure.';
+    final repository = _FakeNanobotRepository(
+      automationItems: const [
+        NanobotCatalogItem(
+          id: 'long-details',
+          title: 'Long detail automation',
+          subtitle: longMessage,
+          details: 'Release prep',
+          status: 'enabled',
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Long detail automation'), findsOneWidget);
+    expect(find.text('Release prep'), findsOneWidget);
+    expect(find.text('Show full message'), findsOneWidget);
+
+    await tester.tap(find.text('Show full message'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Show less'), findsOneWidget);
+  });
+
   testWidgets('skills surface opens unavailable skill details', (tester) async {
     final repository = _FakeNanobotRepository(
       skillItems: const [

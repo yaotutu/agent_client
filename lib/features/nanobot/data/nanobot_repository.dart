@@ -291,6 +291,7 @@ class NanobotRepository implements NanobotRepositoryPort {
           id: _stringValue(row, 'id'),
           title: _stringValue(row, 'name', fallbackKey: 'id'),
           subtitle: _automationSubtitle(row),
+          details: _automationDetails(row),
           status: row['enabled'] == false ? 'disabled' : 'enabled',
         ),
     ];
@@ -506,6 +507,13 @@ class NanobotRepository implements NanobotRepositoryPort {
   }
 
   String _automationSubtitle(Map<String, Object?> row) {
+    final payload = row['payload'];
+    if (payload is Map) {
+      final message = payload['message'];
+      if (message is String && message.trim().isNotEmpty) {
+        return message;
+      }
+    }
     final schedule = row['schedule'];
     if (schedule is Map) {
       final kind = schedule['kind'];
@@ -514,6 +522,25 @@ class NanobotRepository implements NanobotRepositoryPort {
       }
     }
     return _stringValue(row, 'kind');
+  }
+
+  String _automationDetails(Map<String, Object?> row) {
+    final origin = row['origin'];
+    if (origin is! Map) {
+      return '';
+    }
+    final title = origin['title'];
+    if (title is String && title.trim().isNotEmpty) {
+      return title;
+    }
+    final channel = origin['channel'];
+    if (channel == 'weixin') {
+      return 'WeChat';
+    }
+    if (channel is String && channel.trim().isNotEmpty) {
+      return channel;
+    }
+    return '';
   }
 
   String _skillStatus(Map<String, Object?> row) {

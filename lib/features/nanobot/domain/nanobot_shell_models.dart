@@ -23,12 +23,14 @@ class NanobotCatalogItem {
     required this.id,
     required this.title,
     this.subtitle = '',
+    this.details = '',
     this.status = '',
   });
 
   final String id;
   final String title;
   final String subtitle;
+  final String details;
   final String status;
 }
 

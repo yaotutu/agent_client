@@ -98,6 +98,50 @@ void main() {
     expect(detail.missingEnv, ['GITHUB_TOKEN']);
     expect(detail.rawMarkdown, '# GitHub');
   });
+
+  test('repository maps automation message and origin details', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/webui/automations': {
+        'jobs': [
+          {
+            'id': 'job-1',
+            'name': 'Daily repo check',
+            'enabled': true,
+            'schedule': {'kind': 'every', 'every_ms': 86400000},
+            'payload': {'message': 'Check the repo status'},
+            'origin': {
+              'channel': 'websocket',
+              'title': 'Release prep',
+              'preview': 'Check release blockers',
+            },
+          },
+        ],
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final automations = await repository.fetchAutomationItems();
+
+    expect(automations.single.title, 'Daily repo check');
+    expect(automations.single.subtitle, 'Check the repo status');
+    expect(automations.single.details, 'Release prep');
+    expect(automations.single.status, 'enabled');
+  });
 }
 
 class _RouteAdapter implements HttpClientAdapter {

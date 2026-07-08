@@ -1888,11 +1888,22 @@ class _CatalogRow extends StatelessWidget {
                 ),
                 if (item.subtitle.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
+                  _ExpandableCatalogText(
+                    text: item.subtitle,
+                    collapsedLabel: 'Show full message',
+                    expandedLabel: 'Show less',
+                  ),
+                ],
+                if (item.details.trim().isNotEmpty) ...[
+                  const SizedBox(height: 6),
                   Text(
-                    item.subtitle,
+                    item.details,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: AppThemeTokens.mutedText,
                       fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -1922,6 +1933,62 @@ class _CatalogRow extends StatelessWidget {
         onTap: () => onTap(item),
         child: content,
       ),
+    );
+  }
+}
+
+class _ExpandableCatalogText extends StatefulWidget {
+  const _ExpandableCatalogText({
+    required this.text,
+    required this.collapsedLabel,
+    required this.expandedLabel,
+  });
+
+  final String text;
+  final String collapsedLabel;
+  final String expandedLabel;
+
+  @override
+  State<_ExpandableCatalogText> createState() => _ExpandableCatalogTextState();
+}
+
+class _ExpandableCatalogTextState extends State<_ExpandableCatalogText> {
+  var _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final canExpand =
+        widget.text.contains('\n') || widget.text.trim().length > 180;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.text,
+          maxLines: canExpand && !_expanded ? 6 : null,
+          overflow: canExpand && !_expanded
+              ? TextOverflow.ellipsis
+              : TextOverflow.visible,
+          style: const TextStyle(
+            color: AppThemeTokens.mutedText,
+            fontSize: 12,
+            height: 1.35,
+          ),
+        ),
+        if (canExpand) ...[
+          const SizedBox(height: 4),
+          TextButton(
+            style: TextButton.styleFrom(
+              minimumSize: Size.zero,
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () => setState(() => _expanded = !_expanded),
+            child: Text(
+              _expanded ? widget.expandedLabel : widget.collapsedLabel,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
