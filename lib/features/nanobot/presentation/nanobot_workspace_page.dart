@@ -1628,6 +1628,7 @@ class _MessageContentText extends ConsumerWidget {
       return _MessageBulletList(
         prefix: list.prefix,
         markers: list.markers,
+        checks: list.checks,
         items: list.items,
         itemBuilder: (item) => _buildInlineSegments(item, ref),
       );
@@ -1697,12 +1698,14 @@ class _MessageBulletList extends StatelessWidget {
   const _MessageBulletList({
     required this.prefix,
     required this.markers,
+    required this.checks,
     required this.items,
     required this.itemBuilder,
   });
 
   final String prefix;
   final List<String> markers;
+  final List<bool?> checks;
   final List<String> items;
   final Widget Function(String item) itemBuilder;
 
@@ -1722,16 +1725,28 @@ class _MessageBulletList extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: 24,
-                  child: Text(
-                    markers[index],
-                    style: const TextStyle(
-                      color: AppThemeTokens.mutedText,
-                      height: 1.4,
+                if (checks[index] == null)
+                  SizedBox(
+                    width: 24,
+                    child: Text(
+                      markers[index],
+                      style: const TextStyle(
+                        color: AppThemeTokens.mutedText,
+                        height: 1.4,
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    width: 24,
+                    height: 22,
+                    child: Checkbox(
+                      value: checks[index],
+                      onChanged: null,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
                     ),
                   ),
-                ),
                 Expanded(child: itemBuilder(items[index])),
               ],
             ),
@@ -1957,11 +1972,13 @@ class _MarkdownBulletList {
   const _MarkdownBulletList({
     required this.prefix,
     required this.markers,
+    required this.checks,
     required this.items,
   });
 
   final String prefix;
   final List<String> markers;
+  final List<bool?> checks;
   final List<String> items;
 }
 
@@ -2042,6 +2059,7 @@ _MarkdownBulletList? _markdownBulletList(String text) {
     return null;
   }
   final markers = <String>[];
+  final checks = <bool?>[];
   final items = <String>[];
   for (var index = firstBullet; index < lines.length; index += 1) {
     final trimmedLeft = lines[index].trimLeft();
@@ -2054,6 +2072,7 @@ _MarkdownBulletList? _markdownBulletList(String text) {
     }
     if (line.item.isNotEmpty) {
       markers.add(line.marker);
+      checks.add(line.checked);
       items.add(line.item);
     }
   }
@@ -2063,20 +2082,30 @@ _MarkdownBulletList? _markdownBulletList(String text) {
   return _MarkdownBulletList(
     prefix: lines.take(firstBullet).join('\n').trimRight(),
     markers: markers,
+    checks: checks,
     items: items,
   );
 }
 
-({String marker, String item})? _markdownListLine(String line) {
+({String marker, bool? checked, String item})? _markdownListLine(String line) {
   final trimmedLeft = line.trimLeft();
+  final task = RegExp(r'^-\s+\[([ xX])\]\s+(.+)$').firstMatch(trimmedLeft);
+  if (task != null) {
+    return (
+      marker: '',
+      checked: task.group(1)!.toLowerCase() == 'x',
+      item: task.group(2)!.trimRight(),
+    );
+  }
   final bullet = RegExp(r'^-\s+(.+)$').firstMatch(trimmedLeft);
   if (bullet != null) {
-    return (marker: '•', item: bullet.group(1)!.trimRight());
+    return (marker: '•', checked: null, item: bullet.group(1)!.trimRight());
   }
   final ordered = RegExp(r'^(\d+)\.\s+(.+)$').firstMatch(trimmedLeft);
   if (ordered != null) {
     return (
       marker: '${ordered.group(1)}.',
+      checked: null,
       item: ordered.group(2)!.trimRight(),
     );
   }

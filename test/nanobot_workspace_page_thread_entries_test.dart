@@ -263,6 +263,37 @@ void main() {
     expect(find.textContaining('1. **'), findsNothing);
   });
 
+  testWidgets('message markdown task lists render checkbox rows', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    repository.emit({
+      'event': 'message',
+      'chat_id': 'chat-1',
+      'text': 'Checklist:\n- [x] **Connected**\n- [ ] Run `tests`',
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Checklist:'), findsOneWidget);
+    expect(find.byType(Checkbox), findsNWidgets(2));
+    expect(_checkboxWithValue(true), findsOneWidget);
+    expect(_checkboxWithValue(false), findsOneWidget);
+    expect(_richTextWithBoldSpan('Connected'), findsOneWidget);
+    expect(_richTextWithCodeSpan('tests'), findsOneWidget);
+    expect(find.textContaining('[x]'), findsNothing);
+    expect(find.textContaining('[ ]'), findsNothing);
+  });
+
   testWidgets('message markdown headings render heading text', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);
@@ -675,5 +706,13 @@ Finder _textWithWeight(String text, FontWeight weight) {
       return widget.data == text && widget.style?.fontWeight == weight;
     }
     return false;
+  });
+}
+
+Finder _checkboxWithValue(bool value) {
+  return find.byWidgetPredicate((widget) {
+    return widget is Checkbox &&
+        widget.value == value &&
+        widget.onChanged == null;
   });
 }
