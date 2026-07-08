@@ -1,4 +1,4 @@
-import 'package:agent_client/app/agent_client_app.dart';
+import 'package:agent_client/app/nanobot_client_app.dart';
 import 'package:agent_client/core/config/app_config.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -15,7 +15,7 @@ Future<void> main() async {
         appConfigStoreProvider.overrideWithValue(configStore),
         initialAppConfigProvider.overrideWithValue(initialConfig),
       ],
-      child: const AgentClientApp(),
+      child: const NanobotClientApp(),
     ),
   );
 }

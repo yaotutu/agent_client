@@ -1,0 +1,84 @@
+import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_message.dart';
+import 'package:agent_client/features/nanobot/domain/nanobot_session.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('bootstrap maps token and expiry', () {
+    final before = DateTime.now();
+
+    final bootstrap = NanobotBootstrap.fromJson({
+      'token': 'nbwt_token',
+      'ws_path': '/',
+      'ws_url': 'ws://127.0.0.1:8765/',
+      'expires_in': 300,
+      'model_name': 'MiniMax-M3',
+      'runtime_surface': 'browser',
+    });
+
+    expect(bootstrap.token, 'nbwt_token');
+    expect(bootstrap.wsPath, '/');
+    expect(bootstrap.wsUrl, 'ws://127.0.0.1:8765/');
+    expect(bootstrap.modelName, 'MiniMax-M3');
+    expect(bootstrap.runtimeSurface, 'browser');
+    expect(bootstrap.expiresAt.isAfter(before), isTrue);
+  });
+
+  test('session summary splits websocket session key', () {
+    final session = NanobotSessionSummary.fromJson({
+      'key': 'websocket:chat-123',
+      'title': '',
+      'preview': 'hello',
+      'created_at': '2026-07-08T10:00:00Z',
+      'updated_at': '2026-07-08T10:05:00Z',
+      'run_started_at': 123,
+    });
+
+    expect(session.channel, 'websocket');
+    expect(session.chatId, 'chat-123');
+    expect(session.displayTitle, 'hello');
+    expect(session.runStartedAt, 123);
+  });
+
+  test('webui thread messages map UIMessage shape', () {
+    final message = NanobotMessage.fromWebuiJson(
+      json: {
+        'id': 'm1',
+        'role': 'assistant',
+        'content': 'answer',
+        'reasoning': 'thinking',
+        'createdAt': 1783490000000,
+      },
+      sessionKey: 'websocket:chat-1',
+      chatId: 'chat-1',
+    );
+
+    expect(message.id, 'm1');
+    expect(message.role, NanobotMessageRole.assistant);
+    expect(message.content, 'answer');
+    expect(message.reasoning, 'thinking');
+    expect(message.sessionKey, 'websocket:chat-1');
+  });
+
+  test('websocket event mapper keeps key live event fields', () {
+    final delta = NanobotEvent.fromJson({
+      'event': 'delta',
+      'chat_id': 'chat-1',
+      'text': 'chunk',
+    });
+    final goalStatus = NanobotEvent.fromJson({
+      'event': 'goal_status',
+      'chat_id': 'chat-1',
+      'status': 'running',
+      'started_at': 42,
+    });
+
+    expect(delta.kind, NanobotEventKind.delta);
+    expect(delta.chatId, 'chat-1');
+    expect(delta.text, 'chunk');
+    expect(goalStatus.kind, NanobotEventKind.goalStatus);
+    expect(goalStatus.status, 'running');
+    expect(goalStatus.startedAt, 42);
+  });
+}

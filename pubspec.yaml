@@ -37,12 +37,7 @@ dependencies:
   hooks_riverpod: ^3.3.1
   flutter_hooks: ^0.21.3+1
   dio: ^5.9.2
-  drift: ^2.33.0
-  drift_flutter: ^0.3.0
   path_provider: ^2.1.5
-  path: ^1.9.1
-  collection: ^1.19.1
-  flutter_markdown_plus: ^1.0.7
 
 dev_dependencies:
   flutter_test:
@@ -54,8 +49,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  build_runner: ^2.15.0
-  drift_dev: ^2.33.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -67,9 +60,6 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-
-  assets:
-    - assets/agent_avatars/
 
   # To add more assets to your application, add entries like this:
   #   - images/a_dot_burr.jpeg
