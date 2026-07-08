@@ -63,6 +63,48 @@ void main() {
     ]);
   });
 
+  testWidgets('session list follows sidebar preview visibility state', (
+    tester,
+  ) async {
+    final hiddenRepository = _FakeNanobotRepository(
+      sidebarState: const NanobotSidebarState(),
+    );
+    addTearDown(hiddenRepository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          nanobotRepositoryProvider.overrideWithValue(hiddenRepository),
+        ],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Active Chat'), findsWidgets);
+    expect(find.text('Active preview'), findsNothing);
+  });
+
+  testWidgets('session list shows previews when sidebar state enables them', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      sidebarState: const NanobotSidebarState(showPreviews: true),
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Active Chat'), findsWidgets);
+    expect(find.text('Active preview'), findsOneWidget);
+  });
+
   testWidgets('session action menu persists pin archive and rename', (
     tester,
   ) async {
@@ -466,8 +508,17 @@ void main() {
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
-  _FakeNanobotRepository({List<NanobotSessionSummary>? sessions})
-    : _sessions = sessions ?? _defaultSessions();
+  _FakeNanobotRepository({
+    List<NanobotSessionSummary>? sessions,
+    NanobotSidebarState? sidebarState,
+  }) : _sessions = sessions ?? _defaultSessions(),
+       _sidebarState =
+           sidebarState ??
+           const NanobotSidebarState(
+             pinnedKeys: ['websocket:chat-2'],
+             archivedKeys: ['websocket:chat-3'],
+             titleOverrides: {'websocket:chat-2': 'Pinned Roadmap'},
+           );
 
   final _events = StreamController<NanobotEvent>.broadcast();
   final _status = StreamController<NanobotSocketStatus>.broadcast();
@@ -476,6 +527,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   var newChatCount = 0;
 
   final List<NanobotSessionSummary> _sessions;
+  final NanobotSidebarState _sidebarState;
 
   static List<NanobotSessionSummary> _defaultSessions() => [
     NanobotSessionSummary(
@@ -607,11 +659,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<NanobotSidebarState> fetchSidebarState() async {
-    return const NanobotSidebarState(
-      pinnedKeys: ['websocket:chat-2'],
-      archivedKeys: ['websocket:chat-3'],
-      titleOverrides: {'websocket:chat-2': 'Pinned Roadmap'},
-    );
+    return _sidebarState;
   }
 
   @override

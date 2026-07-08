@@ -562,6 +562,7 @@ class _SessionList extends StatelessWidget {
                         archived: state.sidebarState.archivedKeys.contains(
                           session.key,
                         ),
+                        showPreview: state.sidebarState.showPreviews,
                         selected: session.key == state.selectedSessionKey,
                         onTap: () => onSelected(session),
                         onTogglePinned: () => onTogglePinned(session.key),
@@ -685,6 +686,7 @@ class _SessionTile extends StatelessWidget {
     required this.title,
     required this.pinned,
     required this.archived,
+    required this.showPreview,
     required this.selected,
     required this.onTap,
     required this.onTogglePinned,
@@ -697,6 +699,7 @@ class _SessionTile extends StatelessWidget {
   final String title;
   final bool pinned;
   final bool archived;
+  final bool showPreview;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback onTogglePinned;
@@ -797,7 +800,10 @@ class _SessionTile extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (session.preview.trim().isNotEmpty) ...[
+                if (showPreview &&
+                    session.preview.trim().isNotEmpty &&
+                    session.preview.trim().toLowerCase() !=
+                        title.trim().toLowerCase()) ...[
                   const SizedBox(height: 4),
                   Text(
                     session.preview,

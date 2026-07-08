@@ -491,6 +491,8 @@ class NanobotRepository implements NanobotRepositoryPort {
       projectNameOverrides: dto.projectNameOverrides,
       collapsedGroups: dto.collapsedGroups,
       showArchived: dto.view.showArchived,
+      showPreviews: dto.view.showPreviews,
+      showTimestamps: dto.view.showTimestamps,
       sort: dto.view.sort,
       density: dto.view.density,
     );
@@ -506,6 +508,8 @@ class NanobotRepository implements NanobotRepositoryPort {
       view: NanobotSidebarViewDto(
         density: state.density,
         sort: state.sort,
+        showPreviews: state.showPreviews,
+        showTimestamps: state.showTimestamps,
         showArchived: state.showArchived,
       ),
     );

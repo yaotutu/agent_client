@@ -194,6 +194,8 @@ class NanobotSidebarState {
     this.projectNameOverrides = const {},
     this.collapsedGroups = const {},
     this.showArchived = false,
+    this.showPreviews = false,
+    this.showTimestamps = false,
     this.sort = 'updated_desc',
     this.density = 'comfortable',
   });
@@ -204,6 +206,8 @@ class NanobotSidebarState {
   final Map<String, String> projectNameOverrides;
   final Map<String, bool> collapsedGroups;
   final bool showArchived;
+  final bool showPreviews;
+  final bool showTimestamps;
   final String sort;
   final String density;
 
@@ -214,6 +218,8 @@ class NanobotSidebarState {
     Map<String, String>? projectNameOverrides,
     Map<String, bool>? collapsedGroups,
     bool? showArchived,
+    bool? showPreviews,
+    bool? showTimestamps,
     String? sort,
     String? density,
   }) {
@@ -224,6 +230,8 @@ class NanobotSidebarState {
       projectNameOverrides: projectNameOverrides ?? this.projectNameOverrides,
       collapsedGroups: collapsedGroups ?? this.collapsedGroups,
       showArchived: showArchived ?? this.showArchived,
+      showPreviews: showPreviews ?? this.showPreviews,
+      showTimestamps: showTimestamps ?? this.showTimestamps,
       sort: sort ?? this.sort,
       density: density ?? this.density,
     );

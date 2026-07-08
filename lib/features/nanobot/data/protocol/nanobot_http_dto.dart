@@ -170,23 +170,35 @@ class NanobotSidebarViewDto {
   const NanobotSidebarViewDto({
     this.density = 'comfortable',
     this.sort = 'updated_desc',
+    this.showPreviews = false,
+    this.showTimestamps = false,
     this.showArchived = false,
   });
 
   final String density;
   final String sort;
+  final bool showPreviews;
+  final bool showTimestamps;
   final bool showArchived;
 
   factory NanobotSidebarViewDto.fromJson(Map<String, Object?> json) {
     return NanobotSidebarViewDto(
       density: json['density'] as String? ?? 'comfortable',
       sort: json['sort'] as String? ?? 'updated_desc',
+      showPreviews: json['show_previews'] == true,
+      showTimestamps: json['show_timestamps'] == true,
       showArchived: json['show_archived'] == true,
     );
   }
 
   Map<String, Object?> toJson() {
-    return {'density': density, 'sort': sort, 'show_archived': showArchived};
+    return {
+      'density': density,
+      'sort': sort,
+      'show_previews': showPreviews,
+      'show_timestamps': showTimestamps,
+      'show_archived': showArchived,
+    };
   }
 }
 

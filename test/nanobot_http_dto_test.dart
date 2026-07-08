@@ -64,7 +64,12 @@ void main() {
     final dto = NanobotSidebarStateDto.fromJson({
       'pinned_keys': ['websocket:chat-1'],
       'title_overrides': {'websocket:chat-1': 'Pinned'},
-      'view': {'density': 'compact', 'sort': 'title_asc'},
+      'view': {
+        'density': 'compact',
+        'sort': 'title_asc',
+        'show_previews': true,
+        'show_timestamps': true,
+      },
     });
 
     expect(dto.pinnedKeys, ['websocket:chat-1']);
@@ -73,8 +78,14 @@ void main() {
     expect(dto.projectNameOverrides, isEmpty);
     expect(dto.view.density, 'compact');
     expect(dto.view.sort, 'title_asc');
+    expect(dto.view.showPreviews, isTrue);
+    expect(dto.view.showTimestamps, isTrue);
     expect(dto.view.showArchived, isFalse);
     expect(dto.toJson()['pinned_keys'], ['websocket:chat-1']);
+    expect(
+      (dto.toJson()['view'] as Map<String, Object?>)['show_previews'],
+      isTrue,
+    );
   });
 
   test('slash command dto keeps supported lifecycle rows only', () {
