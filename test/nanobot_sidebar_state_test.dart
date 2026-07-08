@@ -342,6 +342,40 @@ void main() {
     );
   });
 
+  testWidgets('session search distinguishes empty session lists', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(sessions: []);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recent'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('No sessions yet.'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('No matching chats.'),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('session search hover moves highlighted result', (tester) async {
     final repository = _FakeNanobotRepository();
     addTearDown(repository.dispose);

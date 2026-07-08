@@ -865,6 +865,7 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
   Widget build(BuildContext context) {
     final query = _queryController.text.trim().toLowerCase();
     final results = _searchResults(query);
+    final emptyLabel = query.isEmpty ? 'No sessions yet.' : 'No matching chats.';
     return AlertDialog(
       titlePadding: EdgeInsets.zero,
       title: Focus(
@@ -916,10 +917,10 @@ class _SessionSearchDialogState extends State<_SessionSearchDialog> {
             const SizedBox(height: 8),
             Expanded(
               child: results.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
-                        'No matching chats.',
-                        style: TextStyle(color: AppThemeTokens.mutedText),
+                        emptyLabel,
+                        style: const TextStyle(color: AppThemeTokens.mutedText),
                       ),
                     )
                   : ListView.builder(
