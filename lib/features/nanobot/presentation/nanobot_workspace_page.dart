@@ -563,6 +563,7 @@ class _SessionList extends StatelessWidget {
                           session.key,
                         ),
                         showPreview: state.sidebarState.showPreviews,
+                        showTimestamp: state.sidebarState.showTimestamps,
                         selected: session.key == state.selectedSessionKey,
                         onTap: () => onSelected(session),
                         onTogglePinned: () => onTogglePinned(session.key),
@@ -687,6 +688,7 @@ class _SessionTile extends StatelessWidget {
     required this.pinned,
     required this.archived,
     required this.showPreview,
+    required this.showTimestamp,
     required this.selected,
     required this.onTap,
     required this.onTogglePinned,
@@ -700,6 +702,7 @@ class _SessionTile extends StatelessWidget {
   final bool pinned;
   final bool archived;
   final bool showPreview;
+  final bool showTimestamp;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback onTogglePinned;
@@ -815,12 +818,52 @@ class _SessionTile extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (showTimestamp) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _relativeTimeLabel(session.updatedAt ?? session.createdAt),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppThemeTokens.mutedText,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  static String _relativeTimeLabel(DateTime? value) {
+    if (value == null) {
+      return '';
+    }
+    final difference = DateTime.now().difference(value);
+    final abs = difference.abs();
+    final suffix = difference.isNegative ? 'from now' : 'ago';
+    if (abs.inMinutes < 1) {
+      return '${abs.inSeconds}s $suffix';
+    }
+    if (abs.inHours < 1) {
+      return '${abs.inMinutes}m $suffix';
+    }
+    if (abs.inDays < 1) {
+      return '${abs.inHours}h $suffix';
+    }
+    if (abs.inDays < 7) {
+      return '${abs.inDays}d $suffix';
+    }
+    if (abs.inDays < 30) {
+      return '${abs.inDays ~/ 7}w $suffix';
+    }
+    if (abs.inDays < 365) {
+      return '${abs.inDays ~/ 30}mo $suffix';
+    }
+    return '${abs.inDays ~/ 365}y $suffix';
   }
 }
 

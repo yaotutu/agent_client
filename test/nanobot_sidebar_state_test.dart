@@ -105,6 +105,37 @@ void main() {
     expect(find.text('Active preview'), findsOneWidget);
   });
 
+  testWidgets('session list shows timestamps when sidebar state enables them', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      sessions: [
+        NanobotSessionSummary(
+          key: 'websocket:chat-recent',
+          channel: 'websocket',
+          chatId: 'chat-recent',
+          title: 'Recent Chat',
+          preview: 'recent preview',
+          createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+          updatedAt: DateTime.now().subtract(const Duration(minutes: 5)),
+        ),
+      ],
+      sidebarState: const NanobotSidebarState(showTimestamps: true),
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recent Chat'), findsWidgets);
+    expect(find.text('5m ago'), findsOneWidget);
+  });
+
   testWidgets('session action menu persists pin archive and rename', (
     tester,
   ) async {
