@@ -123,6 +123,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onForkFromMessage: controller.forkFromMessage,
               onOpenSkillDetail: controller.openSkillDetail,
               onCloseSkillDetail: controller.closeSkillDetail,
+              onAutomationAction: controller.runAutomationAction,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -1185,6 +1186,7 @@ class _ChatPane extends StatelessWidget {
     required this.onForkFromMessage,
     required this.onOpenSkillDetail,
     required this.onCloseSkillDetail,
+    required this.onAutomationAction,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -1218,6 +1220,11 @@ class _ChatPane extends StatelessWidget {
   final Future<void> Function(int beforeUserIndex) onForkFromMessage;
   final Future<void> Function(NanobotCatalogItem item) onOpenSkillDetail;
   final VoidCallback onCloseSkillDetail;
+  final Future<void> Function(
+    NanobotAutomationAction action,
+    NanobotCatalogItem item,
+  )
+  onAutomationAction;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -1249,6 +1256,7 @@ class _ChatPane extends StatelessWidget {
                     state: state,
                     onOpenSkillDetail: onOpenSkillDetail,
                     onCloseSkillDetail: onCloseSkillDetail,
+                    onAutomationAction: onAutomationAction,
                   ),
           ),
           if (state.errorMessage != null)
@@ -1408,11 +1416,17 @@ class _SecondarySurface extends StatelessWidget {
     required this.state,
     required this.onOpenSkillDetail,
     required this.onCloseSkillDetail,
+    required this.onAutomationAction,
   });
 
   final NanobotWorkspaceState state;
   final Future<void> Function(NanobotCatalogItem item) onOpenSkillDetail;
   final VoidCallback onCloseSkillDetail;
+  final Future<void> Function(
+    NanobotAutomationAction action,
+    NanobotCatalogItem item,
+  )
+  onAutomationAction;
 
   @override
   Widget build(BuildContext context) {
@@ -1437,6 +1451,7 @@ class _SecondarySurface extends StatelessWidget {
           searchable: true,
           searchPlaceholder: 'Search task, message, linked chat, or schedule',
           noMatchesText: 'No automations match this view.',
+          onAutomationAction: onAutomationAction,
         ),
         NanobotShellView.skills => _CatalogSurface(
           title: 'Skills',
@@ -1835,6 +1850,7 @@ class _CatalogSurface extends StatelessWidget {
     this.searchPlaceholder = '',
     this.noMatchesText,
     this.onItemSelected,
+    this.onAutomationAction,
   });
 
   final String title;
@@ -1844,6 +1860,11 @@ class _CatalogSurface extends StatelessWidget {
   final String searchPlaceholder;
   final String? noMatchesText;
   final ValueChanged<NanobotCatalogItem>? onItemSelected;
+  final Future<void> Function(
+    NanobotAutomationAction action,
+    NanobotCatalogItem item,
+  )?
+  onAutomationAction;
 
   @override
   Widget build(BuildContext context) {
@@ -1855,6 +1876,7 @@ class _CatalogSurface extends StatelessWidget {
         searchPlaceholder: searchPlaceholder,
         noMatchesText: noMatchesText ?? emptyText,
         onItemSelected: onItemSelected,
+        onAutomationAction: onAutomationAction,
       );
     }
     return Column(
@@ -1870,6 +1892,7 @@ class _CatalogSurface extends StatelessWidget {
               key: ValueKey(item.id),
               item: item,
               onSelected: onItemSelected,
+              onAutomationAction: onAutomationAction,
             ),
       ],
     );
@@ -1884,6 +1907,7 @@ class _SearchableCatalogSurface extends StatefulWidget {
     required this.searchPlaceholder,
     required this.noMatchesText,
     required this.onItemSelected,
+    required this.onAutomationAction,
   });
 
   final String title;
@@ -1892,6 +1916,11 @@ class _SearchableCatalogSurface extends StatefulWidget {
   final String searchPlaceholder;
   final String noMatchesText;
   final ValueChanged<NanobotCatalogItem>? onItemSelected;
+  final Future<void> Function(
+    NanobotAutomationAction action,
+    NanobotCatalogItem item,
+  )?
+  onAutomationAction;
 
   @override
   State<_SearchableCatalogSurface> createState() =>
@@ -1988,6 +2017,7 @@ class _SearchableCatalogSurfaceState extends State<_SearchableCatalogSurface> {
               key: ValueKey(item.id),
               item: item,
               onSelected: widget.onItemSelected,
+              onAutomationAction: widget.onAutomationAction,
             ),
       ],
     );
@@ -2138,10 +2168,20 @@ class _AutomationFilterOption {
 }
 
 class _CatalogRow extends StatelessWidget {
-  const _CatalogRow({super.key, required this.item, this.onSelected});
+  const _CatalogRow({
+    super.key,
+    required this.item,
+    this.onSelected,
+    this.onAutomationAction,
+  });
 
   final NanobotCatalogItem item;
   final ValueChanged<NanobotCatalogItem>? onSelected;
+  final Future<void> Function(
+    NanobotAutomationAction action,
+    NanobotCatalogItem item,
+  )?
+  onAutomationAction;
 
   @override
   Widget build(BuildContext context) {
@@ -2199,6 +2239,10 @@ class _CatalogRow extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+          if (onAutomationAction != null) ...[
+            const SizedBox(width: 8),
+            _AutomationActionButtons(item: item, onAction: onAutomationAction!),
+          ],
         ],
       ),
     );
@@ -2213,6 +2257,70 @@ class _CatalogRow extends StatelessWidget {
         onTap: () => onTap(item),
         child: content,
       ),
+    );
+  }
+}
+
+class _AutomationActionButtons extends StatelessWidget {
+  const _AutomationActionButtons({required this.item, required this.onAction});
+
+  final NanobotCatalogItem item;
+  final Future<void> Function(
+    NanobotAutomationAction action,
+    NanobotCatalogItem item,
+  )
+  onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    if (item.filterKeys.contains('system')) {
+      return const Text(
+        'Protected',
+        style: TextStyle(color: AppThemeTokens.mutedText, fontSize: 12),
+      );
+    }
+    final paused =
+        item.filterKeys.contains('paused') ||
+        item.status.toLowerCase() == 'disabled';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: paused ? 'Resume' : 'Pause',
+          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          onPressed: () => onAction(
+            paused
+                ? NanobotAutomationAction.enable
+                : NanobotAutomationAction.disable,
+            item,
+          ),
+          icon: Icon(
+            paused ? Icons.play_circle_outline : Icons.pause_circle_outline,
+          ),
+        ),
+        PopupMenuButton<NanobotAutomationAction>(
+          tooltip: 'Automation actions',
+          position: PopupMenuPosition.under,
+          onSelected: (action) => onAction(action, item),
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: NanobotAutomationAction.run,
+              enabled: !paused,
+              child: const Text('Run now'),
+            ),
+            const PopupMenuItem(
+              value: NanobotAutomationAction.delete,
+              child: Text('Delete'),
+            ),
+          ],
+          child: const SizedBox.square(
+            dimension: 36,
+            child: Icon(Icons.more_horiz),
+          ),
+        ),
+      ],
     );
   }
 }

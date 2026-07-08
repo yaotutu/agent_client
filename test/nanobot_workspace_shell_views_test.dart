@@ -129,6 +129,8 @@ void main() {
     expect(find.text('Release prep'), findsOneWidget);
     expect(find.text('Show full message'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Show full message'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Show full message'));
     await tester.pumpAndSettle();
 
@@ -294,6 +296,51 @@ void main() {
     expect(_isAbove(tester, 'Alpha job', 'Zeta job'), isTrue);
   });
 
+  testWidgets('automations action buttons refresh action results', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      automationItems: const [
+        NanobotCatalogItem(
+          id: 'job-1',
+          title: 'Daily job',
+          status: 'enabled',
+          filterKeys: ['active'],
+        ),
+      ],
+      actionAutomationItems: const [
+        NanobotCatalogItem(
+          id: 'job-1',
+          title: 'Daily job',
+          status: 'disabled',
+          filterKeys: ['paused'],
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Automations'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('enabled'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Pause').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.actionRequests, [
+      (action: NanobotAutomationAction.disable, id: 'job-1'),
+    ]);
+    expect(find.text('disabled'), findsOneWidget);
+  });
+
   testWidgets('skills surface opens unavailable skill details', (tester) async {
     final repository = _FakeNanobotRepository(
       skillItems: const [
@@ -356,10 +403,12 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   _FakeNanobotRepository({
     List<NanobotCatalogItem>? appItems,
     List<NanobotCatalogItem>? automationItems,
+    List<NanobotCatalogItem>? actionAutomationItems,
     List<NanobotCatalogItem>? skillItems,
     Map<String, NanobotSkillDetail>? skillDetails,
   }) : _appItems = appItems ?? _defaultAppItems,
        _automationItems = automationItems ?? _defaultAutomationItems,
+       _actionAutomationItems = actionAutomationItems ?? automationItems,
        _skillItems = skillItems ?? _defaultSkillItems,
        _skillDetails = skillDetails ?? const {};
 
@@ -367,9 +416,11 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   final _status = StreamController<NanobotSocketStatus>.broadcast();
   final List<NanobotCatalogItem> _appItems;
   final List<NanobotCatalogItem> _automationItems;
+  final List<NanobotCatalogItem>? _actionAutomationItems;
   final List<NanobotCatalogItem> _skillItems;
   final Map<String, NanobotSkillDetail> _skillDetails;
   final requestedSkillDetails = <String>[];
+  final actionRequests = <({NanobotAutomationAction action, String id})>[];
   final _sessions = [
     NanobotSessionSummary(
       key: 'websocket:chat-1',
@@ -538,7 +589,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     required NanobotAutomationAction action,
     required String id,
   }) async {
-    return _automationItems;
+    actionRequests.add((action: action, id: id));
+    return _actionAutomationItems ?? _automationItems;
   }
 
   @override
