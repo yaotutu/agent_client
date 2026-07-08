@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:agent_client/features/nanobot/domain/nanobot_bootstrap.dart';
+import 'package:agent_client/features/nanobot/data/protocol/nanobot_ws_envelope.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_config.dart';
 import 'package:agent_client/features/nanobot/domain/nanobot_event.dart';
 
@@ -17,9 +18,10 @@ class NanobotWsClient {
   final _status = StreamController<NanobotSocketStatus>.broadcast();
   final _knownChats = <String>{};
   final _sendQueue = <Map<String, Object?>>[];
+  final _pendingTranscriptions = <String, Completer<String>>{};
 
   WebSocket? _socket;
-  Completer<String>? _pendingNewChat;
+  Completer<String>? _pendingChatRequest;
   NanobotSocketStatus _currentStatus = NanobotSocketStatus.idle;
 
   Stream<NanobotEvent> get events => _events.stream;
@@ -41,7 +43,7 @@ class NanobotWsClient {
       _socket = socket;
       _setStatus(NanobotSocketStatus.open);
       for (final chatId in _knownChats) {
-        _rawSend({'type': 'attach', 'chat_id': chatId});
+        _rawSend(NanobotOutboundEnvelope.attach(chatId: chatId).toJson());
       }
       final queued = List<Map<String, Object?>>.from(_sendQueue);
       _sendQueue.clear();
@@ -57,17 +59,17 @@ class NanobotWsClient {
 
   Future<String> newChat() async {
     await connect();
-    if (_pendingNewChat != null) {
+    if (_pendingChatRequest != null) {
       throw StateError('new_chat already in flight');
     }
     final completer = Completer<String>();
-    _pendingNewChat = completer;
-    _queueSend({'type': 'new_chat'});
+    _pendingChatRequest = completer;
+    _queueSend(NanobotOutboundEnvelope.newChat().toJson());
     return completer.future.timeout(
       const Duration(seconds: 8),
       onTimeout: () {
-        if (identical(_pendingNewChat, completer)) {
-          _pendingNewChat = null;
+        if (identical(_pendingChatRequest, completer)) {
+          _pendingChatRequest = null;
         }
         throw TimeoutException('new_chat timed out');
       },
@@ -81,12 +83,18 @@ class NanobotWsClient {
     }
     _knownChats.add(trimmed);
     await connect();
-    _queueSend({'type': 'attach', 'chat_id': trimmed});
+    _queueSend(NanobotOutboundEnvelope.attach(chatId: trimmed).toJson());
   }
 
   Future<void> sendMessage({
     required String chatId,
     required String content,
+    List<NanobotOutboundMedia> media = const [],
+    NanobotOutboundImageGeneration? imageGeneration,
+    List<NanobotOutboundMention> cliApps = const [],
+    List<NanobotOutboundMention> mcpPresets = const [],
+    Map<String, Object?>? workspaceScope,
+    String? turnId,
   }) async {
     final trimmedChatId = chatId.trim();
     final trimmedContent = content.trim();
@@ -95,12 +103,101 @@ class NanobotWsClient {
     }
     _knownChats.add(trimmedChatId);
     await connect();
-    _queueSend({
-      'type': 'message',
-      'chat_id': trimmedChatId,
-      'content': trimmedContent,
-      'webui': true,
-    });
+    _queueSend(
+      NanobotOutboundEnvelope.message(
+        chatId: trimmedChatId,
+        content: trimmedContent,
+        media: media,
+        imageGeneration: imageGeneration,
+        cliApps: cliApps,
+        mcpPresets: mcpPresets,
+        workspaceScope: workspaceScope,
+        turnId: turnId,
+      ).toJson(),
+    );
+  }
+
+  Future<String> forkChat({
+    required String sourceChatId,
+    required int beforeUserIndex,
+    String? title,
+  }) async {
+    final trimmed = sourceChatId.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError.value(sourceChatId, 'sourceChatId');
+    }
+    await connect();
+    if (_pendingChatRequest != null) {
+      throw StateError('chat creation already in flight');
+    }
+    final completer = Completer<String>();
+    _pendingChatRequest = completer;
+    _queueSend(
+      NanobotOutboundEnvelope.forkChat(
+        sourceChatId: trimmed,
+        beforeUserIndex: beforeUserIndex,
+        title: title,
+      ).toJson(),
+    );
+    return completer.future.timeout(
+      const Duration(seconds: 8),
+      onTimeout: () {
+        if (identical(_pendingChatRequest, completer)) {
+          _pendingChatRequest = null;
+        }
+        throw TimeoutException('fork_chat timed out');
+      },
+    );
+  }
+
+  Future<void> setWorkspaceScope({
+    required String chatId,
+    required Map<String, Object?> workspaceScope,
+  }) async {
+    final trimmed = chatId.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    _knownChats.add(trimmed);
+    await connect();
+    _queueSend(
+      NanobotOutboundEnvelope.setWorkspaceScope(
+        chatId: trimmed,
+        workspaceScope: workspaceScope,
+      ).toJson(),
+    );
+  }
+
+  Future<String> transcribeAudio({
+    required String requestId,
+    required String dataUrl,
+    int? durationMs,
+  }) async {
+    final trimmedRequestId = requestId.trim();
+    final trimmedDataUrl = dataUrl.trim();
+    if (trimmedRequestId.isEmpty || trimmedDataUrl.isEmpty) {
+      throw ArgumentError('requestId and dataUrl are required');
+    }
+    await connect();
+    if (_pendingTranscriptions.containsKey(trimmedRequestId)) {
+      throw StateError('transcription already in flight');
+    }
+    final completer = Completer<String>();
+    _pendingTranscriptions[trimmedRequestId] = completer;
+    _queueSend(
+      NanobotOutboundEnvelope.transcribeAudio(
+        requestId: trimmedRequestId,
+        dataUrl: trimmedDataUrl,
+        durationMs: durationMs,
+      ).toJson(),
+    );
+    return completer.future.timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {
+        _pendingTranscriptions.remove(trimmedRequestId);
+        throw TimeoutException('transcribe_audio timed out');
+      },
+    );
   }
 
   Future<void> close() async {
@@ -132,10 +229,36 @@ class NanobotWsClient {
         }
         if (event.kind == NanobotEventKind.attached && event.chatId != null) {
           _knownChats.add(event.chatId!);
-          final pending = _pendingNewChat;
+          final pending = _pendingChatRequest;
           if (pending != null && !pending.isCompleted) {
             pending.complete(event.chatId);
-            _pendingNewChat = null;
+            _pendingChatRequest = null;
+          }
+        }
+        if (event.kind == NanobotEventKind.transcriptionResult &&
+            event.requestId != null) {
+          final pending = _pendingTranscriptions.remove(event.requestId);
+          if (pending != null && !pending.isCompleted) {
+            pending.complete(event.text ?? '');
+          }
+        }
+        if (event.kind == NanobotEventKind.transcriptionError &&
+            event.requestId != null) {
+          final pending = _pendingTranscriptions.remove(event.requestId);
+          if (pending != null && !pending.isCompleted) {
+            pending.completeError(
+              StateError(event.detail ?? 'transcription failed'),
+            );
+          }
+        }
+        if (event.kind == NanobotEventKind.error &&
+            event.detail == 'workspace_scope_rejected') {
+          final pending = _pendingChatRequest;
+          if (pending != null && !pending.isCompleted) {
+            pending.completeError(
+              StateError('workspace_scope_rejected:${event.reason ?? ''}'),
+            );
+            _pendingChatRequest = null;
           }
         }
         _events.add(event);
@@ -147,11 +270,26 @@ class NanobotWsClient {
       if (identical(_socket, socket)) {
         _socket = null;
       }
-      final pending = _pendingNewChat;
+      if (socket.closeCode == WebSocketStatus.messageTooBig) {
+        _events.add(
+          const NanobotEvent(
+            kind: NanobotEventKind.error,
+            rawEvent: 'error',
+            detail: 'message_too_big',
+          ),
+        );
+      }
+      final pending = _pendingChatRequest;
       if (pending != null && !pending.isCompleted) {
         pending.completeError(StateError('nanobot socket closed'));
-        _pendingNewChat = null;
+        _pendingChatRequest = null;
       }
+      for (final pending in _pendingTranscriptions.values) {
+        if (!pending.isCompleted) {
+          pending.completeError(StateError('nanobot socket closed'));
+        }
+      }
+      _pendingTranscriptions.clear();
     }
   }
 
