@@ -368,6 +368,59 @@ void main() {
     expect(find.text('Saved. Restart when ready.'), findsOneWidget);
   });
 
+  testWidgets('settings model detail loads provider models and selects one', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      settingsSnapshot: const NanobotSettingsSnapshot(
+        modelPreset: 'default',
+        model: 'deepseek-chat',
+        provider: 'deepseek',
+        contextWindowTokens: 65536,
+      ),
+      providerModelCatalogs: const {
+        'deepseek': ['deepseek-chat', 'deepseek-reasoner'],
+      },
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Current model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Current model'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('model-picker-button')));
+    await tester.pumpAndSettle();
+
+    expect(repository.providerModelRequests, ['deepseek']);
+    expect(find.text('deepseek-reasoner'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('provider-model-deepseek-reasoner')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('deepseek-reasoner'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save Model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save Model'));
+    await tester.pumpAndSettle();
+
+    expect(repository.modelSaveRequests.single.model, 'deepseek-reasoner');
+    expect(repository.modelSaveRequests.single.provider, 'deepseek');
+    expect(repository.modelSaveRequests.single.contextWindowTokens, 65536);
+  });
+
   testWidgets('apps surface filters and searches webui catalog kinds', (
     tester,
   ) async {
@@ -1866,6 +1919,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     this.actionRequiresRestart = false,
     List<NanobotCatalogItem>? skillItems,
     Map<String, NanobotSkillDetail>? skillDetails,
+    this.settingsSnapshot,
+    this.providerModelCatalogs = const {},
   }) : _appItems = appItems ?? _defaultAppItems,
        _automationItems = automationItems ?? _defaultAutomationItems,
        _actionAutomationItems = actionAutomationItems ?? automationItems,
@@ -1883,7 +1938,10 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   final bool actionRequiresRestart;
   final List<NanobotCatalogItem> _skillItems;
   final Map<String, NanobotSkillDetail> _skillDetails;
+  final NanobotSettingsSnapshot? settingsSnapshot;
+  final Map<String, List<String>> providerModelCatalogs;
   final requestedSkillDetails = <String>[];
+  final providerModelRequests = <String>[];
   final actionRequests = <({NanobotAutomationAction action, String id})>[];
   final cliActionRequests = <({String action, String name})>[];
   final nanobotFeatureActionRequests = <({String action, String name})>[];
@@ -2082,56 +2140,76 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
-    return const NanobotSettingsSnapshot(
-      model: 'MiniMax-M3',
-      provider: 'openai',
-      contextWindowTokens: 262144,
-      timezone: 'UTC',
-      botName: 'Nanobot',
-      botIcon: 'N',
-      webSearchEnabled: true,
-      webSearchProvider: 'searxng',
-      webSearchMaxResults: 5,
-      webSearchTimeoutSeconds: 10,
-      webFetchUseJinaReader: false,
-      imageGenerationEnabled: true,
-      imageGenerationProvider: 'openrouter',
-      imageGenerationModel: 'image-model',
-      imageGenerationDefaultAspectRatio: '1:1',
-      imageGenerationDefaultImageSize: '1024x1024',
-      imageGenerationMaxImagesPerTurn: 2,
-      imageGenerationSaveDir: '/tmp/nanobot/images',
-      transcriptionEnabled: false,
-      transcriptionProvider: 'openai',
-      transcriptionModel: 'whisper',
-      transcriptionLanguage: 'zh',
-      transcriptionMaxDurationSec: 60,
-      transcriptionMaxUploadMb: 20,
-      isNativeHostSurface: true,
-      webuiAllowLocalServiceAccess: true,
-      webuiDefaultAccessMode: 'default',
-      runtimeHost: '127.0.0.1',
-      runtimeGatewayPort: 8765,
-      workspaceCaption: 'Project workspace',
-      usageDays: [
-        NanobotUsageDay(
-          date: '2026-07-08',
-          totalTokens: 750,
-          estimatedTokens: 50,
-          requests: 4,
-          sources: {'user': 600, 'cron': 150},
-        ),
+    return settingsSnapshot ??
+        const NanobotSettingsSnapshot(
+          model: 'MiniMax-M3',
+          provider: 'openai',
+          contextWindowTokens: 262144,
+          timezone: 'UTC',
+          botName: 'Nanobot',
+          botIcon: 'N',
+          webSearchEnabled: true,
+          webSearchProvider: 'searxng',
+          webSearchMaxResults: 5,
+          webSearchTimeoutSeconds: 10,
+          webFetchUseJinaReader: false,
+          imageGenerationEnabled: true,
+          imageGenerationProvider: 'openrouter',
+          imageGenerationModel: 'image-model',
+          imageGenerationDefaultAspectRatio: '1:1',
+          imageGenerationDefaultImageSize: '1024x1024',
+          imageGenerationMaxImagesPerTurn: 2,
+          imageGenerationSaveDir: '/tmp/nanobot/images',
+          transcriptionEnabled: false,
+          transcriptionProvider: 'openai',
+          transcriptionModel: 'whisper',
+          transcriptionLanguage: 'zh',
+          transcriptionMaxDurationSec: 60,
+          transcriptionMaxUploadMb: 20,
+          isNativeHostSurface: true,
+          webuiAllowLocalServiceAccess: true,
+          webuiDefaultAccessMode: 'default',
+          runtimeHost: '127.0.0.1',
+          runtimeGatewayPort: 8765,
+          workspaceCaption: 'Project workspace',
+          usageDays: [
+            NanobotUsageDay(
+              date: '2026-07-08',
+              totalTokens: 750,
+              estimatedTokens: 50,
+              requests: 4,
+              sources: {'user': 600, 'cron': 150},
+            ),
+          ],
+          totalTokens30d: 900,
+          totalTokens365d: 1000,
+          peakDayTokens: 750,
+          currentStreakDays: 2,
+          longestStreakDays: 4,
+          totalTokens: 42,
+          requests30d: 2,
+          activeDays30d: 1,
+          requiresRestart: false,
+          version: '1.2.3',
+        );
+  }
+
+  @override
+  Future<NanobotProviderModelCatalog> fetchProviderModels(
+    String provider,
+  ) async {
+    providerModelRequests.add(provider);
+    final models = providerModelCatalogs[provider] ?? const [];
+    return NanobotProviderModelCatalog(
+      provider: provider,
+      label: provider,
+      status: 'available',
+      catalogKind: 'official',
+      models: [
+        for (final id in models)
+          NanobotProviderModel(id: id, ownedBy: provider, contextWindow: 65536),
       ],
-      totalTokens30d: 900,
-      totalTokens365d: 1000,
-      peakDayTokens: 750,
-      currentStreakDays: 2,
-      longestStreakDays: 4,
-      totalTokens: 42,
-      requests30d: 2,
-      activeDays30d: 1,
-      requiresRestart: false,
-      version: '1.2.3',
+      modelCount: models.length,
     );
   }
 

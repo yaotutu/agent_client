@@ -139,6 +139,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onSaveNetworkSafety: controller.saveNetworkSafetySettings,
               onSaveRuntime: controller.saveRuntimeSettings,
               onSaveModel: controller.saveModelSettings,
+              onFetchProviderModels: controller.fetchProviderModels,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -1217,6 +1218,7 @@ class _ChatPane extends StatelessWidget {
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
     required this.onSaveModel,
+    required this.onFetchProviderModels,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -1322,6 +1324,8 @@ class _ChatPane extends StatelessWidget {
     required int contextWindowTokens,
   })
   onSaveModel;
+  final Future<NanobotProviderModelCatalog> Function(String provider)
+  onFetchProviderModels;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -1369,6 +1373,7 @@ class _ChatPane extends StatelessWidget {
                     onSaveNetworkSafety: onSaveNetworkSafety,
                     onSaveRuntime: onSaveRuntime,
                     onSaveModel: onSaveModel,
+                    onFetchProviderModels: onFetchProviderModels,
                   ),
           ),
           if (state.errorMessage != null)
@@ -1544,6 +1549,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
     required this.onSaveModel,
+    required this.onFetchProviderModels,
   });
 
   final NanobotWorkspaceState state;
@@ -1621,6 +1627,8 @@ class _SecondarySurface extends StatelessWidget {
     required int contextWindowTokens,
   })
   onSaveModel;
+  final Future<NanobotProviderModelCatalog> Function(String provider)
+  onFetchProviderModels;
 
   @override
   Widget build(BuildContext context) {
@@ -1648,6 +1656,7 @@ class _SecondarySurface extends StatelessWidget {
           onSaveNetworkSafety: onSaveNetworkSafety,
           onSaveRuntime: onSaveRuntime,
           onSaveModel: onSaveModel,
+          onFetchProviderModels: onFetchProviderModels,
         ),
         NanobotShellView.apps => _AppsCatalogSurface(
           items: state.appItems,
@@ -1721,6 +1730,7 @@ class _SettingsSurface extends StatelessWidget {
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
     required this.onSaveModel,
+    required this.onFetchProviderModels,
   });
 
   final NanobotSettingsSnapshot? snapshot;
@@ -1773,6 +1783,8 @@ class _SettingsSurface extends StatelessWidget {
     required int contextWindowTokens,
   })
   onSaveModel;
+  final Future<NanobotProviderModelCatalog> Function(String provider)
+  onFetchProviderModels;
 
   @override
   Widget build(BuildContext context) {
@@ -1820,6 +1832,7 @@ class _SettingsSurface extends StatelessWidget {
         snapshot: value,
         onBack: () => onOpenSection(NanobotSettingsSection.overview),
         onSave: onSaveModel,
+        onFetchProviderModels: onFetchProviderModels,
       );
     }
     return Column(
@@ -1967,6 +1980,7 @@ class _ModelSettingsSurface extends StatefulWidget {
     required this.snapshot,
     required this.onBack,
     required this.onSave,
+    required this.onFetchProviderModels,
   });
 
   final NanobotSettingsSnapshot snapshot;
@@ -1978,6 +1992,8 @@ class _ModelSettingsSurface extends StatefulWidget {
     required int contextWindowTokens,
   })
   onSave;
+  final Future<NanobotProviderModelCatalog> Function(String provider)
+  onFetchProviderModels;
 
   @override
   State<_ModelSettingsSurface> createState() => _ModelSettingsSurfaceState();
@@ -1987,6 +2003,10 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   late final TextEditingController _providerController;
   late final TextEditingController _modelController;
   late int _contextWindowTokens;
+  NanobotProviderModelCatalog? _modelCatalog;
+  var _isModelCatalogOpen = false;
+  var _isLoadingModels = false;
+  String? _modelCatalogError;
 
   @override
   void initState() {
@@ -2017,6 +2037,43 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
     _contextWindowTokens = _normalizeModelContextWindow(
       snapshot.contextWindowTokens,
     );
+    _modelCatalog = null;
+    _isModelCatalogOpen = false;
+    _isLoadingModels = false;
+    _modelCatalogError = null;
+  }
+
+  Future<void> _loadProviderModels() async {
+    final provider = _providerController.text.trim();
+    setState(() {
+      _isModelCatalogOpen = true;
+      _modelCatalogError = provider.isEmpty ? 'Enter a provider first.' : null;
+      _isLoadingModels = provider.isNotEmpty;
+    });
+    if (provider.isEmpty) {
+      return;
+    }
+    try {
+      final catalog = await widget.onFetchProviderModels(provider);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _modelCatalog = catalog;
+        _isLoadingModels = false;
+        _modelCatalogError = catalog.status == 'available'
+            ? null
+            : catalog.message ?? 'Model list unavailable.';
+      });
+    } on Object catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLoadingModels = false;
+        _modelCatalogError = error.toString();
+      });
+    }
   }
 
   @override
@@ -2047,11 +2104,27 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
               controller: _providerController,
               fieldKey: const ValueKey('model-provider-field'),
             ),
-            _SettingsTextFieldRow(
+            _SettingsModelPickerRow(
               title: 'Model',
               caption: 'Model id used for new replies.',
               controller: _modelController,
               fieldKey: const ValueKey('model-id-field'),
+              isOpen: _isModelCatalogOpen,
+              isLoading: _isLoadingModels,
+              catalog: _modelCatalog,
+              error: _modelCatalogError,
+              onOpen: () => unawaited(_loadProviderModels()),
+              onSelect: (model) {
+                setState(() {
+                  _modelController.text = model.id;
+                  _isModelCatalogOpen = false;
+                  if (model.contextWindow != null) {
+                    _contextWindowTokens = _normalizeModelContextWindow(
+                      model.contextWindow,
+                    );
+                  }
+                });
+              },
             ),
             _SettingsContextWindowRow(
               title: 'Context window',
@@ -2101,6 +2174,196 @@ int _normalizeModelContextWindow(int? value) {
     262144 => 262144,
     _ => 200000,
   };
+}
+
+class _SettingsModelPickerRow extends StatelessWidget {
+  const _SettingsModelPickerRow({
+    required this.title,
+    required this.caption,
+    required this.controller,
+    required this.fieldKey,
+    required this.isOpen,
+    required this.isLoading,
+    required this.catalog,
+    required this.error,
+    required this.onOpen,
+    required this.onSelect,
+  });
+
+  final String title;
+  final String caption;
+  final TextEditingController controller;
+  final Key fieldKey;
+  final bool isOpen;
+  final bool isLoading;
+  final NanobotProviderModelCatalog? catalog;
+  final String? error;
+  final VoidCallback onOpen;
+  final ValueChanged<NanobotProviderModel> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final label = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppThemeTokens.headingText,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                caption,
+                style: const TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          );
+          final field = SizedBox(
+            width: constraints.maxWidth < 520 ? double.infinity : 260,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: fieldKey,
+                        controller: controller,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                          hintText: 'Search or type model ID',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.outlined(
+                      key: const ValueKey('model-picker-button'),
+                      tooltip: 'Search provider catalog',
+                      onPressed: onOpen,
+                      icon: const Icon(Icons.expand_more),
+                    ),
+                  ],
+                ),
+                if (isOpen) ...[
+                  const SizedBox(height: 8),
+                  _ModelCatalogPanel(
+                    isLoading: isLoading,
+                    catalog: catalog,
+                    error: error,
+                    onSelect: onSelect,
+                  ),
+                ],
+              ],
+            ),
+          );
+          if (constraints.maxWidth < 520) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [label, const SizedBox(height: 12), field],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: label),
+              const SizedBox(width: 12),
+              field,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ModelCatalogPanel extends StatelessWidget {
+  const _ModelCatalogPanel({
+    required this.isLoading,
+    required this.catalog,
+    required this.error,
+    required this.onSelect,
+  });
+
+  final bool isLoading;
+  final NanobotProviderModelCatalog? catalog;
+  final String? error;
+  final ValueChanged<NanobotProviderModel> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final models = catalog?.models ?? const [];
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (isLoading)
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: Text(
+                  'Loading models...',
+                  style: TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    fontSize: 12,
+                  ),
+                ),
+              )
+            else if (error != null)
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(
+                  error!,
+                  style: const TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    fontSize: 12,
+                  ),
+                ),
+              )
+            else if (models.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: Text(
+                  'Search provider catalog to choose a model.',
+                  style: TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    fontSize: 12,
+                  ),
+                ),
+              )
+            else
+              for (final model in models)
+                TextButton(
+                  key: ValueKey('provider-model-${model.id}'),
+                  onPressed: () => onSelect(model),
+                  style: TextButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                  ),
+                  child: Text(model.id, overflow: TextOverflow.ellipsis),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _SettingsContextWindowRow extends StatelessWidget {

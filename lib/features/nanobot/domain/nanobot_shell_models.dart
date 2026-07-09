@@ -125,6 +125,38 @@ class NanobotSettingsSnapshot {
   final String? version;
 }
 
+class NanobotProviderModelCatalog {
+  const NanobotProviderModelCatalog({
+    required this.provider,
+    required this.label,
+    required this.status,
+    required this.catalogKind,
+    this.models = const [],
+    this.modelCount = 0,
+    this.message,
+  });
+
+  final String provider;
+  final String label;
+  final String status;
+  final String catalogKind;
+  final List<NanobotProviderModel> models;
+  final int modelCount;
+  final String? message;
+}
+
+class NanobotProviderModel {
+  const NanobotProviderModel({
+    required this.id,
+    this.ownedBy,
+    this.contextWindow,
+  });
+
+  final String id;
+  final String? ownedBy;
+  final int? contextWindow;
+}
+
 class NanobotUsageDay {
   const NanobotUsageDay({
     required this.date,

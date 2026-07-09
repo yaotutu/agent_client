@@ -140,6 +140,60 @@ void main() {
     },
   );
 
+  test('repository maps provider model catalog for settings picker', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings/provider-models?provider=deepseek': {
+        'provider': 'deepseek',
+        'label': 'DeepSeek',
+        'status': 'available',
+        'catalog_kind': 'official',
+        'models': [
+          {
+            'id': 'deepseek-chat',
+            'owned_by': 'deepseek',
+            'context_window': 65536,
+          },
+          {
+            'id': 'deepseek-reasoner',
+            'owned_by': 'deepseek',
+            'context_window': 65536,
+          },
+        ],
+        'model_count': 2,
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final catalog = await repository.fetchProviderModels('deepseek');
+
+    expect(catalog.provider, 'deepseek');
+    expect(catalog.label, 'DeepSeek');
+    expect(catalog.status, 'available');
+    expect(catalog.catalogKind, 'official');
+    expect(catalog.modelCount, 2);
+    expect(
+      [for (final model in catalog.models) model.id],
+      ['deepseek-chat', 'deepseek-reasoner'],
+    );
+    expect(catalog.models.last.ownedBy, 'deepseek');
+    expect(catalog.models.last.contextWindow, 65536);
+  });
+
   test('repository maps settings overview snapshot like webui', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

@@ -265,6 +265,18 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotProviderModelCatalog> fetchProviderModels(
+    String provider,
+  ) async {
+    return NanobotProviderModelCatalog(
+      provider: provider,
+      label: provider,
+      status: 'available',
+      catalogKind: 'official',
+    );
+  }
+
+  @override
   Future<NanobotVersionCheckResult> checkVersion() async {
     return const NanobotVersionCheckResult.upToDate();
   }

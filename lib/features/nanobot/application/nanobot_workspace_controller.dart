@@ -382,6 +382,12 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     }
   }
 
+  Future<NanobotProviderModelCatalog> fetchProviderModels(
+    String provider,
+  ) async {
+    return ref.read(nanobotRepositoryProvider).fetchProviderModels(provider);
+  }
+
   Future<void> checkVersion() async {
     state = state.copyWith(
       isCheckingVersion: true,

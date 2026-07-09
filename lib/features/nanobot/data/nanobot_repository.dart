@@ -101,6 +101,10 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('fetchSettingsSnapshot');
   }
 
+  Future<NanobotProviderModelCatalog> fetchProviderModels(String provider) {
+    throw UnimplementedError('fetchProviderModels');
+  }
+
   Future<NanobotSettingsSnapshot> saveWebSearchSettings({
     required String provider,
     required int maxResults,
@@ -371,6 +375,30 @@ class NanobotRepository implements NanobotRepositoryPort {
   @override
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
     return _settingsSnapshotFromDto(await api.fetchSettings());
+  }
+
+  @override
+  Future<NanobotProviderModelCatalog> fetchProviderModels(
+    String provider,
+  ) async {
+    final dto = await api.fetchProviderModels(provider);
+    return NanobotProviderModelCatalog(
+      provider: dto.provider,
+      label: dto.label,
+      status: dto.status,
+      catalogKind: dto.catalogKind,
+      models: [
+        for (final model in dto.models)
+          if (_stringFrom(model['id']) != null)
+            NanobotProviderModel(
+              id: _stringFrom(model['id'])!,
+              ownedBy: _stringFrom(model['owned_by']),
+              contextWindow: _intValue(model['context_window']),
+            ),
+      ],
+      modelCount: dto.modelCount,
+      message: dto.message,
+    );
   }
 
   @override
