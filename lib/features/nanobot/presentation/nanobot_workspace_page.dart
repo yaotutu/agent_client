@@ -125,6 +125,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onCloseSkillDetail: controller.closeSkillDetail,
               onCliAppAction: controller.runCliAppAction,
               onNanobotFeatureAction: controller.runNanobotFeatureAction,
+              onMcpPresetAction: controller.runMcpPresetAction,
               onAutomationAction: controller.runAutomationAction,
               onAutomationUpdate: controller.updateAutomation,
               onOpenSessions: wide
@@ -1191,6 +1192,7 @@ class _ChatPane extends StatelessWidget {
     required this.onCloseSkillDetail,
     required this.onCliAppAction,
     required this.onNanobotFeatureAction,
+    required this.onMcpPresetAction,
     required this.onAutomationAction,
     required this.onAutomationUpdate,
     required this.onOpenSettings,
@@ -1230,6 +1232,12 @@ class _ChatPane extends StatelessWidget {
   onCliAppAction;
   final Future<void> Function(String action, NanobotCatalogItem item)
   onNanobotFeatureAction;
+  final Future<void> Function(
+    String action,
+    NanobotCatalogItem item, {
+    Map<String, Object?> values,
+  })
+  onMcpPresetAction;
   final Future<void> Function(
     NanobotAutomationAction action,
     NanobotCatalogItem item,
@@ -1273,6 +1281,7 @@ class _ChatPane extends StatelessWidget {
                     onCloseSkillDetail: onCloseSkillDetail,
                     onCliAppAction: onCliAppAction,
                     onNanobotFeatureAction: onNanobotFeatureAction,
+                    onMcpPresetAction: onMcpPresetAction,
                     onAutomationAction: onAutomationAction,
                     onAutomationUpdate: onAutomationUpdate,
                   ),
@@ -1436,6 +1445,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onCloseSkillDetail,
     required this.onCliAppAction,
     required this.onNanobotFeatureAction,
+    required this.onMcpPresetAction,
     required this.onAutomationAction,
     required this.onAutomationUpdate,
   });
@@ -1447,6 +1457,12 @@ class _SecondarySurface extends StatelessWidget {
   onCliAppAction;
   final Future<void> Function(String action, NanobotCatalogItem item)
   onNanobotFeatureAction;
+  final Future<void> Function(
+    String action,
+    NanobotCatalogItem item, {
+    Map<String, Object?> values,
+  })
+  onMcpPresetAction;
   final Future<void> Function(
     NanobotAutomationAction action,
     NanobotCatalogItem item,
@@ -1473,6 +1489,7 @@ class _SecondarySurface extends StatelessWidget {
           items: state.appItems,
           onCliAppAction: onCliAppAction,
           onNanobotFeatureAction: onNanobotFeatureAction,
+          onMcpPresetAction: onMcpPresetAction,
         ),
         NanobotShellView.automations => _CatalogSurface(
           title: 'Automations',
@@ -1877,6 +1894,7 @@ class _AppsCatalogSurface extends StatefulWidget {
     required this.items,
     required this.onCliAppAction,
     required this.onNanobotFeatureAction,
+    required this.onMcpPresetAction,
   });
 
   final List<NanobotCatalogItem> items;
@@ -1884,6 +1902,12 @@ class _AppsCatalogSurface extends StatefulWidget {
   onCliAppAction;
   final Future<void> Function(String action, NanobotCatalogItem item)
   onNanobotFeatureAction;
+  final Future<void> Function(
+    String action,
+    NanobotCatalogItem item, {
+    Map<String, Object?> values,
+  })
+  onMcpPresetAction;
 
   @override
   State<_AppsCatalogSurface> createState() => _AppsCatalogSurfaceState();
@@ -1984,6 +2008,7 @@ class _AppsCatalogSurfaceState extends State<_AppsCatalogSurface> {
               item: item,
               onCliAppAction: widget.onCliAppAction,
               onNanobotFeatureAction: widget.onNanobotFeatureAction,
+              onMcpPresetAction: widget.onMcpPresetAction,
             ),
       ],
     );
@@ -2856,6 +2881,7 @@ class _CatalogRow extends StatelessWidget {
     this.onSelected,
     this.onCliAppAction,
     this.onNanobotFeatureAction,
+    this.onMcpPresetAction,
     this.onAutomationAction,
     this.onAutomationUpdate,
   });
@@ -2867,6 +2893,12 @@ class _CatalogRow extends StatelessWidget {
   onCliAppAction;
   final Future<void> Function(String action, NanobotCatalogItem item)?
   onNanobotFeatureAction;
+  final Future<void> Function(
+    String action,
+    NanobotCatalogItem item, {
+    Map<String, Object?> values,
+  })?
+  onMcpPresetAction;
   final Future<void> Function(
     NanobotAutomationAction action,
     NanobotCatalogItem item,
@@ -2945,6 +2977,10 @@ class _CatalogRow extends StatelessWidget {
               item: item,
               onAction: onNanobotFeatureAction!,
             ),
+          ],
+          if (onMcpPresetAction != null && _isMcpCatalogItem(item)) ...[
+            const SizedBox(width: 8),
+            _McpPresetActionButtons(item: item, onAction: onMcpPresetAction!),
           ],
           if (onAutomationAction != null) ...[
             const SizedBox(width: 8),
@@ -3068,12 +3104,70 @@ class _CliAppActionButtons extends StatelessWidget {
   }
 }
 
+class _McpPresetActionButtons extends StatelessWidget {
+  const _McpPresetActionButtons({required this.item, required this.onAction});
+
+  final NanobotCatalogItem item;
+  final Future<void> Function(
+    String action,
+    NanobotCatalogItem item, {
+    Map<String, Object?> values,
+  })
+  onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final configured = item.filterKeys.contains('ready');
+    final installSupported = item.filterKeys.contains('install_supported');
+    if (configured) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PopupMenuButton<String>(
+            tooltip: 'MCP configured',
+            position: PopupMenuPosition.under,
+            onSelected: (action) => onAction(action, item),
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'test', child: Text('Test MCP')),
+              PopupMenuItem(value: 'remove', child: Text('Remove MCP')),
+            ],
+            child: const SizedBox.square(
+              dimension: 36,
+              child: Icon(Icons.check_circle_outline),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Remove MCP',
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            onPressed: () => onAction('remove', item),
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ],
+      );
+    }
+    return IconButton(
+      tooltip: installSupported ? 'Enable MCP' : 'Unavailable',
+      constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      onPressed: installSupported ? () => onAction('enable', item) : null,
+      icon: const Icon(Icons.add_circle_outline),
+    );
+  }
+}
+
 bool _isCliCatalogItem(NanobotCatalogItem item) {
   return item.filterKeys.contains('cli') || item.id.startsWith('cli:');
 }
 
 bool _isNanobotCatalogItem(NanobotCatalogItem item) {
   return item.filterKeys.contains('nanobot') || item.id.startsWith('nanobot:');
+}
+
+bool _isMcpCatalogItem(NanobotCatalogItem item) {
+  return item.filterKeys.contains('mcp') || item.id.startsWith('mcp:');
 }
 
 bool _isReadyCliApp(NanobotCatalogItem item) {

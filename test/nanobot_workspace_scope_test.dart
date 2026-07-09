@@ -286,6 +286,15 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<List<NanobotCatalogItem>> runMcpPresetAction({
+    required String action,
+    required String name,
+    Map<String, Object?> values = const {},
+  }) async {
+    return const [];
+  }
+
+  @override
   Future<List<NanobotCatalogItem>> fetchAutomationItems() async {
     return const [];
   }

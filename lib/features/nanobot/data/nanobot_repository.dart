@@ -119,6 +119,14 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('runNanobotFeatureAction');
   }
 
+  Future<List<NanobotCatalogItem>> runMcpPresetAction({
+    required String action,
+    required String name,
+    Map<String, Object?> values = const {},
+  }) {
+    throw UnimplementedError('runMcpPresetAction');
+  }
+
   Future<List<NanobotCatalogItem>> fetchAutomationItems() {
     throw UnimplementedError('fetchAutomationItems');
   }
@@ -380,6 +388,7 @@ class NanobotRepository implements NanobotRepositoryPort {
     final name = _stringValue(row, 'name');
     final installed = row['installed'] == true;
     final configured = row['configured'] == true;
+    final installSupported = row['install_supported'] == true;
     return NanobotCatalogItem(
       id: 'mcp:$name',
       title: _stringValue(row, 'display_name', fallbackKey: 'name'),
@@ -390,7 +399,11 @@ class NanobotRepository implements NanobotRepositoryPort {
         'name',
       ]),
       status: _mcpStatusLabel(_stringFrom(row['status']) ?? ''),
-      filterKeys: ['mcp', installed && configured ? 'ready' : 'unavailable'],
+      filterKeys: [
+        'mcp',
+        installed && configured ? 'ready' : 'unavailable',
+        if (installSupported) 'install_supported',
+      ],
     );
   }
 
@@ -415,6 +428,7 @@ class NanobotRepository implements NanobotRepositoryPort {
     return [for (final row in payload.features) _featureCatalogItem(row)];
   }
 
+  @override
   Future<List<NanobotCatalogItem>> runMcpPresetAction({
     required String action,
     required String name,
