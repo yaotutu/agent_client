@@ -73,6 +73,25 @@ class NanobotSettingsSnapshot {
   final String? version;
 }
 
+class NanobotVersionCheckResult {
+  const NanobotVersionCheckResult.upToDate()
+    : updateAvailable = false,
+      currentVersion = null,
+      latestVersion = null,
+      pypiUrl = null;
+
+  const NanobotVersionCheckResult.updateAvailable({
+    this.currentVersion,
+    required this.latestVersion,
+    this.pypiUrl,
+  }) : updateAvailable = true;
+
+  final bool updateAvailable;
+  final String? currentVersion;
+  final String? latestVersion;
+  final String? pypiUrl;
+}
+
 class NanobotCatalogItem {
   const NanobotCatalogItem({
     required this.id,

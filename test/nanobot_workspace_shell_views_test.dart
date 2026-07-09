@@ -53,6 +53,13 @@ void main() {
     expect(find.text('Version'), findsOneWidget);
     expect(find.text('MiniMax-M3'), findsOneWidget);
     expect(find.textContaining('openai'), findsWidgets);
+    expect(find.text('Check for updates'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Check for updates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Check for updates'));
+    await tester.pumpAndSettle();
+    expect(find.text('Update available v1.3.0'), findsOneWidget);
 
     await tester.tap(find.text('Apps'));
     await tester.pumpAndSettle();
@@ -1773,6 +1780,15 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       activeDays30d: 1,
       requiresRestart: false,
       version: '1.2.3',
+    );
+  }
+
+  @override
+  Future<NanobotVersionCheckResult> checkVersion() async {
+    return const NanobotVersionCheckResult.updateAvailable(
+      currentVersion: '1.2.3',
+      latestVersion: '1.3.0',
+      pypiUrl: 'https://pypi.org/project/nanobot',
     );
   }
 

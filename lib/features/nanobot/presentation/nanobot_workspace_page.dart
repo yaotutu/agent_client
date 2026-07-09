@@ -131,6 +131,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onImportMcpConfig: controller.importMcpConfig,
               onAutomationAction: controller.runAutomationAction,
               onAutomationUpdate: controller.updateAutomation,
+              onCheckVersion: controller.checkVersion,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -1201,6 +1202,7 @@ class _ChatPane extends StatelessWidget {
     required this.onImportMcpConfig,
     required this.onAutomationAction,
     required this.onAutomationUpdate,
+    required this.onCheckVersion,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -1261,6 +1263,7 @@ class _ChatPane extends StatelessWidget {
     Map<String, Object?> values,
   )
   onAutomationUpdate;
+  final Future<void> Function() onCheckVersion;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -1300,6 +1303,7 @@ class _ChatPane extends StatelessWidget {
                     onImportMcpConfig: onImportMcpConfig,
                     onAutomationAction: onAutomationAction,
                     onAutomationUpdate: onAutomationUpdate,
+                    onCheckVersion: onCheckVersion,
                   ),
           ),
           if (state.errorMessage != null)
@@ -1467,6 +1471,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onImportMcpConfig,
     required this.onAutomationAction,
     required this.onAutomationUpdate,
+    required this.onCheckVersion,
   });
 
   final NanobotWorkspaceState state;
@@ -1499,6 +1504,7 @@ class _SecondarySurface extends StatelessWidget {
     Map<String, Object?> values,
   )
   onAutomationUpdate;
+  final Future<void> Function() onCheckVersion;
 
   @override
   Widget build(BuildContext context) {
@@ -1510,6 +1516,10 @@ class _SecondarySurface extends StatelessWidget {
       child: switch (state.activeView) {
         NanobotShellView.settings => _SettingsSurface(
           snapshot: state.settingsSnapshot,
+          versionCheckResult: state.versionCheckResult,
+          isCheckingVersion: state.isCheckingVersion,
+          versionCheckError: state.versionCheckError,
+          onCheckVersion: onCheckVersion,
         ),
         NanobotShellView.apps => _AppsCatalogSurface(
           items: state.appItems,
@@ -1569,9 +1579,19 @@ class _SecondarySurface extends StatelessWidget {
 }
 
 class _SettingsSurface extends StatelessWidget {
-  const _SettingsSurface({required this.snapshot});
+  const _SettingsSurface({
+    required this.snapshot,
+    required this.versionCheckResult,
+    required this.isCheckingVersion,
+    required this.versionCheckError,
+    required this.onCheckVersion,
+  });
 
   final NanobotSettingsSnapshot? snapshot;
+  final NanobotVersionCheckResult? versionCheckResult;
+  final bool isCheckingVersion;
+  final String? versionCheckError;
+  final Future<void> Function() onCheckVersion;
 
   @override
   Widget build(BuildContext context) {
@@ -1646,13 +1666,16 @@ class _SettingsSurface extends StatelessWidget {
         _SettingsSection(
           title: 'About',
           rows: [
-            _SettingsOverviewRow(
-              title: 'Version',
-              value: value.version ?? 'unknown',
+            _SettingsVersionRow(
+              currentVersion: value.version,
               caption:
                   '${value.totalTokens} tokens · '
                   '${value.requests30d} requests · '
                   '${value.activeDays30d} active days',
+              result: versionCheckResult,
+              isChecking: isCheckingVersion,
+              error: versionCheckError,
+              onCheckVersion: onCheckVersion,
             ),
           ],
         ),
@@ -1692,7 +1715,7 @@ class _SettingsSection extends StatelessWidget {
   const _SettingsSection({required this.title, required this.rows});
 
   final String title;
-  final List<_SettingsOverviewRow> rows;
+  final List<Widget> rows;
 
   @override
   Widget build(BuildContext context) {
@@ -1726,6 +1749,109 @@ class _SettingsSection extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _SettingsVersionRow extends StatelessWidget {
+  const _SettingsVersionRow({
+    required this.currentVersion,
+    required this.caption,
+    required this.result,
+    required this.isChecking,
+    required this.error,
+    required this.onCheckVersion,
+  });
+
+  final String? currentVersion;
+  final String caption;
+  final NanobotVersionCheckResult? result;
+  final bool isChecking;
+  final String? error;
+  final Future<void> Function() onCheckVersion;
+
+  @override
+  Widget build(BuildContext context) {
+    final resultLabel = _resultLabel();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Version',
+                  style: TextStyle(
+                    color: AppThemeTokens.headingText,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  currentVersion == null ? 'nanobot' : 'v$currentVersion',
+                  style: const TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    fontSize: 12,
+                  ),
+                ),
+                if (resultLabel != null || error != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    error ?? resultLabel!,
+                    style: TextStyle(
+                      color: error == null
+                          ? AppThemeTokens.info
+                          : AppThemeTokens.dangerText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            onPressed: isChecking ? null : () => unawaited(onCheckVersion()),
+            icon: isChecking
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.arrow_circle_up_outlined, size: 16),
+            label: Text(isChecking ? 'Checking...' : 'Check for updates'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _resultLabel() {
+    final value = result;
+    if (value == null) {
+      return null;
+    }
+    if (!value.updateAvailable) {
+      return "You're up to date";
+    }
+    final latest = value.latestVersion;
+    if (latest == null || latest.isEmpty) {
+      return 'Update available';
+    }
+    return 'Update available v$latest';
   }
 }
 

@@ -101,6 +101,10 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('fetchSettingsSnapshot');
   }
 
+  Future<NanobotVersionCheckResult> checkVersion() {
+    throw UnimplementedError('checkVersion');
+  }
+
   Future<List<NanobotCatalogItem>> fetchAppItems() {
     throw UnimplementedError('fetchAppItems');
   }
@@ -343,6 +347,21 @@ class NanobotRepository implements NanobotRepositoryPort {
       activeDays30d: usage?.activeDays30d ?? 0,
       requiresRestart: settings.requiresRestart,
       version: settings.version?['current'] as String?,
+    );
+  }
+
+  @override
+  Future<NanobotVersionCheckResult> checkVersion() async {
+    final dto = await api.checkVersion();
+    final update = dto.updateAvailable;
+    if (update == null) {
+      return const NanobotVersionCheckResult.upToDate();
+    }
+    return NanobotVersionCheckResult.updateAvailable(
+      currentVersion: _stringFrom(update['currentVersion']),
+      latestVersion: _stringFrom(update['latestVersion']) ?? '',
+      pypiUrl:
+          _stringFrom(update['pypiUrl']) ?? _stringFrom(update['pypi_url']),
     );
   }
 

@@ -21,6 +21,9 @@ class NanobotWorkspaceState {
     this.threadState,
     this.activeView = NanobotShellView.chat,
     this.settingsSnapshot,
+    this.versionCheckResult,
+    this.isCheckingVersion = false,
+    this.versionCheckError,
     this.appItems = const [],
     this.appActionMessage,
     this.appRequiresRestart = false,
@@ -59,6 +62,9 @@ class NanobotWorkspaceState {
   final NanobotThreadState? threadState;
   final NanobotShellView activeView;
   final NanobotSettingsSnapshot? settingsSnapshot;
+  final NanobotVersionCheckResult? versionCheckResult;
+  final bool isCheckingVersion;
+  final String? versionCheckError;
   final List<NanobotCatalogItem> appItems;
   final String? appActionMessage;
   final bool appRequiresRestart;
@@ -169,6 +175,9 @@ class NanobotWorkspaceState {
     NanobotThreadState? threadState,
     NanobotShellView? activeView,
     NanobotSettingsSnapshot? settingsSnapshot,
+    NanobotVersionCheckResult? versionCheckResult,
+    bool? isCheckingVersion,
+    String? versionCheckError,
     List<NanobotCatalogItem>? appItems,
     String? appActionMessage,
     bool? appRequiresRestart,
@@ -201,6 +210,7 @@ class NanobotWorkspaceState {
     bool clearSelectedSession = false,
     bool clearThreadState = false,
     bool clearSettingsSnapshot = false,
+    bool clearVersionCheck = false,
     bool clearSurfaceItems = false,
     bool clearAppActionMessage = false,
     bool clearSelectedSkill = false,
@@ -230,6 +240,13 @@ class NanobotWorkspaceState {
       settingsSnapshot: clearSettingsSnapshot
           ? null
           : settingsSnapshot ?? this.settingsSnapshot,
+      versionCheckResult: clearVersionCheck
+          ? null
+          : versionCheckResult ?? this.versionCheckResult,
+      isCheckingVersion: isCheckingVersion ?? this.isCheckingVersion,
+      versionCheckError: clearVersionCheck
+          ? null
+          : versionCheckError ?? this.versionCheckError,
       appItems: clearSurfaceItems ? const [] : appItems ?? this.appItems,
       appActionMessage: clearSurfaceItems || clearAppActionMessage
           ? null

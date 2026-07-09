@@ -171,6 +171,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       activeView: NanobotShellView.settings,
       isLoadingSurface: true,
       clearError: true,
+      clearVersionCheck: true,
     );
     try {
       final snapshot = await ref
@@ -185,6 +186,27 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       state = state.copyWith(
         isLoadingSurface: false,
         errorMessage: _friendlyError(error),
+      );
+    }
+  }
+
+  Future<void> checkVersion() async {
+    state = state.copyWith(
+      isCheckingVersion: true,
+      clearVersionCheck: true,
+      clearError: true,
+    );
+    try {
+      final result = await ref.read(nanobotRepositoryProvider).checkVersion();
+      state = state.copyWith(
+        versionCheckResult: result,
+        isCheckingVersion: false,
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(
+        versionCheckError: _friendlyError(error),
+        isCheckingVersion: false,
       );
     }
   }

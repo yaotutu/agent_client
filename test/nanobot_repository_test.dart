@@ -221,6 +221,41 @@ void main() {
     expect(settings.version, '1.2.3');
   });
 
+  test('repository maps version check result like webui', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings/version-check': {
+        'updateAvailable': {
+          'currentVersion': '1.2.3',
+          'latestVersion': '1.3.0',
+          'pypiUrl': 'https://pypi.org/project/nanobot',
+        },
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final result = await repository.checkVersion();
+
+    expect(result.updateAvailable, isTrue);
+    expect(result.currentVersion, '1.2.3');
+    expect(result.latestVersion, '1.3.0');
+    expect(result.pypiUrl, 'https://pypi.org/project/nanobot');
+  });
+
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

@@ -1819,6 +1819,11 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotVersionCheckResult> checkVersion() async {
+    return const NanobotVersionCheckResult.upToDate();
+  }
+
+  @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
     return const [];
   }
