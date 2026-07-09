@@ -297,6 +297,32 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     }
   }
 
+  Future<void> saveNetworkSafetySettings({
+    required bool webuiAllowLocalServiceAccess,
+    required String webuiDefaultAccessMode,
+  }) async {
+    state = state.copyWith(isLoadingSurface: true, clearError: true);
+    try {
+      final snapshot = await ref
+          .read(nanobotRepositoryProvider)
+          .saveNetworkSafetySettings(
+            webuiAllowLocalServiceAccess: webuiAllowLocalServiceAccess,
+            webuiDefaultAccessMode: webuiDefaultAccessMode,
+          );
+      state = state.copyWith(
+        settingsSnapshot: snapshot,
+        settingsSection: NanobotSettingsSection.networkSafety,
+        isLoadingSurface: false,
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(
+        isLoadingSurface: false,
+        errorMessage: _friendlyError(error),
+      );
+    }
+  }
+
   Future<void> checkVersion() async {
     state = state.copyWith(
       isCheckingVersion: true,

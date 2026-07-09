@@ -788,6 +788,14 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotSettingsSnapshot> saveNetworkSafetySettings({
+    required bool webuiAllowLocalServiceAccess,
+    required String webuiDefaultAccessMode,
+  }) async {
+    return const NanobotSettingsSnapshot();
+  }
+
+  @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
     return const [];
   }

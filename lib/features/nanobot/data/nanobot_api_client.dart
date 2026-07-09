@@ -251,6 +251,21 @@ class NanobotApiClient {
     return NanobotSettingsDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotSettingsDto> updateNetworkSafetySettings({
+    required bool webuiAllowLocalServiceAccess,
+    required String webuiDefaultAccessMode,
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/network-safety/update',
+      queryParameters: {
+        'webui_allow_local_service_access': webuiAllowLocalServiceAccess,
+        'webui_default_access_mode': webuiDefaultAccessMode,
+      },
+      options: await _authOptions(),
+    );
+    return NanobotSettingsDto.fromJson(_asMap(response.data));
+  }
+
   Future<NanobotSkillsDto> fetchSkills() async {
     final response = await _dio.get<Object?>(
       '/api/webui/skills',

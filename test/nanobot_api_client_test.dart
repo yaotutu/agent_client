@@ -81,6 +81,14 @@ void main() {
       'GET /api/sessions/websocket%3Achat-1/delete?delete_automations=true': {
         'deleted': true,
       },
+      'GET /api/settings/network-safety/update?webui_allow_local_service_access=false&webui_default_access_mode=full':
+          {
+            'advanced': {
+              'webui_allow_local_service_access': false,
+              'webui_default_access_mode': 'full',
+            },
+            'requires_restart': true,
+          },
     });
     final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
     dio.httpClientAdapter = adapter;
@@ -127,6 +135,13 @@ void main() {
         deleteAutomations: true,
       )).deleted,
       isTrue,
+    );
+    expect(
+      (await client.updateNetworkSafetySettings(
+        webuiAllowLocalServiceAccess: false,
+        webuiDefaultAccessMode: 'full',
+      )).advanced?['webui_default_access_mode'],
+      'full',
     );
 
     expect(adapter.calls.first.headers['X-Nanobot-Auth'], 'redhat');

@@ -148,6 +148,7 @@ void main() {
         'expires_in': 300,
       },
       'GET /api/settings': {
+        'surface': 'native',
         'agent': {
           'model': 'MiniMax-M3',
           'provider': 'openai',
@@ -175,6 +176,10 @@ void main() {
           'host': '127.0.0.1',
           'gateway_port': 8765,
           'config_path': '/tmp/nanobot.toml',
+        },
+        'advanced': {
+          'webui_allow_local_service_access': false,
+          'webui_default_access_mode': 'full',
         },
         'usage': {
           'days': [
@@ -231,6 +236,9 @@ void main() {
     expect(settings.transcriptionModel, 'whisper-1');
     expect(settings.runtimeHost, '127.0.0.1');
     expect(settings.runtimeGatewayPort, 8765);
+    expect(settings.isNativeHostSurface, isTrue);
+    expect(settings.webuiAllowLocalServiceAccess, isFalse);
+    expect(settings.webuiDefaultAccessMode, 'full');
     expect(settings.workspaceCaption, 'Project workspace');
     expect(settings.usageDays, hasLength(1));
     expect(settings.usageDays.single.date, '2026-07-08');
@@ -449,6 +457,52 @@ void main() {
       expect(settings.transcriptionLanguage, 'zh');
       expect(settings.transcriptionMaxDurationSec, 90);
       expect(settings.transcriptionMaxUploadMb, 25);
+      expect(settings.requiresRestart, isTrue);
+    },
+  );
+
+  test(
+    'repository saves network safety settings through webui endpoint',
+    () async {
+      final adapter = _RouteAdapter({
+        'GET /webui/bootstrap': {
+          'token': 'token-1',
+          'ws_path': '/',
+          'expires_in': 300,
+        },
+        'GET /api/settings/network-safety/update?webui_allow_local_service_access=false&webui_default_access_mode=full':
+            {
+              'agent': {'model': 'MiniMax-M3'},
+              'advanced': {
+                'webui_allow_local_service_access': false,
+                'webui_default_access_mode': 'full',
+              },
+              'requires_restart': true,
+            },
+      });
+      final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+      dio.httpClientAdapter = adapter;
+      final config = const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      );
+      final api = NanobotApiClient(config: config, dio: dio);
+      final repository = NanobotRepository(
+        api: api,
+        ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+      );
+
+      final settings = await repository.saveNetworkSafetySettings(
+        webuiAllowLocalServiceAccess: false,
+        webuiDefaultAccessMode: 'full',
+      );
+
+      expect(
+        adapter.requests.last.key,
+        contains('/api/settings/network-safety/update'),
+      );
+      expect(settings.webuiAllowLocalServiceAccess, isFalse);
+      expect(settings.webuiDefaultAccessMode, 'full');
       expect(settings.requiresRestart, isTrue);
     },
   );

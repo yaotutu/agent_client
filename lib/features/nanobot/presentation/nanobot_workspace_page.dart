@@ -136,6 +136,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onSaveWebSearch: controller.saveWebSearchSettings,
               onSaveImageGeneration: controller.saveImageGenerationSettings,
               onSaveTranscription: controller.saveTranscriptionSettings,
+              onSaveNetworkSafety: controller.saveNetworkSafetySettings,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -1211,6 +1212,7 @@ class _ChatPane extends StatelessWidget {
     required this.onSaveWebSearch,
     required this.onSaveImageGeneration,
     required this.onSaveTranscription,
+    required this.onSaveNetworkSafety,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -1298,6 +1300,11 @@ class _ChatPane extends StatelessWidget {
     required int maxUploadMb,
   })
   onSaveTranscription;
+  final Future<void> Function({
+    required bool webuiAllowLocalServiceAccess,
+    required String webuiDefaultAccessMode,
+  })
+  onSaveNetworkSafety;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -1342,6 +1349,7 @@ class _ChatPane extends StatelessWidget {
                     onSaveWebSearch: onSaveWebSearch,
                     onSaveImageGeneration: onSaveImageGeneration,
                     onSaveTranscription: onSaveTranscription,
+                    onSaveNetworkSafety: onSaveNetworkSafety,
                   ),
           ),
           if (state.errorMessage != null)
@@ -1514,6 +1522,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onSaveWebSearch,
     required this.onSaveImageGeneration,
     required this.onSaveTranscription,
+    required this.onSaveNetworkSafety,
   });
 
   final NanobotWorkspaceState state;
@@ -1573,6 +1582,11 @@ class _SecondarySurface extends StatelessWidget {
     required int maxUploadMb,
   })
   onSaveTranscription;
+  final Future<void> Function({
+    required bool webuiAllowLocalServiceAccess,
+    required String webuiDefaultAccessMode,
+  })
+  onSaveNetworkSafety;
 
   @override
   Widget build(BuildContext context) {
@@ -1597,6 +1611,7 @@ class _SecondarySurface extends StatelessWidget {
           onSaveWebSearch: onSaveWebSearch,
           onSaveImageGeneration: onSaveImageGeneration,
           onSaveTranscription: onSaveTranscription,
+          onSaveNetworkSafety: onSaveNetworkSafety,
         ),
         NanobotShellView.apps => _AppsCatalogSurface(
           items: state.appItems,
@@ -1667,6 +1682,7 @@ class _SettingsSurface extends StatelessWidget {
     required this.onSaveWebSearch,
     required this.onSaveImageGeneration,
     required this.onSaveTranscription,
+    required this.onSaveNetworkSafety,
   });
 
   final NanobotSettingsSnapshot? snapshot;
@@ -1701,6 +1717,11 @@ class _SettingsSurface extends StatelessWidget {
     required int maxUploadMb,
   })
   onSaveTranscription;
+  final Future<void> Function({
+    required bool webuiAllowLocalServiceAccess,
+    required String webuiDefaultAccessMode,
+  })
+  onSaveNetworkSafety;
 
   @override
   Widget build(BuildContext context) {
@@ -1727,6 +1748,13 @@ class _SettingsSurface extends StatelessWidget {
         snapshot: value,
         onBack: () => onOpenSection(NanobotSettingsSection.overview),
         onSave: onSaveTranscription,
+      );
+    }
+    if (section == NanobotSettingsSection.networkSafety) {
+      return _NetworkSafetySettingsSurface(
+        snapshot: value,
+        onBack: () => onOpenSection(NanobotSettingsSection.overview),
+        onSave: onSaveNetworkSafety,
       );
     }
     return Column(
@@ -1787,6 +1815,13 @@ class _SettingsSurface extends StatelessWidget {
           title: 'System',
           rows: [
             _SettingsOverviewRow(
+              title: _settingsSafetyTitle(value),
+              value: value.webuiAllowLocalServiceAccess ? 'On' : 'Off',
+              caption:
+                  'Default access: ${_settingsAccessModeLabel(value.webuiDefaultAccessMode)}',
+              onTap: () => onOpenSection(NanobotSettingsSection.networkSafety),
+            ),
+            _SettingsOverviewRow(
               title: 'Gateway',
               value: _settingsGatewayValue(value),
               caption: value.requiresRestart ? 'Restart pending' : 'Ready',
@@ -1844,6 +1879,14 @@ class _SettingsSurface extends StatelessWidget {
       return port == null ? 'Gateway' : ':$port';
     }
     return port == null ? host : '$host:$port';
+  }
+
+  String _settingsAccessModeLabel(String value) {
+    return value == 'full' ? 'Full Access' : 'Default Permission';
+  }
+
+  String _settingsSafetyTitle(NanobotSettingsSnapshot value) {
+    return value.isNativeHostSurface ? 'App safety' : 'Web safety';
   }
 }
 
@@ -2306,6 +2349,237 @@ class _VoiceInputSettingsSurfaceState
               child: const Text('Save Voice input'),
             ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+class _NetworkSafetySettingsSurface extends StatefulWidget {
+  const _NetworkSafetySettingsSurface({
+    required this.snapshot,
+    required this.onBack,
+    required this.onSave,
+  });
+
+  final NanobotSettingsSnapshot snapshot;
+  final VoidCallback onBack;
+  final Future<void> Function({
+    required bool webuiAllowLocalServiceAccess,
+    required String webuiDefaultAccessMode,
+  })
+  onSave;
+
+  @override
+  State<_NetworkSafetySettingsSurface> createState() =>
+      _NetworkSafetySettingsSurfaceState();
+}
+
+class _NetworkSafetySettingsSurfaceState
+    extends State<_NetworkSafetySettingsSurface> {
+  late bool _webuiAllowLocalServiceAccess;
+  late String _webuiDefaultAccessMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _applySnapshot(widget.snapshot);
+  }
+
+  @override
+  void didUpdateWidget(covariant _NetworkSafetySettingsSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snapshot != widget.snapshot) {
+      _applySnapshot(widget.snapshot);
+    }
+  }
+
+  void _applySnapshot(NanobotSettingsSnapshot snapshot) {
+    _webuiAllowLocalServiceAccess = snapshot.webuiAllowLocalServiceAccess;
+    _webuiDefaultAccessMode = snapshot.webuiDefaultAccessMode == 'full'
+        ? 'full'
+        : 'default';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton.icon(
+          onPressed: widget.onBack,
+          icon: const Icon(Icons.chevron_left),
+          label: const Text('Settings'),
+        ),
+        const SizedBox(height: 8),
+        _SurfaceTitle(
+          widget.snapshot.isNativeHostSurface
+              ? 'App safety settings'
+              : 'Web safety settings',
+        ),
+        const SizedBox(height: 16),
+        _SettingsSection(
+          title: widget.snapshot.isNativeHostSurface
+              ? 'App safety'
+              : 'Web safety',
+          rows: [
+            _SettingsSwitchRow(
+              title: 'Local Service Access',
+              caption: widget.snapshot.isNativeHostSurface
+                  ? 'Allow Full Access shell commands to reach services on this device.'
+                  : 'Allow Full Access shell commands to reach localhost services.',
+              value: _webuiAllowLocalServiceAccess,
+              switchKey: const ValueKey('network-local-service-toggle'),
+              onChanged: (value) {
+                setState(() => _webuiAllowLocalServiceAccess = value);
+              },
+            ),
+            _SettingsAccessModeRow(
+              isNativeHostSurface: widget.snapshot.isNativeHostSurface,
+              value: _webuiDefaultAccessMode,
+              onChanged: (value) {
+                setState(() => _webuiDefaultAccessMode = value);
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Core channel safety stays in config.json.',
+          style: TextStyle(color: AppThemeTokens.mutedText, fontSize: 13),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.snapshot.requiresRestart
+                    ? 'Saved. Restart when ready.'
+                    : 'Save changes, then restart when ready.',
+                style: const TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => unawaited(
+                widget.onSave(
+                  webuiAllowLocalServiceAccess: _webuiAllowLocalServiceAccess,
+                  webuiDefaultAccessMode: _webuiDefaultAccessMode,
+                ),
+              ),
+              child: Text(
+                widget.snapshot.isNativeHostSurface
+                    ? 'Save App safety'
+                    : 'Save Web safety',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsAccessModeRow extends StatelessWidget {
+  const _SettingsAccessModeRow({
+    required this.isNativeHostSurface,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final bool isNativeHostSurface;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final label = _SettingsAccessModeLabel(
+            isNativeHostSurface: isNativeHostSurface,
+          );
+          final controls = _SettingsAccessModeChoices(
+            value: value,
+            onChanged: onChanged,
+          );
+          if (constraints.maxWidth < 520) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [label, const SizedBox(height: 12), controls],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: label),
+              const SizedBox(width: 12),
+              controls,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SettingsAccessModeLabel extends StatelessWidget {
+  const _SettingsAccessModeLabel({required this.isNativeHostSurface});
+
+  final bool isNativeHostSurface;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Default access',
+          style: TextStyle(
+            color: AppThemeTokens.headingText,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          isNativeHostSurface
+              ? 'Used by native chats without a project-specific permission.'
+              : 'Used by web chats without a project-specific permission.',
+          style: const TextStyle(color: AppThemeTokens.mutedText, fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsAccessModeChoices extends StatelessWidget {
+  const _SettingsAccessModeChoices({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ChoiceChip(
+          key: const ValueKey('network-default-access-default'),
+          label: const Text('Default Permission'),
+          selected: value != 'full',
+          onSelected: (_) => onChanged('default'),
+        ),
+        ChoiceChip(
+          key: const ValueKey('network-default-access-full'),
+          label: const Text('Full Access'),
+          selected: value == 'full',
+          onSelected: (_) => onChanged('full'),
         ),
       ],
     );

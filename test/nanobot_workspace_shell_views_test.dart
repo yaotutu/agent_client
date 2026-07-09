@@ -204,6 +204,59 @@ void main() {
     expect(find.text('Saved. Restart when ready.'), findsOneWidget);
   });
 
+  testWidgets('settings network safety detail mirrors webui fields and saves', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('App safety'), findsOneWidget);
+    await tester.ensureVisible(find.text('App safety'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('App safety'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('App safety settings'), findsOneWidget);
+    expect(find.text('Local Service Access'), findsOneWidget);
+    expect(find.text('Default access'), findsOneWidget);
+    expect(
+      find.text('Core channel safety stays in config.json.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('network-local-service-toggle')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('network-default-access-full')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save App safety'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save App safety'));
+    await tester.pumpAndSettle();
+
+    expect(repository.networkSafetySaveRequests, hasLength(1));
+    expect(
+      repository.networkSafetySaveRequests.single.webuiAllowLocalServiceAccess,
+      isFalse,
+    );
+    expect(
+      repository.networkSafetySaveRequests.single.webuiDefaultAccessMode,
+      'full',
+    );
+    expect(find.text('Saved. Restart when ready.'), findsOneWidget);
+  });
+
   testWidgets('apps surface filters and searches webui catalog kinds', (
     tester,
   ) async {
@@ -1759,6 +1812,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
           int maxUploadMb,
         })
       >[];
+  final networkSafetySaveRequests =
+      <({bool webuiAllowLocalServiceAccess, String webuiDefaultAccessMode})>[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -1928,6 +1983,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       transcriptionLanguage: 'zh',
       transcriptionMaxDurationSec: 60,
       transcriptionMaxUploadMb: 20,
+      isNativeHostSurface: true,
+      webuiAllowLocalServiceAccess: true,
+      webuiDefaultAccessMode: 'default',
       runtimeHost: '127.0.0.1',
       runtimeGatewayPort: 8765,
       workspaceCaption: 'Project workspace',
@@ -2057,6 +2115,25 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       transcriptionLanguage: language,
       transcriptionMaxDurationSec: maxDurationSec,
       transcriptionMaxUploadMb: maxUploadMb,
+      requiresRestart: true,
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> saveNetworkSafetySettings({
+    required bool webuiAllowLocalServiceAccess,
+    required String webuiDefaultAccessMode,
+  }) async {
+    networkSafetySaveRequests.add((
+      webuiAllowLocalServiceAccess: webuiAllowLocalServiceAccess,
+      webuiDefaultAccessMode: webuiDefaultAccessMode,
+    ));
+    return NanobotSettingsSnapshot(
+      model: 'MiniMax-M3',
+      provider: 'openai',
+      isNativeHostSurface: true,
+      webuiAllowLocalServiceAccess: webuiAllowLocalServiceAccess,
+      webuiDefaultAccessMode: webuiDefaultAccessMode,
       requiresRestart: true,
     );
   }

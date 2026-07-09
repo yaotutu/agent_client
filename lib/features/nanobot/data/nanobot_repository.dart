@@ -132,6 +132,13 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('saveTranscriptionSettings');
   }
 
+  Future<NanobotSettingsSnapshot> saveNetworkSafetySettings({
+    required bool webuiAllowLocalServiceAccess,
+    required String webuiDefaultAccessMode,
+  }) {
+    throw UnimplementedError('saveNetworkSafetySettings');
+  }
+
   Future<NanobotVersionCheckResult> checkVersion() {
     throw UnimplementedError('checkVersion');
   }
@@ -408,6 +415,19 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
+  @override
+  Future<NanobotSettingsSnapshot> saveNetworkSafetySettings({
+    required bool webuiAllowLocalServiceAccess,
+    required String webuiDefaultAccessMode,
+  }) async {
+    return _settingsSnapshotFromDto(
+      await api.updateNetworkSafetySettings(
+        webuiAllowLocalServiceAccess: webuiAllowLocalServiceAccess,
+        webuiDefaultAccessMode: webuiDefaultAccessMode,
+      ),
+    );
+  }
+
   NanobotSettingsSnapshot _settingsSnapshotFromDto(
     NanobotSettingsDto settings,
   ) {
@@ -418,6 +438,10 @@ class NanobotRepository implements NanobotRepositoryPort {
     final imageGeneration = settings.imageGeneration ?? const {};
     final transcription = settings.transcription ?? const {};
     final runtime = settings.runtime ?? const {};
+    final advanced = settings.advanced ?? const {};
+    final localServiceAccess =
+        advanced['webui_allow_local_service_access'] ??
+        advanced['allow_local_preview_access'];
     return NanobotSettingsSnapshot(
       model: _stringFrom(settings.agent['model']),
       provider: _stringFrom(settings.agent['provider']),
@@ -447,6 +471,14 @@ class NanobotRepository implements NanobotRepositoryPort {
       transcriptionLanguage: _stringFrom(transcription['language']),
       transcriptionMaxDurationSec: _intValue(transcription['max_duration_sec']),
       transcriptionMaxUploadMb: _intValue(transcription['max_upload_mb']),
+      isNativeHostSurface:
+          (settings.surface ?? settings.runtimeSurface) == 'native',
+      webuiAllowLocalServiceAccess: localServiceAccess is bool
+          ? localServiceAccess
+          : true,
+      webuiDefaultAccessMode: _visibleWebuiDefaultAccessMode(
+        _stringFrom(advanced['webui_default_access_mode']),
+      ),
       runtimeHost:
           _stringFrom(runtime['gateway_host']) ?? _stringFrom(runtime['host']),
       runtimeGatewayPort: _intValue(runtime['gateway_port']),
@@ -1298,6 +1330,10 @@ class NanobotRepository implements NanobotRepositoryPort {
       return 'Missing: $reason';
     }
     return 'unavailable';
+  }
+
+  String _visibleWebuiDefaultAccessMode(String? value) {
+    return value == 'full' ? 'full' : 'default';
   }
 
   NanobotSidebarState _sidebarStateFromDto(NanobotSidebarStateDto dto) {
