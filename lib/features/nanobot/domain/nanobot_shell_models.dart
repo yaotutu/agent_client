@@ -43,7 +43,13 @@ class NanobotSettingsSnapshot {
     this.runtimeHost,
     this.runtimeGatewayPort,
     this.workspaceCaption,
+    this.usageDays = const [],
     this.totalTokens = 0,
+    this.totalTokens30d = 0,
+    this.totalTokens365d = 0,
+    this.peakDayTokens = 0,
+    this.currentStreakDays = 0,
+    this.longestStreakDays = 0,
     this.requests30d = 0,
     this.activeDays30d = 0,
     this.requiresRestart = false,
@@ -66,11 +72,33 @@ class NanobotSettingsSnapshot {
   final String? runtimeHost;
   final int? runtimeGatewayPort;
   final String? workspaceCaption;
+  final List<NanobotUsageDay> usageDays;
   final int totalTokens;
+  final int totalTokens30d;
+  final int totalTokens365d;
+  final int peakDayTokens;
+  final int currentStreakDays;
+  final int longestStreakDays;
   final int requests30d;
   final int activeDays30d;
   final bool requiresRestart;
   final String? version;
+}
+
+class NanobotUsageDay {
+  const NanobotUsageDay({
+    required this.date,
+    this.totalTokens = 0,
+    this.estimatedTokens = 0,
+    this.requests = 0,
+    this.sources = const {},
+  });
+
+  final String date;
+  final int totalTokens;
+  final int estimatedTokens;
+  final int requests;
+  final Map<String, int> sources;
 }
 
 class NanobotVersionCheckResult {

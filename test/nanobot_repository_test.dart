@@ -177,7 +177,24 @@ void main() {
           'config_path': '/tmp/nanobot.toml',
         },
         'usage': {
+          'days': [
+            {
+              'date': '2026-07-08',
+              'total_tokens': 750,
+              'estimated_tokens': 50,
+              'requests': 4,
+              'sources': {
+                'user': {'total_tokens': 600},
+                'cron': {'total_tokens': 150},
+              },
+            },
+          ],
           'total_tokens': 1000,
+          'total_tokens_30d': 900,
+          'total_tokens_365d': 1000,
+          'peak_day_tokens': 750,
+          'current_streak_days': 2,
+          'longest_streak_days': 4,
           'requests_30d': 12,
           'active_days_30d': 3,
         },
@@ -215,6 +232,17 @@ void main() {
     expect(settings.runtimeHost, '127.0.0.1');
     expect(settings.runtimeGatewayPort, 8765);
     expect(settings.workspaceCaption, 'Project workspace');
+    expect(settings.usageDays, hasLength(1));
+    expect(settings.usageDays.single.date, '2026-07-08');
+    expect(settings.usageDays.single.totalTokens, 750);
+    expect(settings.usageDays.single.estimatedTokens, 50);
+    expect(settings.usageDays.single.requests, 4);
+    expect(settings.usageDays.single.sources['user'], 600);
+    expect(settings.totalTokens30d, 900);
+    expect(settings.totalTokens365d, 1000);
+    expect(settings.peakDayTokens, 750);
+    expect(settings.currentStreakDays, 2);
+    expect(settings.longestStreakDays, 4);
     expect(settings.requests30d, 12);
     expect(settings.activeDays30d, 3);
     expect(settings.requiresRestart, isTrue);

@@ -40,6 +40,8 @@ void main() {
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     expect(find.text('Settings'), findsWidgets);
+    expect(find.text('Token Usage'), findsOneWidget);
+    expect(find.byKey(const ValueKey('usage-day-2026-07-08')), findsOneWidget);
     expect(find.text('AI'), findsOneWidget);
     expect(find.text('Current model'), findsOneWidget);
     expect(find.text('Capabilities'), findsOneWidget);
@@ -1775,6 +1777,20 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       runtimeHost: '127.0.0.1',
       runtimeGatewayPort: 8765,
       workspaceCaption: 'Project workspace',
+      usageDays: [
+        NanobotUsageDay(
+          date: '2026-07-08',
+          totalTokens: 750,
+          estimatedTokens: 50,
+          requests: 4,
+          sources: {'user': 600, 'cron': 150},
+        ),
+      ],
+      totalTokens30d: 900,
+      totalTokens365d: 1000,
+      peakDayTokens: 750,
+      currentStreakDays: 2,
+      longestStreakDays: 4,
       totalTokens: 42,
       requests30d: 2,
       activeDays30d: 1,

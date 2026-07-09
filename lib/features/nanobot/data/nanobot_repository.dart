@@ -342,12 +342,40 @@ class NanobotRepository implements NanobotRepositoryPort {
           _stringFrom(settings.agent['workspace_label']) ??
           _stringFrom(settings.agent['project_path']) ??
           _stringFrom(runtime['workspace_path']),
+      usageDays: [for (final day in usage?.days ?? const []) _usageDay(day)],
       totalTokens: usage?.totalTokens ?? 0,
+      totalTokens30d: usage?.totalTokens30d ?? 0,
+      totalTokens365d: usage?.totalTokens365d ?? 0,
+      peakDayTokens: usage?.peakDayTokens ?? 0,
+      currentStreakDays: usage?.currentStreakDays ?? 0,
+      longestStreakDays: usage?.longestStreakDays ?? 0,
       requests30d: usage?.requests30d ?? 0,
       activeDays30d: usage?.activeDays30d ?? 0,
       requiresRestart: settings.requiresRestart,
       version: settings.version?['current'] as String?,
     );
+  }
+
+  NanobotUsageDay _usageDay(Map<String, Object?> row) {
+    return NanobotUsageDay(
+      date: _stringFrom(row['date']) ?? '',
+      totalTokens: _intValue(row['total_tokens']) ?? 0,
+      estimatedTokens: _intValue(row['estimated_tokens']) ?? 0,
+      requests: _intValue(row['requests']) ?? 0,
+      sources: _usageSources(row['sources']),
+    );
+  }
+
+  Map<String, int> _usageSources(Object? value) {
+    final map = _mapValue(value);
+    if (map == null) {
+      return const {};
+    }
+    return {
+      for (final entry in map.entries)
+        if (_intValue(_mapValue(entry.value)?['total_tokens']) != null)
+          entry.key: _intValue(_mapValue(entry.value)?['total_tokens'])!,
+    };
   }
 
   @override

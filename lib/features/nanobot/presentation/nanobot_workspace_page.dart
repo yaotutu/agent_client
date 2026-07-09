@@ -1604,6 +1604,8 @@ class _SettingsSurface extends StatelessWidget {
       children: [
         const _SurfaceTitle('Settings'),
         const SizedBox(height: 16),
+        _TokenUsageHeatmap(snapshot: value),
+        const SizedBox(height: 20),
         _SettingsSection(
           title: 'AI',
           rows: [
@@ -1708,6 +1710,132 @@ class _SettingsSurface extends StatelessWidget {
       return port == null ? 'Gateway' : ':$port';
     }
     return port == null ? host : '$host:$port';
+  }
+}
+
+class _TokenUsageHeatmap extends StatelessWidget {
+  const _TokenUsageHeatmap({required this.snapshot});
+
+  final NanobotSettingsSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = snapshot.usageDays.where((day) => day.date.isNotEmpty).toList()
+      ..sort((left, right) => left.date.compareTo(right.date));
+    final maxTokens = [
+      snapshot.peakDayTokens,
+      for (final day in days) day.totalTokens,
+    ].fold<int>(0, (max, value) => value > max ? value : max);
+    final visibleDays = days.length > 70
+        ? days.sublist(days.length - 70)
+        : days;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Token Usage',
+                style: TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              '${snapshot.totalTokens30d} tokens · '
+              '${snapshot.requests30d} requests',
+              style: const TextStyle(
+                color: AppThemeTokens.mutedText,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppThemeTokens.panel,
+            border: Border.all(color: AppThemeTokens.border),
+            borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 72,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    reverse: true,
+                    child: Wrap(
+                      direction: Axis.vertical,
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        for (final day in visibleDays)
+                          Tooltip(
+                            message:
+                                '${day.date}: ${day.totalTokens} tokens, '
+                                '${day.requests} requests',
+                            child: Semantics(
+                              label:
+                                  '${day.date}: ${day.totalTokens} tokens, '
+                                  '${day.requests} requests',
+                              child: DecoratedBox(
+                                key: ValueKey('usage-day-${day.date}'),
+                                decoration: BoxDecoration(
+                                  color: _usageCellColor(day, maxTokens),
+                                  borderRadius: BorderRadius.circular(3),
+                                  border: Border.all(
+                                    color: AppThemeTokens.border,
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: const SizedBox.square(dimension: 10),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '${snapshot.activeDays30d} active days · '
+                  '${snapshot.currentStreakDays} day streak · '
+                  '${snapshot.longestStreakDays} longest',
+                  style: const TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _usageCellColor(NanobotUsageDay day, int maxTokens) {
+    if (day.totalTokens <= 0 || maxTokens <= 0) {
+      return const Color(0xFFE5E7EB);
+    }
+    final ratio = day.totalTokens / maxTokens;
+    if (ratio >= 0.75) {
+      return const Color(0xFF7DD3FC);
+    }
+    if (ratio >= 0.45) {
+      return const Color(0xFF38BDF8);
+    }
+    if (ratio >= 0.2) {
+      return const Color(0xFF0EA5E9);
+    }
+    return const Color(0xFFBAE6FD);
   }
 }
 
