@@ -311,6 +311,59 @@ void main() {
     },
   );
 
+  testWidgets('settings model detail mirrors webui fields and saves', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Current model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Current model'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Model settings'), findsOneWidget);
+    expect(find.text('Current configuration'), findsOneWidget);
+    expect(find.text('Provider'), findsOneWidget);
+    expect(find.text('Model'), findsWidgets);
+    expect(find.text('Context window'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('model-provider-field')),
+      'openai',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('model-id-field')),
+      'MiniMax-M4',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('model-context-window-field')),
+      '131072',
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save Model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save Model'));
+    await tester.pumpAndSettle();
+
+    expect(repository.modelSaveRequests, hasLength(1));
+    expect(repository.modelSaveRequests.single.modelPreset, 'default');
+    expect(repository.modelSaveRequests.single.model, 'MiniMax-M4');
+    expect(repository.modelSaveRequests.single.provider, 'openai');
+    expect(repository.modelSaveRequests.single.contextWindowTokens, 131072);
+    expect(find.text('Saved. Restart when ready.'), findsOneWidget);
+  });
+
   testWidgets('apps surface filters and searches webui catalog kinds', (
     tester,
   ) async {
@@ -1870,6 +1923,15 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       <({bool webuiAllowLocalServiceAccess, String webuiDefaultAccessMode})>[];
   final runtimeSaveRequests =
       <({String timezone, String botName, String botIcon})>[];
+  final modelSaveRequests =
+      <
+        ({
+          String modelPreset,
+          String model,
+          String provider,
+          int contextWindowTokens,
+        })
+      >[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -2213,6 +2275,28 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       timezone: timezone,
       botName: botName,
       botIcon: botIcon,
+      requiresRestart: true,
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> saveModelSettings({
+    required String modelPreset,
+    required String model,
+    required String provider,
+    required int contextWindowTokens,
+  }) async {
+    modelSaveRequests.add((
+      modelPreset: modelPreset,
+      model: model,
+      provider: provider,
+      contextWindowTokens: contextWindowTokens,
+    ));
+    return NanobotSettingsSnapshot(
+      modelPreset: modelPreset,
+      model: model,
+      provider: provider,
+      contextWindowTokens: contextWindowTokens,
       requiresRestart: true,
     );
   }

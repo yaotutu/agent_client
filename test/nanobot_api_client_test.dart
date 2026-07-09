@@ -98,6 +98,16 @@ void main() {
             },
             'requires_restart': true,
           },
+      'GET /api/settings/update?model_preset=default&model=MiniMax-M4&provider=openai&context_window_tokens=131072':
+          {
+            'agent': {
+              'model_preset': 'default',
+              'model': 'MiniMax-M4',
+              'provider': 'openai',
+              'context_window_tokens': 131072,
+            },
+            'requires_restart': true,
+          },
     });
     final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
     dio.httpClientAdapter = adapter;
@@ -159,6 +169,15 @@ void main() {
         botIcon: 'N',
       )).agent['bot_name'],
       'Nano Mobile',
+    );
+    expect(
+      (await client.updateModelSettings(
+        modelPreset: 'default',
+        model: 'MiniMax-M4',
+        provider: 'openai',
+        contextWindowTokens: 131072,
+      )).agent['model'],
+      'MiniMax-M4',
     );
 
     expect(adapter.calls.first.headers['X-Nanobot-Auth'], 'redhat');

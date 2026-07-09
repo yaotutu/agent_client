@@ -554,6 +554,54 @@ void main() {
     expect(settings.requiresRestart, isTrue);
   });
 
+  test(
+    'repository saves default model settings through webui endpoint',
+    () async {
+      final adapter = _RouteAdapter({
+        'GET /webui/bootstrap': {
+          'token': 'token-1',
+          'ws_path': '/',
+          'expires_in': 300,
+        },
+        'GET /api/settings/update?model_preset=default&model=MiniMax-M4&provider=openai&context_window_tokens=131072':
+            {
+              'agent': {
+                'model_preset': 'default',
+                'model': 'MiniMax-M4',
+                'provider': 'openai',
+                'context_window_tokens': 131072,
+              },
+              'requires_restart': true,
+            },
+      });
+      final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+      dio.httpClientAdapter = adapter;
+      final config = const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      );
+      final api = NanobotApiClient(config: config, dio: dio);
+      final repository = NanobotRepository(
+        api: api,
+        ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+      );
+
+      final settings = await repository.saveModelSettings(
+        modelPreset: 'default',
+        model: 'MiniMax-M4',
+        provider: 'openai',
+        contextWindowTokens: 131072,
+      );
+
+      expect(adapter.requests.last.key, contains('/api/settings/update'));
+      expect(settings.modelPreset, 'default');
+      expect(settings.model, 'MiniMax-M4');
+      expect(settings.provider, 'openai');
+      expect(settings.contextWindowTokens, 131072);
+      expect(settings.requiresRestart, isTrue);
+    },
+  );
+
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

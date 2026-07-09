@@ -2,6 +2,7 @@ enum NanobotShellView { chat, settings, apps, automations, skills }
 
 enum NanobotSettingsSection {
   overview,
+  models,
   webSearch,
   imageGeneration,
   voiceInput,
@@ -36,6 +37,7 @@ class NanobotAppsActionResult {
 
 class NanobotSettingsSnapshot {
   const NanobotSettingsSnapshot({
+    this.modelPreset,
     this.model,
     this.provider,
     this.contextWindowTokens,
@@ -79,6 +81,7 @@ class NanobotSettingsSnapshot {
     this.version,
   });
 
+  final String? modelPreset;
   final String? model;
   final String? provider;
   final int? contextWindowTokens;

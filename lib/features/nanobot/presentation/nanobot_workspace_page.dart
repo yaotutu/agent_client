@@ -138,6 +138,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onSaveTranscription: controller.saveTranscriptionSettings,
               onSaveNetworkSafety: controller.saveNetworkSafetySettings,
               onSaveRuntime: controller.saveRuntimeSettings,
+              onSaveModel: controller.saveModelSettings,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -1215,6 +1216,7 @@ class _ChatPane extends StatelessWidget {
     required this.onSaveTranscription,
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
+    required this.onSaveModel,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -1313,6 +1315,13 @@ class _ChatPane extends StatelessWidget {
     required String botIcon,
   })
   onSaveRuntime;
+  final Future<void> Function({
+    required String modelPreset,
+    required String model,
+    required String provider,
+    required int contextWindowTokens,
+  })
+  onSaveModel;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -1359,6 +1368,7 @@ class _ChatPane extends StatelessWidget {
                     onSaveTranscription: onSaveTranscription,
                     onSaveNetworkSafety: onSaveNetworkSafety,
                     onSaveRuntime: onSaveRuntime,
+                    onSaveModel: onSaveModel,
                   ),
           ),
           if (state.errorMessage != null)
@@ -1533,6 +1543,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onSaveTranscription,
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
+    required this.onSaveModel,
   });
 
   final NanobotWorkspaceState state;
@@ -1603,6 +1614,13 @@ class _SecondarySurface extends StatelessWidget {
     required String botIcon,
   })
   onSaveRuntime;
+  final Future<void> Function({
+    required String modelPreset,
+    required String model,
+    required String provider,
+    required int contextWindowTokens,
+  })
+  onSaveModel;
 
   @override
   Widget build(BuildContext context) {
@@ -1629,6 +1647,7 @@ class _SecondarySurface extends StatelessWidget {
           onSaveTranscription: onSaveTranscription,
           onSaveNetworkSafety: onSaveNetworkSafety,
           onSaveRuntime: onSaveRuntime,
+          onSaveModel: onSaveModel,
         ),
         NanobotShellView.apps => _AppsCatalogSurface(
           items: state.appItems,
@@ -1701,6 +1720,7 @@ class _SettingsSurface extends StatelessWidget {
     required this.onSaveTranscription,
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
+    required this.onSaveModel,
   });
 
   final NanobotSettingsSnapshot? snapshot;
@@ -1746,6 +1766,13 @@ class _SettingsSurface extends StatelessWidget {
     required String botIcon,
   })
   onSaveRuntime;
+  final Future<void> Function({
+    required String modelPreset,
+    required String model,
+    required String provider,
+    required int contextWindowTokens,
+  })
+  onSaveModel;
 
   @override
   Widget build(BuildContext context) {
@@ -1788,6 +1815,13 @@ class _SettingsSurface extends StatelessWidget {
         onSave: onSaveRuntime,
       );
     }
+    if (section == NanobotSettingsSection.models) {
+      return _ModelSettingsSurface(
+        snapshot: value,
+        onBack: () => onOpenSection(NanobotSettingsSection.overview),
+        onSave: onSaveModel,
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1802,6 +1836,7 @@ class _SettingsSurface extends StatelessWidget {
               title: 'Current model',
               value: value.model ?? 'unknown',
               caption: _settingsModelCaption(value),
+              onTap: () => onOpenSection(NanobotSettingsSection.models),
             ),
           ],
         ),
@@ -1924,6 +1959,142 @@ class _SettingsSurface extends StatelessWidget {
 
   String _settingsSafetyTitle(NanobotSettingsSnapshot value) {
     return value.isNativeHostSurface ? 'App safety' : 'Web safety';
+  }
+}
+
+class _ModelSettingsSurface extends StatefulWidget {
+  const _ModelSettingsSurface({
+    required this.snapshot,
+    required this.onBack,
+    required this.onSave,
+  });
+
+  final NanobotSettingsSnapshot snapshot;
+  final VoidCallback onBack;
+  final Future<void> Function({
+    required String modelPreset,
+    required String model,
+    required String provider,
+    required int contextWindowTokens,
+  })
+  onSave;
+
+  @override
+  State<_ModelSettingsSurface> createState() => _ModelSettingsSurfaceState();
+}
+
+class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
+  late final TextEditingController _providerController;
+  late final TextEditingController _modelController;
+  late final TextEditingController _contextWindowController;
+
+  @override
+  void initState() {
+    super.initState();
+    _providerController = TextEditingController();
+    _modelController = TextEditingController();
+    _contextWindowController = TextEditingController();
+    _applySnapshot(widget.snapshot);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ModelSettingsSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snapshot != widget.snapshot) {
+      _applySnapshot(widget.snapshot);
+    }
+  }
+
+  @override
+  void dispose() {
+    _providerController.dispose();
+    _modelController.dispose();
+    _contextWindowController.dispose();
+    super.dispose();
+  }
+
+  void _applySnapshot(NanobotSettingsSnapshot snapshot) {
+    _providerController.text = snapshot.provider ?? '';
+    _modelController.text = snapshot.model ?? '';
+    _contextWindowController.text = (snapshot.contextWindowTokens ?? 0)
+        .toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final modelPreset = widget.snapshot.modelPreset ?? 'default';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton.icon(
+          onPressed: widget.onBack,
+          icon: const Icon(Icons.chevron_left),
+          label: const Text('Settings'),
+        ),
+        const SizedBox(height: 8),
+        const _SurfaceTitle('Model settings'),
+        const SizedBox(height: 16),
+        _SettingsSection(
+          title: 'Current configuration',
+          rows: [
+            _SettingsOverviewRow(
+              title: 'Preset',
+              value: modelPreset,
+              caption: 'Used for new replies.',
+            ),
+            _SettingsTextFieldRow(
+              title: 'Provider',
+              caption: 'Model provider used by nanobot.',
+              controller: _providerController,
+              fieldKey: const ValueKey('model-provider-field'),
+            ),
+            _SettingsTextFieldRow(
+              title: 'Model',
+              caption: 'Model id used for new replies.',
+              controller: _modelController,
+              fieldKey: const ValueKey('model-id-field'),
+            ),
+            _SettingsTextFieldRow(
+              title: 'Context window',
+              caption: 'Maximum context window tokens for this model.',
+              controller: _contextWindowController,
+              fieldKey: const ValueKey('model-context-window-field'),
+              textAlign: TextAlign.end,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.snapshot.requiresRestart
+                    ? 'Saved. Restart when ready.'
+                    : 'Save changes, then restart when ready.',
+                style: const TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => unawaited(
+                widget.onSave(
+                  modelPreset: modelPreset,
+                  model: _modelController.text,
+                  provider: _providerController.text,
+                  contextWindowTokens:
+                      int.tryParse(_contextWindowController.text) ??
+                      widget.snapshot.contextWindowTokens ??
+                      0,
+                ),
+              ),
+              child: const Text('Save Model'),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 

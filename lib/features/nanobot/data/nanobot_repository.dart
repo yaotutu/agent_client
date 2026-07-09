@@ -147,6 +147,15 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('saveRuntimeSettings');
   }
 
+  Future<NanobotSettingsSnapshot> saveModelSettings({
+    required String modelPreset,
+    required String model,
+    required String provider,
+    required int contextWindowTokens,
+  }) {
+    throw UnimplementedError('saveModelSettings');
+  }
+
   Future<NanobotVersionCheckResult> checkVersion() {
     throw UnimplementedError('checkVersion');
   }
@@ -451,6 +460,23 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
+  @override
+  Future<NanobotSettingsSnapshot> saveModelSettings({
+    required String modelPreset,
+    required String model,
+    required String provider,
+    required int contextWindowTokens,
+  }) async {
+    return _settingsSnapshotFromDto(
+      await api.updateModelSettings(
+        modelPreset: modelPreset,
+        model: model,
+        provider: provider,
+        contextWindowTokens: contextWindowTokens,
+      ),
+    );
+  }
+
   NanobotSettingsSnapshot _settingsSnapshotFromDto(
     NanobotSettingsDto settings,
   ) {
@@ -466,6 +492,7 @@ class NanobotRepository implements NanobotRepositoryPort {
         advanced['webui_allow_local_service_access'] ??
         advanced['allow_local_preview_access'];
     return NanobotSettingsSnapshot(
+      modelPreset: _stringFrom(settings.agent['model_preset']),
       model: _stringFrom(settings.agent['model']),
       provider: _stringFrom(settings.agent['provider']),
       contextWindowTokens: _intValue(settings.agent['context_window_tokens']),
