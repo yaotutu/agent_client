@@ -278,6 +278,49 @@ void main() {
     expect(mcp.mcpEnabledTools, ['browserbase_open']);
   });
 
+  test('repository maps mcp tool scope update results', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_at': DateTime.now().add(const Duration(hours: 1)).toIso8601String(),
+      },
+      'GET /api/settings/mcp-presets/tools': {
+        'presets': [
+          {
+            'name': 'github',
+            'display_name': 'GitHub',
+            'installed': true,
+            'configured': true,
+            'status': 'configured',
+            'tool_names': ['repo_read', 'issue_create'],
+            'enabled_tools': [],
+          },
+        ],
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final items = await repository.updateMcpServerTools(
+      name: 'github',
+      enabledTools: const [],
+    );
+
+    expect(items.single.id, 'mcp:github');
+    expect(items.single.mcpToolNames, ['repo_read', 'issue_create']);
+    expect(items.single.mcpEnabledTools, isEmpty);
+  });
+
   test(
     'repository maps unavailable skill reasons for catalog display',
     () async {

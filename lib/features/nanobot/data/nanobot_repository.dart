@@ -127,6 +127,13 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('runMcpPresetAction');
   }
 
+  Future<List<NanobotCatalogItem>> updateMcpServerTools({
+    required String name,
+    required List<String> enabledTools,
+  }) {
+    throw UnimplementedError('updateMcpServerTools');
+  }
+
   Future<List<NanobotCatalogItem>> fetchAutomationItems() {
     throw UnimplementedError('fetchAutomationItems');
   }
@@ -472,6 +479,18 @@ class NanobotRepository implements NanobotRepositoryPort {
       action: action,
       name: name,
       values: values,
+    );
+    return [for (final row in payload.presets) _mcpCatalogItem(row)];
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> updateMcpServerTools({
+    required String name,
+    required List<String> enabledTools,
+  }) async {
+    final payload = await api.updateMcpServerTools(
+      name: name,
+      enabledTools: enabledTools,
     );
     return [for (final row in payload.presets) _mcpCatalogItem(row)];
   }

@@ -126,6 +126,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onCliAppAction: controller.runCliAppAction,
               onNanobotFeatureAction: controller.runNanobotFeatureAction,
               onMcpPresetAction: controller.runMcpPresetAction,
+              onMcpToolsChange: controller.updateMcpServerTools,
               onAutomationAction: controller.runAutomationAction,
               onAutomationUpdate: controller.updateAutomation,
               onOpenSessions: wide
@@ -1193,6 +1194,7 @@ class _ChatPane extends StatelessWidget {
     required this.onCliAppAction,
     required this.onNanobotFeatureAction,
     required this.onMcpPresetAction,
+    required this.onMcpToolsChange,
     required this.onAutomationAction,
     required this.onAutomationUpdate,
     required this.onOpenSettings,
@@ -1239,6 +1241,11 @@ class _ChatPane extends StatelessWidget {
   })
   onMcpPresetAction;
   final Future<void> Function(
+    NanobotCatalogItem item,
+    List<String> enabledTools,
+  )
+  onMcpToolsChange;
+  final Future<void> Function(
     NanobotAutomationAction action,
     NanobotCatalogItem item,
   )
@@ -1282,6 +1289,7 @@ class _ChatPane extends StatelessWidget {
                     onCliAppAction: onCliAppAction,
                     onNanobotFeatureAction: onNanobotFeatureAction,
                     onMcpPresetAction: onMcpPresetAction,
+                    onMcpToolsChange: onMcpToolsChange,
                     onAutomationAction: onAutomationAction,
                     onAutomationUpdate: onAutomationUpdate,
                   ),
@@ -1446,6 +1454,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onCliAppAction,
     required this.onNanobotFeatureAction,
     required this.onMcpPresetAction,
+    required this.onMcpToolsChange,
     required this.onAutomationAction,
     required this.onAutomationUpdate,
   });
@@ -1463,6 +1472,11 @@ class _SecondarySurface extends StatelessWidget {
     Map<String, Object?> values,
   })
   onMcpPresetAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    List<String> enabledTools,
+  )
+  onMcpToolsChange;
   final Future<void> Function(
     NanobotAutomationAction action,
     NanobotCatalogItem item,
@@ -1490,6 +1504,7 @@ class _SecondarySurface extends StatelessWidget {
           onCliAppAction: onCliAppAction,
           onNanobotFeatureAction: onNanobotFeatureAction,
           onMcpPresetAction: onMcpPresetAction,
+          onMcpToolsChange: onMcpToolsChange,
         ),
         NanobotShellView.automations => _CatalogSurface(
           title: 'Automations',
@@ -1895,6 +1910,7 @@ class _AppsCatalogSurface extends StatefulWidget {
     required this.onCliAppAction,
     required this.onNanobotFeatureAction,
     required this.onMcpPresetAction,
+    required this.onMcpToolsChange,
   });
 
   final List<NanobotCatalogItem> items;
@@ -1908,6 +1924,11 @@ class _AppsCatalogSurface extends StatefulWidget {
     Map<String, Object?> values,
   })
   onMcpPresetAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    List<String> enabledTools,
+  )
+  onMcpToolsChange;
 
   @override
   State<_AppsCatalogSurface> createState() => _AppsCatalogSurfaceState();
@@ -2009,6 +2030,7 @@ class _AppsCatalogSurfaceState extends State<_AppsCatalogSurface> {
               onCliAppAction: widget.onCliAppAction,
               onNanobotFeatureAction: widget.onNanobotFeatureAction,
               onMcpPresetAction: widget.onMcpPresetAction,
+              onMcpToolsChange: widget.onMcpToolsChange,
             ),
       ],
     );
@@ -2882,6 +2904,7 @@ class _CatalogRow extends StatelessWidget {
     this.onCliAppAction,
     this.onNanobotFeatureAction,
     this.onMcpPresetAction,
+    this.onMcpToolsChange,
     this.onAutomationAction,
     this.onAutomationUpdate,
   });
@@ -2899,6 +2922,11 @@ class _CatalogRow extends StatelessWidget {
     Map<String, Object?> values,
   })?
   onMcpPresetAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    List<String> enabledTools,
+  )?
+  onMcpToolsChange;
   final Future<void> Function(
     NanobotAutomationAction action,
     NanobotCatalogItem item,
@@ -2980,7 +3008,11 @@ class _CatalogRow extends StatelessWidget {
           ],
           if (onMcpPresetAction != null && _isMcpCatalogItem(item)) ...[
             const SizedBox(width: 8),
-            _McpPresetActionButtons(item: item, onAction: onMcpPresetAction!),
+            _McpPresetActionButtons(
+              item: item,
+              onAction: onMcpPresetAction!,
+              onToolsChange: onMcpToolsChange,
+            ),
           ],
           if (onAutomationAction != null) ...[
             const SizedBox(width: 8),
@@ -3105,7 +3137,11 @@ class _CliAppActionButtons extends StatelessWidget {
 }
 
 class _McpPresetActionButtons extends StatelessWidget {
-  const _McpPresetActionButtons({required this.item, required this.onAction});
+  const _McpPresetActionButtons({
+    required this.item,
+    required this.onAction,
+    this.onToolsChange,
+  });
 
   final NanobotCatalogItem item;
   final Future<void> Function(
@@ -3114,11 +3150,16 @@ class _McpPresetActionButtons extends StatelessWidget {
     Map<String, Object?> values,
   })
   onAction;
+  final Future<void> Function(
+    NanobotCatalogItem item,
+    List<String> enabledTools,
+  )?
+  onToolsChange;
 
   @override
   Widget build(BuildContext context) {
     if (_configured) {
-      return _configuredActions();
+      return _configuredActions(context);
     }
     return IconButton(
       tooltip: _installSupported
@@ -3132,17 +3173,25 @@ class _McpPresetActionButtons extends StatelessWidget {
     );
   }
 
-  Widget _configuredActions() {
+  Widget _configuredActions(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         PopupMenuButton<String>(
           tooltip: 'MCP configured',
           position: PopupMenuPosition.under,
-          onSelected: (action) => onAction(action, item),
-          itemBuilder: (context) => const [
-            PopupMenuItem(value: 'test', child: Text('Test MCP')),
-            PopupMenuItem(value: 'remove', child: Text('Remove MCP')),
+          onSelected: (action) {
+            if (action == 'tools') {
+              _openTools(context);
+              return;
+            }
+            onAction(action, item);
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: 'test', child: Text('Test MCP')),
+            if (onToolsChange != null && item.mcpToolNames.isNotEmpty)
+              const PopupMenuItem(value: 'tools', child: Text('Tools')),
+            const PopupMenuItem(value: 'remove', child: Text('Remove MCP')),
           ],
           child: const SizedBox.square(
             dimension: 36,
@@ -3181,6 +3230,21 @@ class _McpPresetActionButtons extends StatelessWidget {
       return;
     }
     await onAction('enable', item);
+  }
+
+  Future<void> _openTools(BuildContext context) async {
+    final toolsChange = onToolsChange;
+    if (toolsChange == null) {
+      return;
+    }
+    final enabledTools = await showDialog<List<String>>(
+      context: context,
+      builder: (context) => _McpPresetToolsDialog(item: item),
+    );
+    if (enabledTools == null || !context.mounted) {
+      return;
+    }
+    await toolsChange(item, enabledTools);
   }
 }
 
@@ -3298,6 +3362,86 @@ class _McpPresetSetupDialogState extends State<_McpPresetSetupDialog> {
         if (entry.value.text.trim().isNotEmpty)
           entry.key: entry.value.text.trim(),
     };
+  }
+}
+
+class _McpPresetToolsDialog extends StatefulWidget {
+  const _McpPresetToolsDialog({required this.item});
+
+  final NanobotCatalogItem item;
+
+  @override
+  State<_McpPresetToolsDialog> createState() => _McpPresetToolsDialogState();
+}
+
+class _McpPresetToolsDialogState extends State<_McpPresetToolsDialog> {
+  late Set<String> _selectedTools;
+  late bool _allowAllTools;
+
+  @override
+  void initState() {
+    super.initState();
+    _allowAllTools =
+        widget.item.mcpEnabledTools.isEmpty ||
+        widget.item.mcpEnabledTools.contains('*');
+    _selectedTools = _allowAllTools
+        ? widget.item.mcpToolNames.toSet()
+        : widget.item.mcpEnabledTools.toSet();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('${widget.item.title} tools'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: SingleChildScrollView(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('All'),
+                selected: _allowAllTools,
+                onSelected: (_) => Navigator.of(context).pop(const ['*']),
+              ),
+              ChoiceChip(
+                label: const Text('None'),
+                selected: !_allowAllTools && _selectedTools.isEmpty,
+                onSelected: (_) => Navigator.of(context).pop(const <String>[]),
+              ),
+              for (final toolName in widget.item.mcpToolNames)
+                FilterChip(
+                  label: Text(toolName),
+                  selected: _selectedTools.contains(toolName),
+                  onSelected: (_) => Navigator.of(context).pop(
+                    _toggledTools(toolName),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+
+  List<String> _toggledTools(String toolName) {
+    final next = Set<String>.from(_selectedTools);
+    if (next.contains(toolName)) {
+      next.remove(toolName);
+    } else {
+      next.add(toolName);
+    }
+    if (next.length == widget.item.mcpToolNames.length) {
+      return const ['*'];
+    }
+    return next.toList()..sort();
   }
 }
 

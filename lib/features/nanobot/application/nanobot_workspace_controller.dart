@@ -260,6 +260,27 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     }
   }
 
+  Future<void> updateMcpServerTools(
+    NanobotCatalogItem item,
+    List<String> enabledTools,
+  ) async {
+    state = state.copyWith(clearError: true);
+    try {
+      final items = await ref
+          .read(nanobotRepositoryProvider)
+          .updateMcpServerTools(
+            name: _appActionName(item),
+            enabledTools: enabledTools,
+          );
+      state = state.copyWith(
+        appItems: _mergeAppItems(state.appItems, items),
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(errorMessage: _friendlyError(error));
+    }
+  }
+
   Future<void> openAutomations() {
     return _openCatalog(
       NanobotShellView.automations,

@@ -403,6 +403,68 @@ void main() {
     expect(find.text('Configured'), findsWidgets);
   });
 
+  testWidgets('apps surface updates configured MCP tool scope', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      appItems: const [
+        NanobotCatalogItem(
+          id: 'mcp:github',
+          title: 'GitHub',
+          subtitle: 'Repository tools',
+          status: 'Configured',
+          filterKeys: ['mcp', 'ready'],
+          mcpToolNames: ['repo_read', 'issue_create'],
+          mcpEnabledTools: ['repo_read'],
+        ),
+        NanobotCatalogItem(
+          id: 'cli:gimp',
+          title: 'GIMP',
+          subtitle: 'Image editor',
+          status: 'CLI',
+          filterKeys: ['cli', 'ready'],
+        ),
+      ],
+      actionAppItems: const [
+        NanobotCatalogItem(
+          id: 'mcp:github',
+          title: 'GitHub',
+          subtitle: 'Repository tools',
+          status: 'Configured',
+          filterKeys: ['mcp', 'ready'],
+          mcpToolNames: ['repo_read', 'issue_create'],
+          mcpEnabledTools: [],
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Apps'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('GitHub'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('MCP configured'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tools'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('None'));
+    await tester.pumpAndSettle();
+
+    expect(repository.mcpToolsUpdateRequests, hasLength(1));
+    expect(repository.mcpToolsUpdateRequests.single.name, 'github');
+    expect(repository.mcpToolsUpdateRequests.single.enabledTools, isEmpty);
+    expect(find.text('GIMP'), findsOneWidget);
+    expect(find.text('GitHub'), findsOneWidget);
+  });
+
   testWidgets('automations empty surface keeps heading and webui empty copy', (
     tester,
   ) async {
@@ -1355,6 +1417,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   final nanobotFeatureActionRequests = <({String action, String name})>[];
   final mcpPresetActionRequests =
       <({String action, String name, Map<String, Object?> values})>[];
+  final mcpToolsUpdateRequests =
+      <({String name, List<String> enabledTools})>[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -1543,6 +1607,15 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       name: name,
       values: values,
     ));
+    return _actionAppItems ?? _appItems;
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> updateMcpServerTools({
+    required String name,
+    required List<String> enabledTools,
+  }) async {
+    mcpToolsUpdateRequests.add((name: name, enabledTools: enabledTools));
     return _actionAppItems ?? _appItems;
   }
 
