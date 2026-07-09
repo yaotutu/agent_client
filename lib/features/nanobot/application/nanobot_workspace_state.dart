@@ -20,6 +20,7 @@ class NanobotWorkspaceState {
     this.selectedChatId,
     this.threadState,
     this.activeView = NanobotShellView.chat,
+    this.settingsSection = NanobotSettingsSection.overview,
     this.settingsSnapshot,
     this.versionCheckResult,
     this.isCheckingVersion = false,
@@ -61,6 +62,7 @@ class NanobotWorkspaceState {
   final String? selectedChatId;
   final NanobotThreadState? threadState;
   final NanobotShellView activeView;
+  final NanobotSettingsSection settingsSection;
   final NanobotSettingsSnapshot? settingsSnapshot;
   final NanobotVersionCheckResult? versionCheckResult;
   final bool isCheckingVersion;
@@ -174,6 +176,7 @@ class NanobotWorkspaceState {
     String? selectedChatId,
     NanobotThreadState? threadState,
     NanobotShellView? activeView,
+    NanobotSettingsSection? settingsSection,
     NanobotSettingsSnapshot? settingsSnapshot,
     NanobotVersionCheckResult? versionCheckResult,
     bool? isCheckingVersion,
@@ -237,6 +240,7 @@ class NanobotWorkspaceState {
           : selectedChatId ?? this.selectedChatId,
       threadState: clearThreadState ? null : threadState ?? this.threadState,
       activeView: activeView ?? this.activeView,
+      settingsSection: settingsSection ?? this.settingsSection,
       settingsSnapshot: clearSettingsSnapshot
           ? null
           : settingsSnapshot ?? this.settingsSnapshot,

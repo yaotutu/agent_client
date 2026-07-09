@@ -101,6 +101,15 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('fetchSettingsSnapshot');
   }
 
+  Future<NanobotSettingsSnapshot> saveWebSearchSettings({
+    required String provider,
+    required int maxResults,
+    required int timeoutSeconds,
+    required bool useJinaReader,
+  }) {
+    throw UnimplementedError('saveWebSearchSettings');
+  }
+
   Future<NanobotVersionCheckResult> checkVersion() {
     throw UnimplementedError('checkVersion');
   }
@@ -315,9 +324,33 @@ class NanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
-    final settings = await api.fetchSettings();
+    return _settingsSnapshotFromDto(await api.fetchSettings());
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> saveWebSearchSettings({
+    required String provider,
+    required int maxResults,
+    required int timeoutSeconds,
+    required bool useJinaReader,
+  }) async {
+    return _settingsSnapshotFromDto(
+      await api.updateWebSearchSettings(
+        provider: provider,
+        maxResults: maxResults,
+        timeoutSeconds: timeoutSeconds,
+        useJinaReader: useJinaReader,
+      ),
+    );
+  }
+
+  NanobotSettingsSnapshot _settingsSnapshotFromDto(
+    NanobotSettingsDto settings,
+  ) {
     final usage = settings.usage;
-    final webSearch = settings.webSearch ?? settings.web ?? const {};
+    final webSearch = settings.webSearch ?? const {};
+    final web = settings.web ?? const {};
+    final webFetch = _mapValue(web['fetch']) ?? const {};
     final imageGeneration = settings.imageGeneration ?? const {};
     final transcription = settings.transcription ?? const {};
     final runtime = settings.runtime ?? const {};
@@ -329,6 +362,8 @@ class NanobotRepository implements NanobotRepositoryPort {
       webSearchProvider: _stringFrom(webSearch['provider']),
       webSearchEnabled: webSearch['enabled'] == true,
       webSearchMaxResults: _intValue(webSearch['max_results']),
+      webSearchTimeoutSeconds: _intValue(webSearch['timeout']),
+      webFetchUseJinaReader: webFetch['use_jina_reader'] == true,
       imageGenerationEnabled: imageGeneration['enabled'] == true,
       imageGenerationProvider: _stringFrom(imageGeneration['provider']),
       imageGenerationModel: _stringFrom(imageGeneration['model']),

@@ -284,6 +284,57 @@ void main() {
     expect(result.pypiUrl, 'https://pypi.org/project/nanobot');
   });
 
+  test('repository saves web search settings through webui endpoint', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings/web-search/update?provider=searxng&max_results=7&timeout=11&use_jina_reader=true':
+          {
+            'agent': {'model': 'MiniMax-M3'},
+            'web_search': {
+              'provider': 'searxng',
+              'max_results': 7,
+              'timeout': 11,
+            },
+            'web': {
+              'fetch': {'use_jina_reader': true},
+            },
+            'requires_restart': true,
+          },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final settings = await repository.saveWebSearchSettings(
+      provider: 'searxng',
+      maxResults: 7,
+      timeoutSeconds: 11,
+      useJinaReader: true,
+    );
+
+    expect(
+      adapter.requests.last.key,
+      contains('/api/settings/web-search/update'),
+    );
+    expect(settings.webSearchProvider, 'searxng');
+    expect(settings.webSearchMaxResults, 7);
+    expect(settings.webSearchTimeoutSeconds, 11);
+    expect(settings.webFetchUseJinaReader, isTrue);
+    expect(settings.requiresRestart, isTrue);
+  });
+
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

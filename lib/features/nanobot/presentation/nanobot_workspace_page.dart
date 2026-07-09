@@ -132,6 +132,8 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onAutomationAction: controller.runAutomationAction,
               onAutomationUpdate: controller.updateAutomation,
               onCheckVersion: controller.checkVersion,
+              onOpenSettingsSection: controller.openSettingsSection,
+              onSaveWebSearch: controller.saveWebSearchSettings,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -1203,6 +1205,8 @@ class _ChatPane extends StatelessWidget {
     required this.onAutomationAction,
     required this.onAutomationUpdate,
     required this.onCheckVersion,
+    required this.onOpenSettingsSection,
+    required this.onSaveWebSearch,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -1264,6 +1268,14 @@ class _ChatPane extends StatelessWidget {
   )
   onAutomationUpdate;
   final Future<void> Function() onCheckVersion;
+  final void Function(NanobotSettingsSection section) onOpenSettingsSection;
+  final Future<void> Function({
+    required String provider,
+    required int maxResults,
+    required int timeoutSeconds,
+    required bool useJinaReader,
+  })
+  onSaveWebSearch;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -1304,6 +1316,8 @@ class _ChatPane extends StatelessWidget {
                     onAutomationAction: onAutomationAction,
                     onAutomationUpdate: onAutomationUpdate,
                     onCheckVersion: onCheckVersion,
+                    onOpenSettingsSection: onOpenSettingsSection,
+                    onSaveWebSearch: onSaveWebSearch,
                   ),
           ),
           if (state.errorMessage != null)
@@ -1472,6 +1486,8 @@ class _SecondarySurface extends StatelessWidget {
     required this.onAutomationAction,
     required this.onAutomationUpdate,
     required this.onCheckVersion,
+    required this.onOpenSettingsSection,
+    required this.onSaveWebSearch,
   });
 
   final NanobotWorkspaceState state;
@@ -1505,6 +1521,14 @@ class _SecondarySurface extends StatelessWidget {
   )
   onAutomationUpdate;
   final Future<void> Function() onCheckVersion;
+  final void Function(NanobotSettingsSection section) onOpenSettingsSection;
+  final Future<void> Function({
+    required String provider,
+    required int maxResults,
+    required int timeoutSeconds,
+    required bool useJinaReader,
+  })
+  onSaveWebSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -1516,10 +1540,13 @@ class _SecondarySurface extends StatelessWidget {
       child: switch (state.activeView) {
         NanobotShellView.settings => _SettingsSurface(
           snapshot: state.settingsSnapshot,
+          section: state.settingsSection,
           versionCheckResult: state.versionCheckResult,
           isCheckingVersion: state.isCheckingVersion,
           versionCheckError: state.versionCheckError,
           onCheckVersion: onCheckVersion,
+          onOpenSection: onOpenSettingsSection,
+          onSaveWebSearch: onSaveWebSearch,
         ),
         NanobotShellView.apps => _AppsCatalogSurface(
           items: state.appItems,
@@ -1581,23 +1608,42 @@ class _SecondarySurface extends StatelessWidget {
 class _SettingsSurface extends StatelessWidget {
   const _SettingsSurface({
     required this.snapshot,
+    required this.section,
     required this.versionCheckResult,
     required this.isCheckingVersion,
     required this.versionCheckError,
     required this.onCheckVersion,
+    required this.onOpenSection,
+    required this.onSaveWebSearch,
   });
 
   final NanobotSettingsSnapshot? snapshot;
+  final NanobotSettingsSection section;
   final NanobotVersionCheckResult? versionCheckResult;
   final bool isCheckingVersion;
   final String? versionCheckError;
   final Future<void> Function() onCheckVersion;
+  final void Function(NanobotSettingsSection section) onOpenSection;
+  final Future<void> Function({
+    required String provider,
+    required int maxResults,
+    required int timeoutSeconds,
+    required bool useJinaReader,
+  })
+  onSaveWebSearch;
 
   @override
   Widget build(BuildContext context) {
     final value = snapshot;
     if (value == null) {
       return const _EmptySurface(text: 'No settings loaded');
+    }
+    if (section == NanobotSettingsSection.webSearch) {
+      return _WebSearchSettingsSurface(
+        snapshot: value,
+        onBack: () => onOpenSection(NanobotSettingsSection.overview),
+        onSave: onSaveWebSearch,
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1629,6 +1675,7 @@ class _SettingsSurface extends StatelessWidget {
                     ? null
                     : '${value.webSearchMaxResults} results',
               ),
+              onTap: () => onOpenSection(NanobotSettingsSection.webSearch),
             ),
             _SettingsOverviewRow(
               title: 'Image generation',
@@ -1710,6 +1757,272 @@ class _SettingsSurface extends StatelessWidget {
       return port == null ? 'Gateway' : ':$port';
     }
     return port == null ? host : '$host:$port';
+  }
+}
+
+class _WebSearchSettingsSurface extends StatefulWidget {
+  const _WebSearchSettingsSurface({
+    required this.snapshot,
+    required this.onBack,
+    required this.onSave,
+  });
+
+  final NanobotSettingsSnapshot snapshot;
+  final VoidCallback onBack;
+  final Future<void> Function({
+    required String provider,
+    required int maxResults,
+    required int timeoutSeconds,
+    required bool useJinaReader,
+  })
+  onSave;
+
+  @override
+  State<_WebSearchSettingsSurface> createState() =>
+      _WebSearchSettingsSurfaceState();
+}
+
+class _WebSearchSettingsSurfaceState extends State<_WebSearchSettingsSurface> {
+  late int _maxResults;
+  late int _timeoutSeconds;
+  late bool _useJinaReader;
+
+  @override
+  void initState() {
+    super.initState();
+    _applySnapshot(widget.snapshot);
+  }
+
+  @override
+  void didUpdateWidget(covariant _WebSearchSettingsSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snapshot != widget.snapshot) {
+      _applySnapshot(widget.snapshot);
+    }
+  }
+
+  void _applySnapshot(NanobotSettingsSnapshot snapshot) {
+    _maxResults = snapshot.webSearchMaxResults ?? 5;
+    _timeoutSeconds = snapshot.webSearchTimeoutSeconds ?? 10;
+    _useJinaReader = snapshot.webFetchUseJinaReader;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = widget.snapshot.webSearchProvider ?? 'duckduckgo';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton.icon(
+          onPressed: widget.onBack,
+          icon: const Icon(Icons.chevron_left),
+          label: const Text('Settings'),
+        ),
+        const SizedBox(height: 8),
+        const _SurfaceTitle('Web search settings'),
+        const SizedBox(height: 16),
+        _SettingsSection(
+          title: 'Web search',
+          rows: [
+            _SettingsOverviewRow(
+              title: 'Provider',
+              value: provider,
+              caption: 'Search provider used by web_search.',
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _SettingsSection(
+          title: 'Behavior',
+          rows: [
+            _SettingsStepperRow(
+              title: 'Max results',
+              caption: 'Results returned by each web_search call.',
+              value: _maxResults,
+              decrementKey: const ValueKey('web-search-max-decrement'),
+              incrementKey: const ValueKey('web-search-max-increment'),
+              onChanged: (value) {
+                setState(() => _maxResults = value.clamp(1, 10));
+              },
+            ),
+            _SettingsStepperRow(
+              title: 'Timeout',
+              caption: 'Seconds before a search provider request times out.',
+              value: _timeoutSeconds,
+              suffix: 's',
+              decrementKey: const ValueKey('web-search-timeout-decrement'),
+              incrementKey: const ValueKey('web-search-timeout-increment'),
+              onChanged: (value) {
+                setState(() => _timeoutSeconds = value.clamp(1, 120));
+              },
+            ),
+            _SettingsSwitchRow(
+              title: 'Jina reader',
+              caption: 'Use Jina Reader for web_fetch when available.',
+              value: _useJinaReader,
+              onChanged: (value) => setState(() => _useJinaReader = value),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.snapshot.requiresRestart
+                    ? 'Saved. Restart when ready.'
+                    : 'Save changes, then restart when ready.',
+                style: const TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => unawaited(
+                widget.onSave(
+                  provider: provider,
+                  maxResults: _maxResults,
+                  timeoutSeconds: _timeoutSeconds,
+                  useJinaReader: _useJinaReader,
+                ),
+              ),
+              child: const Text('Save Web search'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsStepperRow extends StatelessWidget {
+  const _SettingsStepperRow({
+    required this.title,
+    required this.caption,
+    required this.value,
+    required this.decrementKey,
+    required this.incrementKey,
+    required this.onChanged,
+    this.suffix = '',
+  });
+
+  final String title;
+  final String caption;
+  final int value;
+  final String suffix;
+  final Key decrementKey;
+  final Key incrementKey;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppThemeTokens.headingText,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  caption,
+                  style: const TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                key: decrementKey,
+                tooltip: 'Decrease $title',
+                onPressed: () => onChanged(value - 1),
+                icon: const Icon(Icons.remove),
+              ),
+              SizedBox(
+                width: 52,
+                child: Text(
+                  '$value$suffix',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppThemeTokens.text,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                key: incrementKey,
+                tooltip: 'Increase $title',
+                onPressed: () => onChanged(value + 1),
+                icon: const Icon(Icons.add),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsSwitchRow extends StatelessWidget {
+  const _SettingsSwitchRow({
+    required this.title,
+    required this.caption,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String caption;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppThemeTokens.headingText,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  caption,
+                  style: const TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
   }
 }
 
@@ -1988,15 +2301,17 @@ class _SettingsOverviewRow extends StatelessWidget {
     required this.title,
     required this.value,
     required this.caption,
+    this.onTap,
   });
 
   final String title;
   final String value;
   final String caption;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
         children: [
@@ -2040,6 +2355,11 @@ class _SettingsOverviewRow extends StatelessWidget {
         ],
       ),
     );
+    final handler = onTap;
+    if (handler == null) {
+      return row;
+    }
+    return InkWell(onTap: handler, child: row);
   }
 }
 

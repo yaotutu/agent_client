@@ -270,6 +270,16 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotSettingsSnapshot> saveWebSearchSettings({
+    required String provider,
+    required int maxResults,
+    required int timeoutSeconds,
+    required bool useJinaReader,
+  }) async {
+    return const NanobotSettingsSnapshot();
+  }
+
+  @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
     return const [];
   }

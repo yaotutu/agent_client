@@ -186,6 +186,25 @@ class NanobotApiClient {
     return NanobotVersionCheckDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotSettingsDto> updateWebSearchSettings({
+    required String provider,
+    required int maxResults,
+    required int timeoutSeconds,
+    required bool useJinaReader,
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/web-search/update',
+      queryParameters: {
+        'provider': provider,
+        'max_results': maxResults,
+        'timeout': timeoutSeconds,
+        'use_jina_reader': useJinaReader,
+      },
+      options: await _authOptions(),
+    );
+    return NanobotSettingsDto.fromJson(_asMap(response.data));
+  }
+
   Future<NanobotSkillsDto> fetchSkills() async {
     final response = await _dio.get<Object?>(
       '/api/webui/skills',

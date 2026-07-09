@@ -63,6 +63,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Update available v1.3.0'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Web search'));
+    await tester.tap(find.text('Web search'));
+    await tester.pumpAndSettle();
+    expect(find.text('Web search settings'), findsOneWidget);
+    expect(find.text('Max results'), findsOneWidget);
+    expect(find.text('Timeout'), findsOneWidget);
+    expect(find.text('Jina reader'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('web-search-max-increment')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save Web search'));
+    await tester.pumpAndSettle();
+    expect(repository.webSearchSaveRequests, hasLength(1));
+    expect(repository.webSearchSaveRequests.single.maxResults, 6);
+    expect(find.text('Saved. Restart when ready.'), findsOneWidget);
+
     await tester.tap(find.text('Apps'));
     await tester.pumpAndSettle();
     expect(find.text('Apps'), findsWidgets);
@@ -1614,6 +1630,15 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   final mcpToolsUpdateRequests = <({String name, List<String> enabledTools})>[];
   final customMcpRequests = <Map<String, Object?>>[];
   final mcpConfigImports = <String>[];
+  final webSearchSaveRequests =
+      <
+        ({
+          String provider,
+          int maxResults,
+          int timeoutSeconds,
+          bool useJinaReader,
+        })
+      >[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -1768,6 +1793,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       webSearchEnabled: true,
       webSearchProvider: 'searxng',
       webSearchMaxResults: 5,
+      webSearchTimeoutSeconds: 10,
+      webFetchUseJinaReader: false,
       imageGenerationEnabled: true,
       imageGenerationProvider: 'openrouter',
       imageGenerationModel: 'image-model',
@@ -1805,6 +1832,31 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       currentVersion: '1.2.3',
       latestVersion: '1.3.0',
       pypiUrl: 'https://pypi.org/project/nanobot',
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> saveWebSearchSettings({
+    required String provider,
+    required int maxResults,
+    required int timeoutSeconds,
+    required bool useJinaReader,
+  }) async {
+    webSearchSaveRequests.add((
+      provider: provider,
+      maxResults: maxResults,
+      timeoutSeconds: timeoutSeconds,
+      useJinaReader: useJinaReader,
+    ));
+    return NanobotSettingsSnapshot(
+      model: 'MiniMax-M3',
+      provider: 'openai',
+      webSearchEnabled: true,
+      webSearchProvider: provider,
+      webSearchMaxResults: maxResults,
+      webSearchTimeoutSeconds: timeoutSeconds,
+      webFetchUseJinaReader: useJinaReader,
+      requiresRestart: true,
     );
   }
 

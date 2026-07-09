@@ -1,5 +1,7 @@
 enum NanobotShellView { chat, settings, apps, automations, skills }
 
+enum NanobotSettingsSection { overview, webSearch }
+
 enum NanobotAutomationAction {
   enable('enable'),
   disable('disable'),
@@ -34,6 +36,8 @@ class NanobotSettingsSnapshot {
     this.webSearchProvider,
     this.webSearchEnabled = false,
     this.webSearchMaxResults,
+    this.webSearchTimeoutSeconds,
+    this.webFetchUseJinaReader = false,
     this.imageGenerationEnabled = false,
     this.imageGenerationProvider,
     this.imageGenerationModel,
@@ -63,6 +67,8 @@ class NanobotSettingsSnapshot {
   final String? webSearchProvider;
   final bool webSearchEnabled;
   final int? webSearchMaxResults;
+  final int? webSearchTimeoutSeconds;
+  final bool webFetchUseJinaReader;
   final bool imageGenerationEnabled;
   final String? imageGenerationProvider;
   final String? imageGenerationModel;

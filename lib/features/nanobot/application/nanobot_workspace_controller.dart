@@ -169,6 +169,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
   Future<void> openSettings() async {
     state = state.copyWith(
       activeView: NanobotShellView.settings,
+      settingsSection: NanobotSettingsSection.overview,
       isLoadingSurface: true,
       clearError: true,
       clearVersionCheck: true,
@@ -179,6 +180,44 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
           .fetchSettingsSnapshot();
       state = state.copyWith(
         settingsSnapshot: snapshot,
+        isLoadingSurface: false,
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(
+        isLoadingSurface: false,
+        errorMessage: _friendlyError(error),
+      );
+    }
+  }
+
+  void openSettingsSection(NanobotSettingsSection section) {
+    state = state.copyWith(
+      activeView: NanobotShellView.settings,
+      settingsSection: section,
+      clearError: true,
+    );
+  }
+
+  Future<void> saveWebSearchSettings({
+    required String provider,
+    required int maxResults,
+    required int timeoutSeconds,
+    required bool useJinaReader,
+  }) async {
+    state = state.copyWith(isLoadingSurface: true, clearError: true);
+    try {
+      final snapshot = await ref
+          .read(nanobotRepositoryProvider)
+          .saveWebSearchSettings(
+            provider: provider,
+            maxResults: maxResults,
+            timeoutSeconds: timeoutSeconds,
+            useJinaReader: useJinaReader,
+          );
+      state = state.copyWith(
+        settingsSnapshot: snapshot,
+        settingsSection: NanobotSettingsSection.webSearch,
         isLoadingSurface: false,
         clearError: true,
       );
