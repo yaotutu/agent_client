@@ -1986,14 +1986,13 @@ class _ModelSettingsSurface extends StatefulWidget {
 class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   late final TextEditingController _providerController;
   late final TextEditingController _modelController;
-  late final TextEditingController _contextWindowController;
+  late int _contextWindowTokens;
 
   @override
   void initState() {
     super.initState();
     _providerController = TextEditingController();
     _modelController = TextEditingController();
-    _contextWindowController = TextEditingController();
     _applySnapshot(widget.snapshot);
   }
 
@@ -2009,15 +2008,15 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   void dispose() {
     _providerController.dispose();
     _modelController.dispose();
-    _contextWindowController.dispose();
     super.dispose();
   }
 
   void _applySnapshot(NanobotSettingsSnapshot snapshot) {
     _providerController.text = snapshot.provider ?? '';
     _modelController.text = snapshot.model ?? '';
-    _contextWindowController.text = (snapshot.contextWindowTokens ?? 0)
-        .toString();
+    _contextWindowTokens = _normalizeModelContextWindow(
+      snapshot.contextWindowTokens,
+    );
   }
 
   @override
@@ -2054,12 +2053,13 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
               controller: _modelController,
               fieldKey: const ValueKey('model-id-field'),
             ),
-            _SettingsTextFieldRow(
+            _SettingsContextWindowRow(
               title: 'Context window',
               caption: 'Maximum context window tokens for this model.',
-              controller: _contextWindowController,
-              fieldKey: const ValueKey('model-context-window-field'),
-              textAlign: TextAlign.end,
+              value: _contextWindowTokens,
+              onChanged: (value) {
+                setState(() => _contextWindowTokens = value);
+              },
             ),
           ],
         ),
@@ -2083,10 +2083,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
                   modelPreset: modelPreset,
                   model: _modelController.text,
                   provider: _providerController.text,
-                  contextWindowTokens:
-                      int.tryParse(_contextWindowController.text) ??
-                      widget.snapshot.contextWindowTokens ??
-                      0,
+                  contextWindowTokens: _contextWindowTokens,
                 ),
               ),
               child: const Text('Save Model'),
@@ -2094,6 +2091,117 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
           ],
         ),
       ],
+    );
+  }
+}
+
+int _normalizeModelContextWindow(int? value) {
+  return switch (value) {
+    65536 => 65536,
+    262144 => 262144,
+    _ => 200000,
+  };
+}
+
+class _SettingsContextWindowRow extends StatelessWidget {
+  const _SettingsContextWindowRow({
+    required this.title,
+    required this.caption,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String caption;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final label = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppThemeTokens.headingText,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                caption,
+                style: const TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          );
+          final choices = _ModelContextWindowChoices(
+            value: value,
+            onChanged: onChanged,
+          );
+          if (constraints.maxWidth < 520) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [label, const SizedBox(height: 12), choices],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: label),
+              const SizedBox(width: 12),
+              choices,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ModelContextWindowChoices extends StatelessWidget {
+  const _ModelContextWindowChoices({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children:
+          const [
+                (label: '64K', value: 65536, key: 'model-context-window-64k'),
+                (
+                  label: '200K',
+                  value: 200000,
+                  key: 'model-context-window-200k',
+                ),
+                (
+                  label: '256K',
+                  value: 262144,
+                  key: 'model-context-window-256k',
+                ),
+              ]
+              .map((option) {
+                return ChoiceChip(
+                  key: ValueKey(option.key),
+                  label: Text(option.label),
+                  selected: value == option.value,
+                  onSelected: (_) => onChanged(option.value),
+                );
+              })
+              .toList(growable: false),
     );
   }
 }

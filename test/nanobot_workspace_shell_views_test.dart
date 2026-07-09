@@ -337,6 +337,9 @@ void main() {
     expect(find.text('Provider'), findsOneWidget);
     expect(find.text('Model'), findsWidgets);
     expect(find.text('Context window'), findsOneWidget);
+    expect(find.text('64K'), findsOneWidget);
+    expect(find.text('200K'), findsOneWidget);
+    expect(find.text('256K'), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const ValueKey('model-provider-field')),
@@ -346,10 +349,11 @@ void main() {
       find.byKey(const ValueKey('model-id-field')),
       'MiniMax-M4',
     );
-    await tester.enterText(
-      find.byKey(const ValueKey('model-context-window-field')),
-      '131072',
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('model-context-window-64k')),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('model-context-window-64k')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Save Model'));
     await tester.pumpAndSettle();
@@ -360,7 +364,7 @@ void main() {
     expect(repository.modelSaveRequests.single.modelPreset, 'default');
     expect(repository.modelSaveRequests.single.model, 'MiniMax-M4');
     expect(repository.modelSaveRequests.single.provider, 'openai');
-    expect(repository.modelSaveRequests.single.contextWindowTokens, 131072);
+    expect(repository.modelSaveRequests.single.contextWindowTokens, 65536);
     expect(find.text('Saved. Restart when ready.'), findsOneWidget);
   });
 
