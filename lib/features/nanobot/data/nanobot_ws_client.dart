@@ -293,7 +293,12 @@ class NanobotWsClient {
         if (raw is! String) {
           continue;
         }
-        final decoded = jsonDecode(raw);
+        final Object? decoded;
+        try {
+          decoded = jsonDecode(raw);
+        } on FormatException {
+          continue;
+        }
         if (decoded is! Map) {
           continue;
         }

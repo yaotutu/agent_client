@@ -205,6 +205,33 @@ void main() {
     await error;
   });
 
+  test('ignores malformed inbound frames and keeps reading', () async {
+    final ws = client();
+    addTearDown(ws.dispose);
+
+    await ws.connect();
+
+    final event = expectLater(
+      ws.events,
+      emits(
+        isA<NanobotEvent>()
+            .having((e) => e.kind, 'kind', NanobotEventKind.delta)
+            .having((e) => e.chatId, 'chatId', 'chat-1')
+            .having((e) => e.text, 'text', 'still alive'),
+      ),
+    );
+
+    harness.sendRaw('not json');
+    harness.send({
+      'event': 'delta',
+      'chat_id': 'chat-1',
+      'text': 'still alive',
+    });
+
+    await event;
+    expect(ws.currentStatus, NanobotSocketStatus.open);
+  });
+
   test(
     'replays pending inbound frames when chat stream subscribes later',
     () async {
@@ -280,6 +307,10 @@ class _WsHarness {
 
   void send(Map<String, Object?> frame) {
     _socket?.add(jsonEncode(frame));
+  }
+
+  void sendRaw(String frame) {
+    _socket?.add(frame);
   }
 
   Future<void> closeSocket(int code, String reason) async {
