@@ -196,138 +196,138 @@ void main() {
     await tester.tap(find.text('Test CLI'));
     await tester.pumpAndSettle();
 
-    expect(repository.cliActionRequests, [
-      (action: 'test', name: 'gimp'),
-    ]);
+    expect(repository.cliActionRequests, [(action: 'test', name: 'gimp')]);
     expect(find.text('CLI healthy'), findsOneWidget);
     expect(find.text('WebSocket'), findsOneWidget);
     expect(find.text('GitHub'), findsOneWidget);
   });
 
-  testWidgets('apps surface runs nanobot feature actions and keeps other kinds', (
-    tester,
-  ) async {
-    final repository = _FakeNanobotRepository(
-      appItems: const [
-        NanobotCatalogItem(
-          id: 'nanobot:sms',
-          title: 'SMS',
-          subtitle: 'Enabled',
-          status: 'Channel',
-          filterKeys: ['nanobot', 'ready', 'channel'],
-        ),
-        NanobotCatalogItem(
-          id: 'cli:gimp',
-          title: 'GIMP',
-          subtitle: 'Image editor',
-          status: 'CLI',
-          filterKeys: ['cli', 'ready'],
-        ),
-        NanobotCatalogItem(
-          id: 'mcp:github',
-          title: 'GitHub',
-          subtitle: 'Repository tools',
-          status: 'Configured',
-          filterKeys: ['mcp', 'ready'],
-        ),
-      ],
-      actionAppItems: const [
-        NanobotCatalogItem(
-          id: 'nanobot:sms',
-          title: 'SMS',
-          subtitle: 'Disabled',
-          status: 'Channel',
-          filterKeys: ['nanobot', 'unavailable', 'channel'],
-        ),
-      ],
-    );
-    addTearDown(repository.dispose);
+  testWidgets(
+    'apps surface runs nanobot feature actions and keeps other kinds',
+    (tester) async {
+      final repository = _FakeNanobotRepository(
+        appItems: const [
+          NanobotCatalogItem(
+            id: 'nanobot:sms',
+            title: 'SMS',
+            subtitle: 'Enabled',
+            status: 'Channel',
+            filterKeys: ['nanobot', 'ready', 'channel'],
+          ),
+          NanobotCatalogItem(
+            id: 'cli:gimp',
+            title: 'GIMP',
+            subtitle: 'Image editor',
+            status: 'CLI',
+            filterKeys: ['cli', 'ready'],
+          ),
+          NanobotCatalogItem(
+            id: 'mcp:github',
+            title: 'GitHub',
+            subtitle: 'Repository tools',
+            status: 'Configured',
+            filterKeys: ['mcp', 'ready'],
+          ),
+        ],
+        actionAppItems: const [
+          NanobotCatalogItem(
+            id: 'nanobot:sms',
+            title: 'SMS',
+            subtitle: 'Disabled',
+            status: 'Channel',
+            filterKeys: ['nanobot', 'unavailable', 'channel'],
+          ),
+        ],
+      );
+      addTearDown(repository.dispose);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(home: NanobotWorkspacePage()),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Apps'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Disable'));
-    await tester.pumpAndSettle();
-
-    expect(repository.nanobotFeatureActionRequests, [
-      (action: 'disable', name: 'sms'),
-    ]);
-    expect(find.text('Disabled'), findsOneWidget);
-    expect(find.text('GIMP'), findsOneWidget);
-    expect(find.text('GitHub'), findsOneWidget);
-  });
-
-  testWidgets('apps surface runs configured MCP actions and keeps other kinds', (
-    tester,
-  ) async {
-    final repository = _FakeNanobotRepository(
-      appItems: const [
-        NanobotCatalogItem(
-          id: 'nanobot:websocket',
-          title: 'WebSocket',
-          subtitle: 'Required for WebUI',
-          status: 'Channel',
-          filterKeys: ['nanobot', 'ready', 'channel'],
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: NanobotWorkspacePage()),
         ),
-        NanobotCatalogItem(
-          id: 'cli:gimp',
-          title: 'GIMP',
-          subtitle: 'Image editor',
-          status: 'CLI',
-          filterKeys: ['cli', 'ready'],
-        ),
-        NanobotCatalogItem(
-          id: 'mcp:github',
-          title: 'GitHub',
-          subtitle: 'Repository tools',
-          status: 'Configured',
-          filterKeys: ['mcp', 'ready'],
-        ),
-      ],
-      actionAppItems: const [
-        NanobotCatalogItem(
-          id: 'mcp:github',
-          title: 'GitHub',
-          subtitle: 'MCP healthy',
-          status: 'Configured',
-          filterKeys: ['mcp', 'ready'],
-        ),
-      ],
-    );
-    addTearDown(repository.dispose);
+      );
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(home: NanobotWorkspacePage()),
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Apps'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Disable'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Apps'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('GitHub'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('MCP configured'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Test MCP'));
-    await tester.pumpAndSettle();
+      expect(repository.nanobotFeatureActionRequests, [
+        (action: 'disable', name: 'sms'),
+      ]);
+      expect(find.text('Disabled'), findsOneWidget);
+      expect(find.text('GIMP'), findsOneWidget);
+      expect(find.text('GitHub'), findsOneWidget);
+    },
+  );
 
-    expect(repository.mcpPresetActionRequests, hasLength(1));
-    expect(repository.mcpPresetActionRequests.single.action, 'test');
-    expect(repository.mcpPresetActionRequests.single.name, 'github');
-    expect(repository.mcpPresetActionRequests.single.values, isEmpty);
-    expect(find.text('MCP healthy'), findsOneWidget);
-    expect(find.text('WebSocket'), findsOneWidget);
-    expect(find.text('GIMP'), findsOneWidget);
-  });
+  testWidgets(
+    'apps surface runs configured MCP actions and keeps other kinds',
+    (tester) async {
+      final repository = _FakeNanobotRepository(
+        appItems: const [
+          NanobotCatalogItem(
+            id: 'nanobot:websocket',
+            title: 'WebSocket',
+            subtitle: 'Required for WebUI',
+            status: 'Channel',
+            filterKeys: ['nanobot', 'ready', 'channel'],
+          ),
+          NanobotCatalogItem(
+            id: 'cli:gimp',
+            title: 'GIMP',
+            subtitle: 'Image editor',
+            status: 'CLI',
+            filterKeys: ['cli', 'ready'],
+          ),
+          NanobotCatalogItem(
+            id: 'mcp:github',
+            title: 'GitHub',
+            subtitle: 'Repository tools',
+            status: 'Configured',
+            filterKeys: ['mcp', 'ready'],
+          ),
+        ],
+        actionAppItems: const [
+          NanobotCatalogItem(
+            id: 'mcp:github',
+            title: 'GitHub',
+            subtitle: 'MCP healthy',
+            status: 'Configured',
+            filterKeys: ['mcp', 'ready'],
+          ),
+        ],
+      );
+      addTearDown(repository.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: NanobotWorkspacePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Apps'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('GitHub'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('MCP configured'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Test MCP'));
+      await tester.pumpAndSettle();
+
+      expect(repository.mcpPresetActionRequests, hasLength(1));
+      expect(repository.mcpPresetActionRequests.single.action, 'test');
+      expect(repository.mcpPresetActionRequests.single.name, 'github');
+      expect(repository.mcpPresetActionRequests.single.values, isEmpty);
+      expect(find.text('MCP healthy'), findsOneWidget);
+      expect(find.text('WebSocket'), findsOneWidget);
+      expect(find.text('GIMP'), findsOneWidget);
+    },
+  );
 
   testWidgets('apps surface collects required MCP setup fields before enable', (
     tester,
@@ -381,14 +381,22 @@ void main() {
     expect(find.text('API key'), findsOneWidget);
     expect(find.text('Save and enable'), findsOneWidget);
     expect(
-      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save and enable')).enabled,
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Save and enable'),
+          )
+          .enabled,
       isFalse,
     );
 
     await tester.enterText(find.byType(TextField).last, 'bb_live_key');
     await tester.pumpAndSettle();
     expect(
-      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save and enable')).enabled,
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Save and enable'),
+          )
+          .enabled,
       isTrue,
     );
     await tester.tap(find.text('Save and enable'));
@@ -403,9 +411,7 @@ void main() {
     expect(find.text('Configured'), findsWidgets);
   });
 
-  testWidgets('apps surface updates configured MCP tool scope', (
-    tester,
-  ) async {
+  testWidgets('apps surface updates configured MCP tool scope', (tester) async {
     final repository = _FakeNanobotRepository(
       appItems: const [
         NanobotCatalogItem(
@@ -463,6 +469,163 @@ void main() {
     expect(repository.mcpToolsUpdateRequests.single.enabledTools, isEmpty);
     expect(find.text('GIMP'), findsOneWidget);
     expect(find.text('GitHub'), findsOneWidget);
+  });
+
+  testWidgets('apps surface saves custom MCP server values', (tester) async {
+    final repository = _FakeNanobotRepository(
+      appItems: const [
+        NanobotCatalogItem(
+          id: 'mcp:github',
+          title: 'GitHub',
+          subtitle: 'Repository tools',
+          status: 'Configured',
+          filterKeys: ['mcp', 'ready'],
+        ),
+      ],
+      actionAppItems: const [
+        NanobotCatalogItem(
+          id: 'mcp:docs',
+          title: 'docs',
+          subtitle: 'Custom docs server',
+          status: 'Configured',
+          filterKeys: ['mcp', 'ready'],
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Apps'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('More MCP options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Server name'), findsOneWidget);
+    expect(find.text('Transport'), findsOneWidget);
+    expect(find.text('Command'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Save MCP'))
+          .enabled,
+      isFalse,
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('custom-mcp-name')),
+      'docs',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('custom-mcp-command')),
+      'npx',
+    );
+    await tester.ensureVisible(find.text('Advanced options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Advanced options'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('custom-mcp-args')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('custom-mcp-args')),
+      '["-y","docs-mcp"]',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('custom-mcp-env')),
+      '{"API_KEY":"secret"}',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('custom-mcp-timeout')),
+      '30',
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save MCP'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save MCP'));
+    await tester.pumpAndSettle();
+
+    expect(repository.customMcpRequests, hasLength(1));
+    expect(repository.customMcpRequests.single, {
+      'name': 'docs',
+      'transport': 'stdio',
+      'command': 'npx',
+      'args': '["-y","docs-mcp"]',
+      'url': '',
+      'env': '{"API_KEY":"secret"}',
+      'headers': '',
+      'tool_timeout': '30',
+    });
+    expect(find.text('Custom docs server'), findsOneWidget);
+    expect(find.text('GitHub'), findsNothing);
+  });
+
+  testWidgets('apps surface imports mcp.json config', (tester) async {
+    final repository = _FakeNanobotRepository(
+      appItems: const [
+        NanobotCatalogItem(
+          id: 'mcp:github',
+          title: 'GitHub',
+          subtitle: 'Repository tools',
+          status: 'Configured',
+          filterKeys: ['mcp', 'ready'],
+        ),
+      ],
+      actionAppItems: const [
+        NanobotCatalogItem(
+          id: 'mcp:filesystem',
+          title: 'filesystem',
+          subtitle: 'Imported server',
+          status: 'Configured',
+          filterKeys: ['mcp', 'ready'],
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Apps'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('More MCP options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Import'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Import mcp.json'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Import'))
+          .enabled,
+      isFalse,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('mcp-config-import')),
+      '{"mcpServers":{"filesystem":{"command":"npx"}}}',
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Import').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Import').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.mcpConfigImports, [
+      '{"mcpServers":{"filesystem":{"command":"npx"}}}',
+    ]);
+    expect(find.text('filesystem'), findsOneWidget);
+    expect(find.text('GitHub'), findsNothing);
   });
 
   testWidgets('automations empty surface keeps heading and webui empty copy', (
@@ -1417,8 +1580,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   final nanobotFeatureActionRequests = <({String action, String name})>[];
   final mcpPresetActionRequests =
       <({String action, String name, Map<String, Object?> values})>[];
-  final mcpToolsUpdateRequests =
-      <({String name, List<String> enabledTools})>[];
+  final mcpToolsUpdateRequests = <({String name, List<String> enabledTools})>[];
+  final customMcpRequests = <Map<String, Object?>>[];
+  final mcpConfigImports = <String>[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -1602,11 +1766,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     required String name,
     Map<String, Object?> values = const {},
   }) async {
-    mcpPresetActionRequests.add((
-      action: action,
-      name: name,
-      values: values,
-    ));
+    mcpPresetActionRequests.add((action: action, name: name, values: values));
     return _actionAppItems ?? _appItems;
   }
 
@@ -1616,6 +1776,20 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     required List<String> enabledTools,
   }) async {
     mcpToolsUpdateRequests.add((name: name, enabledTools: enabledTools));
+    return _actionAppItems ?? _appItems;
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> saveCustomMcpServer({
+    required Map<String, Object?> values,
+  }) async {
+    customMcpRequests.add(values);
+    return _actionAppItems ?? _appItems;
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> importMcpConfig(String config) async {
+    mcpConfigImports.add(config);
     return _actionAppItems ?? _appItems;
   }
 

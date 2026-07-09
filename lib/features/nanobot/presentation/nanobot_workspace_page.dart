@@ -127,6 +127,8 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onNanobotFeatureAction: controller.runNanobotFeatureAction,
               onMcpPresetAction: controller.runMcpPresetAction,
               onMcpToolsChange: controller.updateMcpServerTools,
+              onSaveCustomMcp: controller.saveCustomMcpServer,
+              onImportMcpConfig: controller.importMcpConfig,
               onAutomationAction: controller.runAutomationAction,
               onAutomationUpdate: controller.updateAutomation,
               onOpenSessions: wide
@@ -1195,6 +1197,8 @@ class _ChatPane extends StatelessWidget {
     required this.onNanobotFeatureAction,
     required this.onMcpPresetAction,
     required this.onMcpToolsChange,
+    required this.onSaveCustomMcp,
+    required this.onImportMcpConfig,
     required this.onAutomationAction,
     required this.onAutomationUpdate,
     required this.onOpenSettings,
@@ -1245,6 +1249,8 @@ class _ChatPane extends StatelessWidget {
     List<String> enabledTools,
   )
   onMcpToolsChange;
+  final Future<void> Function(Map<String, Object?> values) onSaveCustomMcp;
+  final Future<void> Function(String config) onImportMcpConfig;
   final Future<void> Function(
     NanobotAutomationAction action,
     NanobotCatalogItem item,
@@ -1290,6 +1296,8 @@ class _ChatPane extends StatelessWidget {
                     onNanobotFeatureAction: onNanobotFeatureAction,
                     onMcpPresetAction: onMcpPresetAction,
                     onMcpToolsChange: onMcpToolsChange,
+                    onSaveCustomMcp: onSaveCustomMcp,
+                    onImportMcpConfig: onImportMcpConfig,
                     onAutomationAction: onAutomationAction,
                     onAutomationUpdate: onAutomationUpdate,
                   ),
@@ -1455,6 +1463,8 @@ class _SecondarySurface extends StatelessWidget {
     required this.onNanobotFeatureAction,
     required this.onMcpPresetAction,
     required this.onMcpToolsChange,
+    required this.onSaveCustomMcp,
+    required this.onImportMcpConfig,
     required this.onAutomationAction,
     required this.onAutomationUpdate,
   });
@@ -1477,6 +1487,8 @@ class _SecondarySurface extends StatelessWidget {
     List<String> enabledTools,
   )
   onMcpToolsChange;
+  final Future<void> Function(Map<String, Object?> values) onSaveCustomMcp;
+  final Future<void> Function(String config) onImportMcpConfig;
   final Future<void> Function(
     NanobotAutomationAction action,
     NanobotCatalogItem item,
@@ -1505,6 +1517,8 @@ class _SecondarySurface extends StatelessWidget {
           onNanobotFeatureAction: onNanobotFeatureAction,
           onMcpPresetAction: onMcpPresetAction,
           onMcpToolsChange: onMcpToolsChange,
+          onSaveCustomMcp: onSaveCustomMcp,
+          onImportMcpConfig: onImportMcpConfig,
         ),
         NanobotShellView.automations => _CatalogSurface(
           title: 'Automations',
@@ -1911,6 +1925,8 @@ class _AppsCatalogSurface extends StatefulWidget {
     required this.onNanobotFeatureAction,
     required this.onMcpPresetAction,
     required this.onMcpToolsChange,
+    required this.onSaveCustomMcp,
+    required this.onImportMcpConfig,
   });
 
   final List<NanobotCatalogItem> items;
@@ -1929,6 +1945,8 @@ class _AppsCatalogSurface extends StatefulWidget {
     List<String> enabledTools,
   )
   onMcpToolsChange;
+  final Future<void> Function(Map<String, Object?> values) onSaveCustomMcp;
+  final Future<void> Function(String config) onImportMcpConfig;
 
   @override
   State<_AppsCatalogSurface> createState() => _AppsCatalogSurfaceState();
@@ -2032,6 +2050,11 @@ class _AppsCatalogSurfaceState extends State<_AppsCatalogSurface> {
               onMcpPresetAction: widget.onMcpPresetAction,
               onMcpToolsChange: widget.onMcpToolsChange,
             ),
+        const SizedBox(height: 16),
+        _McpCustomServerPanel(
+          onSave: widget.onSaveCustomMcp,
+          onImportConfig: widget.onImportMcpConfig,
+        ),
       ],
     );
   }
@@ -2895,6 +2918,442 @@ class _AutomationDetailTile extends StatelessWidget {
   }
 }
 
+class _McpCustomServerPanel extends StatefulWidget {
+  const _McpCustomServerPanel({
+    required this.onSave,
+    required this.onImportConfig,
+  });
+
+  final Future<void> Function(Map<String, Object?> values) onSave;
+  final Future<void> Function(String config) onImportConfig;
+
+  @override
+  State<_McpCustomServerPanel> createState() => _McpCustomServerPanelState();
+}
+
+class _McpCustomServerPanelState extends State<_McpCustomServerPanel> {
+  final _nameController = TextEditingController();
+  final _commandController = TextEditingController();
+  final _urlController = TextEditingController();
+  final _argsController = TextEditingController();
+  final _envController = TextEditingController();
+  final _headersController = TextEditingController();
+  final _timeoutController = TextEditingController();
+  final _importController = TextEditingController();
+  String? _activeMode;
+  var _transport = 'stdio';
+  var _advancedOpen = false;
+  var _isSaving = false;
+  var _isImporting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final controller in _formControllers) {
+      controller.addListener(_handleFieldChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _formControllers) {
+      controller.removeListener(_handleFieldChanged);
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Iterable<TextEditingController> get _formControllers sync* {
+    yield _nameController;
+    yield _commandController;
+    yield _urlController;
+    yield _argsController;
+    yield _envController;
+    yield _headersController;
+    yield _timeoutController;
+    yield _importController;
+  }
+
+  bool get _remoteTransport => _transport != 'stdio';
+
+  bool get _canSave {
+    if (_nameController.text.trim().isEmpty) {
+      return false;
+    }
+    return _remoteTransport
+        ? _urlController.text.trim().isNotEmpty
+        : _commandController.text.trim().isNotEmpty;
+  }
+
+  bool get _canImport => _importController.text.trim().isNotEmpty;
+
+  void _handleFieldChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        color: AppThemeTokens.panelMuted,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const SizedBox.square(
+                  dimension: 36,
+                  child: Icon(Icons.dns_outlined),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'More MCP options',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Add a custom server or import mcp.json.',
+                        style: TextStyle(
+                          color: AppThemeTokens.mutedText,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    FilterChip(
+                      label: const Text('Custom'),
+                      selected: _activeMode == 'custom',
+                      onSelected: (_) => setState(
+                        () => _activeMode = _activeMode == 'custom'
+                            ? null
+                            : 'custom',
+                      ),
+                    ),
+                    FilterChip(
+                      label: const Text('Import'),
+                      selected: _activeMode == 'import',
+                      onSelected: (_) => setState(
+                        () => _activeMode = _activeMode == 'import'
+                            ? null
+                            : 'import',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            if (_activeMode == 'custom') ...[
+              const Divider(height: 26, color: AppThemeTokens.border),
+              _buildCustomForm(context),
+            ],
+            if (_activeMode == 'import') ...[
+              const Divider(height: 26, color: AppThemeTokens.border),
+              _buildImportForm(context),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomForm(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 720;
+            final fields = [
+              _formField(
+                key: const ValueKey('custom-mcp-name'),
+                controller: _nameController,
+                label: 'Server name',
+                hintText: 'docs',
+              ),
+              _transportField(),
+              _remoteTransport
+                  ? _formField(
+                      key: const ValueKey('custom-mcp-url'),
+                      controller: _urlController,
+                      label: 'URL',
+                      hintText: _transport == 'sse'
+                          ? 'https://example.com/sse'
+                          : 'https://example.com/mcp',
+                    )
+                  : _formField(
+                      key: const ValueKey('custom-mcp-command'),
+                      controller: _commandController,
+                      label: 'Command',
+                      hintText: 'npx',
+                    ),
+              FilledButton.icon(
+                onPressed: _canSave && !_isSaving ? _saveCustom : null,
+                icon: _isSaving
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check),
+                label: const Text('Save MCP'),
+              ),
+            ];
+            if (narrow) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final field in fields) ...[
+                    field,
+                    const SizedBox(height: 10),
+                  ],
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (var i = 0; i < fields.length; i += 1) ...[
+                  if (i == fields.length - 1)
+                    fields[i]
+                  else
+                    Expanded(child: fields[i]),
+                  if (i != fields.length - 1) const SizedBox(width: 10),
+                ],
+              ],
+            );
+          },
+        ),
+        TextButton.icon(
+          onPressed: () => setState(() => _advancedOpen = !_advancedOpen),
+          icon: Icon(
+            _advancedOpen ? Icons.expand_less : Icons.expand_more,
+            size: 18,
+          ),
+          label: Text(_advancedOpen ? 'Hide advanced' : 'Advanced options'),
+        ),
+        if (_advancedOpen)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final children = [
+                if (_remoteTransport)
+                  _multiLineField(
+                    key: const ValueKey('custom-mcp-headers'),
+                    controller: _headersController,
+                    label: 'Headers JSON',
+                    hintText: '{"Authorization":"Bearer ..."}',
+                  )
+                else
+                  _multiLineField(
+                    key: const ValueKey('custom-mcp-args'),
+                    controller: _argsController,
+                    label: 'Args JSON',
+                    hintText: '["-y", "docs-mcp"]',
+                  ),
+                _multiLineField(
+                  key: const ValueKey('custom-mcp-env'),
+                  controller: _envController,
+                  label: 'Env JSON',
+                  hintText: '{"API_KEY":"..."}',
+                ),
+                _formField(
+                  key: const ValueKey('custom-mcp-timeout'),
+                  controller: _timeoutController,
+                  label: 'Tool timeout',
+                  keyboardType: TextInputType.number,
+                ),
+              ];
+              if (constraints.maxWidth < 720) {
+                return Column(
+                  children: [
+                    for (final child in children) ...[
+                      child,
+                      const SizedBox(height: 10),
+                    ],
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < children.length; i += 1) ...[
+                    Expanded(child: children[i]),
+                    if (i != children.length - 1) const SizedBox(width: 10),
+                  ],
+                ],
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildImportForm(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final input = _multiLineField(
+          key: const ValueKey('mcp-config-import'),
+          controller: _importController,
+          label: 'Import mcp.json',
+          hintText: '{"mcpServers":{"docs":{"command":"npx"}}}',
+        );
+        final button = FilledButton.icon(
+          onPressed: _canImport && !_isImporting ? _importConfig : null,
+          icon: _isImporting
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.storage_outlined),
+          label: const Text('Import'),
+        );
+        if (constraints.maxWidth < 720) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [input, const SizedBox(height: 10), button],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(child: input),
+            const SizedBox(width: 10),
+            button,
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _transportField() {
+    return DropdownButtonFormField<String>(
+      initialValue: _transport,
+      decoration: const InputDecoration(
+        labelText: 'Transport',
+        border: OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: const [
+        DropdownMenuItem(value: 'stdio', child: Text('stdio')),
+        DropdownMenuItem(value: 'streamableHttp', child: Text('HTTP')),
+        DropdownMenuItem(value: 'sse', child: Text('SSE')),
+      ],
+      onChanged: (value) => setState(() => _transport = value ?? 'stdio'),
+    );
+  }
+
+  Widget _formField({
+    required Key key,
+    required TextEditingController controller,
+    required String label,
+    String? hintText,
+    TextInputType? keyboardType,
+  }) {
+    return TextField(
+      key: key,
+      controller: controller,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+    );
+  }
+
+  Widget _multiLineField({
+    required Key key,
+    required TextEditingController controller,
+    required String label,
+    required String hintText,
+  }) {
+    return TextField(
+      key: key,
+      controller: controller,
+      minLines: 3,
+      maxLines: 5,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+    );
+  }
+
+  Future<void> _saveCustom() async {
+    setState(() => _isSaving = true);
+    try {
+      await widget.onSave({
+        'name': _nameController.text.trim(),
+        'transport': _transport,
+        'command': _commandController.text.trim(),
+        'args': _argsController.text.trim(),
+        'url': _urlController.text.trim(),
+        'env': _envController.text.trim(),
+        'headers': _headersController.text.trim(),
+        'tool_timeout': _timeoutController.text.trim(),
+      });
+      if (!mounted) {
+        return;
+      }
+      final previousTransport = _transport;
+      _clearCustomFields();
+      setState(() {
+        _transport = previousTransport;
+        _isSaving = false;
+      });
+    } on Object {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _importConfig() async {
+    setState(() => _isImporting = true);
+    try {
+      await widget.onImportConfig(_importController.text.trim());
+      if (!mounted) {
+        return;
+      }
+      _importController.clear();
+      setState(() => _isImporting = false);
+    } on Object {
+      if (mounted) {
+        setState(() => _isImporting = false);
+      }
+      rethrow;
+    }
+  }
+
+  void _clearCustomFields() {
+    _nameController.clear();
+    _commandController.clear();
+    _urlController.clear();
+    _argsController.clear();
+    _envController.clear();
+    _headersController.clear();
+    _timeoutController.clear();
+  }
+}
+
 class _CatalogRow extends StatelessWidget {
   const _CatalogRow({
     super.key,
@@ -3212,8 +3671,7 @@ class _McpPresetActionButtons extends StatelessWidget {
 
   bool get _configured => item.filterKeys.contains('ready');
 
-  bool get _installSupported =>
-      item.filterKeys.contains('install_supported');
+  bool get _installSupported => item.filterKeys.contains('install_supported');
 
   bool get _hasFields => item.mcpRequiredFields.isNotEmpty;
 
@@ -3414,9 +3872,8 @@ class _McpPresetToolsDialogState extends State<_McpPresetToolsDialog> {
                 FilterChip(
                   label: Text(toolName),
                   selected: _selectedTools.contains(toolName),
-                  onSelected: (_) => Navigator.of(context).pop(
-                    _toggledTools(toolName),
-                  ),
+                  onSelected: (_) =>
+                      Navigator.of(context).pop(_toggledTools(toolName)),
                 ),
             ],
           ),

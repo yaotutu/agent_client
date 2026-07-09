@@ -216,74 +216,84 @@ void main() {
     expect(mcp.single.filterKeys, containsAll(['mcp', 'ready']));
   });
 
-  test('repository preserves mcp setup fields and tool scope metadata', () async {
-    final adapter = _RouteAdapter({
-      'GET /webui/bootstrap': {
-        'token': 'token-1',
-        'ws_path': '/',
-        'expires_at': DateTime.now().add(const Duration(hours: 1)).toIso8601String(),
-      },
-      'GET /api/settings/nanobot-features': {'features': <Object?>[]},
-      'GET /api/settings/cli-apps': {'apps': <Object?>[]},
-      'GET /api/settings/mcp-presets': {
-        'presets': [
-          {
-            'name': 'browserbase',
-            'display_name': 'Browserbase',
-            'description': 'Cloud browser automation',
-            'installed': true,
-            'configured': false,
-            'install_supported': true,
-            'status': 'needs_setup',
-            'required_fields': [
-              {
-                'name': 'browserbase_api_key',
-                'label': 'API key',
-                'placeholder': 'Paste key',
-                'secret': true,
-                'required': true,
-                'configured': false,
-              },
-            ],
-            'tool_names': ['browserbase_open', 'browserbase_click'],
-            'enabled_tools': ['browserbase_open'],
-          },
-        ],
-      },
-    });
-    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
-    dio.httpClientAdapter = adapter;
-    final config = const NanobotConfig(
-      baseUrl: 'https://nanobot.test',
-      secret: 'redhat',
-    );
-    final api = NanobotApiClient(config: config, dio: dio);
-    final repository = NanobotRepository(
-      api: api,
-      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
-    );
+  test(
+    'repository preserves mcp setup fields and tool scope metadata',
+    () async {
+      final adapter = _RouteAdapter({
+        'GET /webui/bootstrap': {
+          'token': 'token-1',
+          'ws_path': '/',
+          'expires_at': DateTime.now()
+              .add(const Duration(hours: 1))
+              .toIso8601String(),
+        },
+        'GET /api/settings/nanobot-features': {'features': <Object?>[]},
+        'GET /api/settings/cli-apps': {'apps': <Object?>[]},
+        'GET /api/settings/mcp-presets': {
+          'presets': [
+            {
+              'name': 'browserbase',
+              'display_name': 'Browserbase',
+              'description': 'Cloud browser automation',
+              'installed': true,
+              'configured': false,
+              'install_supported': true,
+              'status': 'needs_setup',
+              'required_fields': [
+                {
+                  'name': 'browserbase_api_key',
+                  'label': 'API key',
+                  'placeholder': 'Paste key',
+                  'secret': true,
+                  'required': true,
+                  'configured': false,
+                },
+              ],
+              'tool_names': ['browserbase_open', 'browserbase_click'],
+              'enabled_tools': ['browserbase_open'],
+            },
+          ],
+        },
+      });
+      final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+      dio.httpClientAdapter = adapter;
+      final config = const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      );
+      final api = NanobotApiClient(config: config, dio: dio);
+      final repository = NanobotRepository(
+        api: api,
+        ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+      );
 
-    final items = await repository.fetchAppItems();
-    final mcp = items.single;
+      final items = await repository.fetchAppItems();
+      final mcp = items.single;
 
-    expect(mcp.id, 'mcp:browserbase');
-    expect(mcp.filterKeys, containsAll(['mcp', 'unavailable', 'install_supported']));
-    expect(mcp.mcpRequiredFields.single.name, 'browserbase_api_key');
-    expect(mcp.mcpRequiredFields.single.label, 'API key');
-    expect(mcp.mcpRequiredFields.single.placeholder, 'Paste key');
-    expect(mcp.mcpRequiredFields.single.secret, isTrue);
-    expect(mcp.mcpRequiredFields.single.required, isTrue);
-    expect(mcp.mcpRequiredFields.single.configured, isFalse);
-    expect(mcp.mcpToolNames, ['browserbase_open', 'browserbase_click']);
-    expect(mcp.mcpEnabledTools, ['browserbase_open']);
-  });
+      expect(mcp.id, 'mcp:browserbase');
+      expect(
+        mcp.filterKeys,
+        containsAll(['mcp', 'unavailable', 'install_supported']),
+      );
+      expect(mcp.mcpRequiredFields.single.name, 'browserbase_api_key');
+      expect(mcp.mcpRequiredFields.single.label, 'API key');
+      expect(mcp.mcpRequiredFields.single.placeholder, 'Paste key');
+      expect(mcp.mcpRequiredFields.single.secret, isTrue);
+      expect(mcp.mcpRequiredFields.single.required, isTrue);
+      expect(mcp.mcpRequiredFields.single.configured, isFalse);
+      expect(mcp.mcpToolNames, ['browserbase_open', 'browserbase_click']);
+      expect(mcp.mcpEnabledTools, ['browserbase_open']);
+    },
+  );
 
   test('repository maps mcp tool scope update results', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {
         'token': 'token-1',
         'ws_path': '/',
-        'expires_at': DateTime.now().add(const Duration(hours: 1)).toIso8601String(),
+        'expires_at': DateTime.now()
+            .add(const Duration(hours: 1))
+            .toIso8601String(),
       },
       'GET /api/settings/mcp-presets/tools': {
         'presets': [
@@ -319,6 +329,80 @@ void main() {
     expect(items.single.id, 'mcp:github');
     expect(items.single.mcpToolNames, ['repo_read', 'issue_create']);
     expect(items.single.mcpEnabledTools, isEmpty);
+  });
+
+  test('repository saves custom mcp servers and imports mcp config', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_at': DateTime.now()
+            .add(const Duration(hours: 1))
+            .toIso8601String(),
+      },
+      'GET /api/settings/mcp-presets/custom': {
+        'presets': [
+          {
+            'name': 'docs',
+            'display_name': 'docs',
+            'description': 'Custom docs server',
+            'installed': true,
+            'configured': true,
+            'status': 'configured',
+          },
+        ],
+      },
+      'GET /api/settings/mcp-presets/import': {
+        'presets': [
+          {
+            'name': 'filesystem',
+            'display_name': 'filesystem',
+            'description': 'Imported server',
+            'installed': true,
+            'configured': true,
+            'status': 'configured',
+          },
+        ],
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final custom = await repository.saveCustomMcpServer(
+      values: const {
+        'name': 'docs',
+        'transport': 'stdio',
+        'command': 'npx',
+        'args': '["-y","docs-mcp"]',
+        'env': '{"API_KEY":"secret"}',
+        'headers': '',
+        'tool_timeout': '30',
+      },
+    );
+    final imported = await repository.importMcpConfig(
+      '{"mcpServers":{"filesystem":{"command":"npx"}}}',
+    );
+
+    expect(custom.single.id, 'mcp:docs');
+    expect(imported.single.id, 'mcp:filesystem');
+    expect(adapter.requests[1].key, 'GET /api/settings/mcp-presets/custom');
+    expect(adapter.requests[1].mcpValues?['name'], 'docs');
+    expect(adapter.requests[1].mcpValues?['command'], 'npx');
+    expect(adapter.requests[1].mcpValues?['tool_timeout'], '30');
+    expect(adapter.requests[2].key, 'GET /api/settings/mcp-presets/import');
+    expect(
+      adapter.requests[2].mcpValues?['config'],
+      '{"mcpServers":{"filesystem":{"command":"npx"}}}',
+    );
   });
 
   test(
@@ -762,6 +846,7 @@ class _RouteAdapter implements HttpClientAdapter {
   _RouteAdapter(this.routes);
 
   final Map<String, Object?> routes;
+  final requests = <_RouteRequest>[];
 
   @override
   void close({bool force = false}) {}
@@ -775,6 +860,12 @@ class _RouteAdapter implements HttpClientAdapter {
     final path = options.uri.path;
     final query = options.uri.query;
     final key = '${options.method} $path${query.isEmpty ? '' : '?$query'}';
+    requests.add(
+      _RouteRequest(
+        key,
+        _decodeMcpValues(options.headers['X-Nanobot-MCP-Values']),
+      ),
+    );
     final payload = routes[key];
     if (!routes.containsKey(key)) {
       return ResponseBody.fromString(
@@ -793,4 +884,18 @@ class _RouteAdapter implements HttpClientAdapter {
       },
     );
   }
+
+  Map<String, Object?>? _decodeMcpValues(Object? value) {
+    if (value is! String || value.isEmpty) {
+      return null;
+    }
+    return Map<String, Object?>.from(jsonDecode(value) as Map);
+  }
+}
+
+class _RouteRequest {
+  const _RouteRequest(this.key, this.mcpValues);
+
+  final String key;
+  final Map<String, Object?>? mcpValues;
 }

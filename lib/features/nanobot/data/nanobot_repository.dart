@@ -134,6 +134,16 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('updateMcpServerTools');
   }
 
+  Future<List<NanobotCatalogItem>> saveCustomMcpServer({
+    required Map<String, Object?> values,
+  }) {
+    throw UnimplementedError('saveCustomMcpServer');
+  }
+
+  Future<List<NanobotCatalogItem>> importMcpConfig(String config) {
+    throw UnimplementedError('importMcpConfig');
+  }
+
   Future<List<NanobotCatalogItem>> fetchAutomationItems() {
     throw UnimplementedError('fetchAutomationItems');
   }
@@ -421,8 +431,7 @@ class NanobotRepository implements NanobotRepositoryPort {
     final fields = value is List ? value : const [];
     return [
       for (final item in fields)
-        if (item is Map)
-          _mcpRequiredField(Map<String, Object?>.from(item)),
+        if (item is Map) _mcpRequiredField(Map<String, Object?>.from(item)),
     ];
   }
 
@@ -492,6 +501,20 @@ class NanobotRepository implements NanobotRepositoryPort {
       name: name,
       enabledTools: enabledTools,
     );
+    return [for (final row in payload.presets) _mcpCatalogItem(row)];
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> saveCustomMcpServer({
+    required Map<String, Object?> values,
+  }) async {
+    final payload = await api.saveCustomMcpServer(values);
+    return [for (final row in payload.presets) _mcpCatalogItem(row)];
+  }
+
+  @override
+  Future<List<NanobotCatalogItem>> importMcpConfig(String config) async {
+    final payload = await api.importMcpConfig(config);
     return [for (final row in payload.presets) _mcpCatalogItem(row)];
   }
 

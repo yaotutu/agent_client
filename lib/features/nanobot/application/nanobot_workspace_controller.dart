@@ -224,10 +224,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     try {
       final items = await ref
           .read(nanobotRepositoryProvider)
-          .runNanobotFeatureAction(
-            action: action,
-            name: _appActionName(item),
-          );
+          .runNanobotFeatureAction(action: action, name: _appActionName(item));
       state = state.copyWith(
         appItems: _mergeAppItems(state.appItems, items),
         clearError: true,
@@ -272,6 +269,36 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
             name: _appActionName(item),
             enabledTools: enabledTools,
           );
+      state = state.copyWith(
+        appItems: _mergeAppItems(state.appItems, items),
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(errorMessage: _friendlyError(error));
+    }
+  }
+
+  Future<void> saveCustomMcpServer(Map<String, Object?> values) async {
+    state = state.copyWith(clearError: true);
+    try {
+      final items = await ref
+          .read(nanobotRepositoryProvider)
+          .saveCustomMcpServer(values: values);
+      state = state.copyWith(
+        appItems: _mergeAppItems(state.appItems, items),
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(errorMessage: _friendlyError(error));
+    }
+  }
+
+  Future<void> importMcpConfig(String config) async {
+    state = state.copyWith(clearError: true);
+    try {
+      final items = await ref
+          .read(nanobotRepositoryProvider)
+          .importMcpConfig(config);
       state = state.copyWith(
         appItems: _mergeAppItems(state.appItems, items),
         clearError: true,
@@ -1304,9 +1331,8 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     List<NanobotCatalogItem> current,
     List<NanobotCatalogItem> updates,
   ) {
-    final updateKinds = {
-      for (final item in updates) _appKind(item),
-    }..remove('');
+    final updateKinds = {for (final item in updates) _appKind(item)}
+      ..remove('');
     if (updateKinds.isEmpty) {
       return updates;
     }
