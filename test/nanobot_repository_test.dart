@@ -216,6 +216,68 @@ void main() {
     expect(mcp.single.filterKeys, containsAll(['mcp', 'ready']));
   });
 
+  test('repository preserves mcp setup fields and tool scope metadata', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_at': DateTime.now().add(const Duration(hours: 1)).toIso8601String(),
+      },
+      'GET /api/settings/nanobot-features': {'features': <Object?>[]},
+      'GET /api/settings/cli-apps': {'apps': <Object?>[]},
+      'GET /api/settings/mcp-presets': {
+        'presets': [
+          {
+            'name': 'browserbase',
+            'display_name': 'Browserbase',
+            'description': 'Cloud browser automation',
+            'installed': true,
+            'configured': false,
+            'install_supported': true,
+            'status': 'needs_setup',
+            'required_fields': [
+              {
+                'name': 'browserbase_api_key',
+                'label': 'API key',
+                'placeholder': 'Paste key',
+                'secret': true,
+                'required': true,
+                'configured': false,
+              },
+            ],
+            'tool_names': ['browserbase_open', 'browserbase_click'],
+            'enabled_tools': ['browserbase_open'],
+          },
+        ],
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final items = await repository.fetchAppItems();
+    final mcp = items.single;
+
+    expect(mcp.id, 'mcp:browserbase');
+    expect(mcp.filterKeys, containsAll(['mcp', 'unavailable', 'install_supported']));
+    expect(mcp.mcpRequiredFields.single.name, 'browserbase_api_key');
+    expect(mcp.mcpRequiredFields.single.label, 'API key');
+    expect(mcp.mcpRequiredFields.single.placeholder, 'Paste key');
+    expect(mcp.mcpRequiredFields.single.secret, isTrue);
+    expect(mcp.mcpRequiredFields.single.required, isTrue);
+    expect(mcp.mcpRequiredFields.single.configured, isFalse);
+    expect(mcp.mcpToolNames, ['browserbase_open', 'browserbase_click']);
+    expect(mcp.mcpEnabledTools, ['browserbase_open']);
+  });
+
   test(
     'repository maps unavailable skill reasons for catalog display',
     () async {

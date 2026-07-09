@@ -54,6 +54,9 @@ class NanobotCatalogItem {
     this.automationTz,
     this.automationAtMs,
     this.isLocalTriggerAutomation = false,
+    this.mcpRequiredFields = const [],
+    this.mcpToolNames = const [],
+    this.mcpEnabledTools = const [],
   });
 
   final String id;
@@ -79,6 +82,27 @@ class NanobotCatalogItem {
   final String? automationTz;
   final int? automationAtMs;
   final bool isLocalTriggerAutomation;
+  final List<NanobotMcpRequiredField> mcpRequiredFields;
+  final List<String> mcpToolNames;
+  final List<String> mcpEnabledTools;
+}
+
+class NanobotMcpRequiredField {
+  const NanobotMcpRequiredField({
+    required this.name,
+    required this.label,
+    this.placeholder = '',
+    this.secret = false,
+    this.required = false,
+    this.configured = false,
+  });
+
+  final String name;
+  final String label;
+  final String placeholder;
+  final bool secret;
+  final bool required;
+  final bool configured;
 }
 
 class NanobotSkillDetail {

@@ -404,7 +404,41 @@ class NanobotRepository implements NanobotRepositoryPort {
         installed && configured ? 'ready' : 'unavailable',
         if (installSupported) 'install_supported',
       ],
+      mcpRequiredFields: _mcpRequiredFields(row['required_fields']),
+      mcpToolNames: _stringList(row['tool_names']),
+      mcpEnabledTools: _stringList(row['enabled_tools']),
     );
+  }
+
+  List<NanobotMcpRequiredField> _mcpRequiredFields(Object? value) {
+    final fields = value is List ? value : const [];
+    return [
+      for (final item in fields)
+        if (item is Map)
+          _mcpRequiredField(Map<String, Object?>.from(item)),
+    ];
+  }
+
+  NanobotMcpRequiredField _mcpRequiredField(Map<String, Object?> row) {
+    final name = _stringValue(row, 'name');
+    return NanobotMcpRequiredField(
+      name: name,
+      label: _stringValue(row, 'label', fallbackKey: 'name'),
+      placeholder: _stringFrom(row['placeholder']) ?? '',
+      secret: row['secret'] == true,
+      required: row['required'] == true,
+      configured: row['configured'] == true,
+    );
+  }
+
+  List<String> _stringList(Object? value) {
+    if (value is! List) {
+      return const [];
+    }
+    return [
+      for (final item in value)
+        if (item is String && item.trim().isNotEmpty) item,
+    ];
   }
 
   @override

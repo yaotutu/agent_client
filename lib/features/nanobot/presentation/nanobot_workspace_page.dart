@@ -3117,44 +3117,187 @@ class _McpPresetActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final configured = item.filterKeys.contains('ready');
-    final installSupported = item.filterKeys.contains('install_supported');
-    if (configured) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PopupMenuButton<String>(
-            tooltip: 'MCP configured',
-            position: PopupMenuPosition.under,
-            onSelected: (action) => onAction(action, item),
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'test', child: Text('Test MCP')),
-              PopupMenuItem(value: 'remove', child: Text('Remove MCP')),
-            ],
-            child: const SizedBox.square(
-              dimension: 36,
-              child: Icon(Icons.check_circle_outline),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Remove MCP',
-            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-            padding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-            onPressed: () => onAction('remove', item),
-            icon: const Icon(Icons.delete_outline),
-          ),
-        ],
-      );
+    if (_configured) {
+      return _configuredActions();
     }
     return IconButton(
-      tooltip: installSupported ? 'Enable MCP' : 'Unavailable',
+      tooltip: _installSupported
+          ? (_hasFields ? 'Set up' : 'Enable MCP')
+          : 'Unavailable',
       constraints: const BoxConstraints.tightFor(width: 36, height: 36),
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
-      onPressed: installSupported ? () => onAction('enable', item) : null,
+      onPressed: _installSupported ? () => _enableOrOpenSetup(context) : null,
       icon: const Icon(Icons.add_circle_outline),
     );
+  }
+
+  Widget _configuredActions() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PopupMenuButton<String>(
+          tooltip: 'MCP configured',
+          position: PopupMenuPosition.under,
+          onSelected: (action) => onAction(action, item),
+          itemBuilder: (context) => const [
+            PopupMenuItem(value: 'test', child: Text('Test MCP')),
+            PopupMenuItem(value: 'remove', child: Text('Remove MCP')),
+          ],
+          child: const SizedBox.square(
+            dimension: 36,
+            child: Icon(Icons.check_circle_outline),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Remove MCP',
+          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          onPressed: () => onAction('remove', item),
+          icon: const Icon(Icons.delete_outline),
+        ),
+      ],
+    );
+  }
+
+  bool get _configured => item.filterKeys.contains('ready');
+
+  bool get _installSupported =>
+      item.filterKeys.contains('install_supported');
+
+  bool get _hasFields => item.mcpRequiredFields.isNotEmpty;
+
+  Future<void> _enableOrOpenSetup(BuildContext context) async {
+    if (_hasFields) {
+      final values = await showDialog<Map<String, Object?>>(
+        context: context,
+        builder: (context) => _McpPresetSetupDialog(item: item),
+      );
+      if (values == null || !context.mounted) {
+        return;
+      }
+      await onAction('enable', item, values: values);
+      return;
+    }
+    await onAction('enable', item);
+  }
+}
+
+class _McpPresetSetupDialog extends StatefulWidget {
+  const _McpPresetSetupDialog({required this.item});
+
+  final NanobotCatalogItem item;
+
+  @override
+  State<_McpPresetSetupDialog> createState() => _McpPresetSetupDialogState();
+}
+
+class _McpPresetSetupDialogState extends State<_McpPresetSetupDialog> {
+  final _controllers = <String, TextEditingController>{};
+
+  void _syncControllers() {
+    final names = {
+      for (final field in widget.item.mcpRequiredFields) field.name,
+    };
+    for (final field in widget.item.mcpRequiredFields) {
+      _controllers.putIfAbsent(field.name, TextEditingController.new);
+    }
+    final removed = [
+      for (final name in _controllers.keys)
+        if (!names.contains(name)) name,
+    ];
+    for (final name in removed) {
+      _controllers.remove(name)?.dispose();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _syncControllers();
+  }
+
+  @override
+  void didUpdateWidget(covariant _McpPresetSetupDialog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncControllers();
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Connect ${widget.item.title}'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final field in widget.item.mcpRequiredFields) ...[
+                Text(
+                  field.label,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _controllers[field.name],
+                  obscureText: field.secret,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: field.configured
+                        ? 'Leave blank to keep existing'
+                        : field.placeholder,
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _canEnable
+              ? () => Navigator.of(context).pop(_fieldValues())
+              : null,
+          child: const Text('Save and enable'),
+        ),
+      ],
+    );
+  }
+
+  bool get _canEnable {
+    for (final field in widget.item.mcpRequiredFields) {
+      final value = _controllers[field.name]?.text.trim() ?? '';
+      if (field.required && !field.configured && value.isEmpty) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Map<String, Object?> _fieldValues() {
+    return {
+      for (final entry in _controllers.entries)
+        if (entry.value.text.trim().isNotEmpty)
+          entry.key: entry.value.text.trim(),
+    };
   }
 }
 

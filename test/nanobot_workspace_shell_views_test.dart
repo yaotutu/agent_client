@@ -329,6 +329,80 @@ void main() {
     expect(find.text('GIMP'), findsOneWidget);
   });
 
+  testWidgets('apps surface collects required MCP setup fields before enable', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      appItems: const [
+        NanobotCatalogItem(
+          id: 'mcp:browserbase',
+          title: 'Browserbase',
+          subtitle: 'Cloud browser automation',
+          status: 'Needs setup',
+          filterKeys: ['mcp', 'unavailable', 'install_supported'],
+          mcpRequiredFields: [
+            NanobotMcpRequiredField(
+              name: 'browserbase_api_key',
+              label: 'API key',
+              placeholder: 'Paste key',
+              secret: true,
+              required: true,
+              configured: false,
+            ),
+          ],
+        ),
+      ],
+      actionAppItems: const [
+        NanobotCatalogItem(
+          id: 'mcp:browserbase',
+          title: 'Browserbase',
+          subtitle: 'Configured',
+          status: 'Configured',
+          filterKeys: ['mcp', 'ready'],
+        ),
+      ],
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Apps'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Set up'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Connect Browserbase'), findsOneWidget);
+    expect(find.text('API key'), findsOneWidget);
+    expect(find.text('Save and enable'), findsOneWidget);
+    expect(
+      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save and enable')).enabled,
+      isFalse,
+    );
+
+    await tester.enterText(find.byType(TextField).last, 'bb_live_key');
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save and enable')).enabled,
+      isTrue,
+    );
+    await tester.tap(find.text('Save and enable'));
+    await tester.pumpAndSettle();
+
+    expect(repository.mcpPresetActionRequests, hasLength(1));
+    expect(repository.mcpPresetActionRequests.single.action, 'enable');
+    expect(repository.mcpPresetActionRequests.single.name, 'browserbase');
+    expect(repository.mcpPresetActionRequests.single.values, {
+      'browserbase_api_key': 'bb_live_key',
+    });
+    expect(find.text('Configured'), findsWidgets);
+  });
+
   testWidgets('automations empty surface keeps heading and webui empty copy', (
     tester,
   ) async {
