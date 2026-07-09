@@ -137,6 +137,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onSaveImageGeneration: controller.saveImageGenerationSettings,
               onSaveTranscription: controller.saveTranscriptionSettings,
               onSaveNetworkSafety: controller.saveNetworkSafetySettings,
+              onSaveRuntime: controller.saveRuntimeSettings,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -1213,6 +1214,7 @@ class _ChatPane extends StatelessWidget {
     required this.onSaveImageGeneration,
     required this.onSaveTranscription,
     required this.onSaveNetworkSafety,
+    required this.onSaveRuntime,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -1305,6 +1307,12 @@ class _ChatPane extends StatelessWidget {
     required String webuiDefaultAccessMode,
   })
   onSaveNetworkSafety;
+  final Future<void> Function({
+    required String timezone,
+    required String botName,
+    required String botIcon,
+  })
+  onSaveRuntime;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -1350,6 +1358,7 @@ class _ChatPane extends StatelessWidget {
                     onSaveImageGeneration: onSaveImageGeneration,
                     onSaveTranscription: onSaveTranscription,
                     onSaveNetworkSafety: onSaveNetworkSafety,
+                    onSaveRuntime: onSaveRuntime,
                   ),
           ),
           if (state.errorMessage != null)
@@ -1523,6 +1532,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onSaveImageGeneration,
     required this.onSaveTranscription,
     required this.onSaveNetworkSafety,
+    required this.onSaveRuntime,
   });
 
   final NanobotWorkspaceState state;
@@ -1587,6 +1597,12 @@ class _SecondarySurface extends StatelessWidget {
     required String webuiDefaultAccessMode,
   })
   onSaveNetworkSafety;
+  final Future<void> Function({
+    required String timezone,
+    required String botName,
+    required String botIcon,
+  })
+  onSaveRuntime;
 
   @override
   Widget build(BuildContext context) {
@@ -1612,6 +1628,7 @@ class _SecondarySurface extends StatelessWidget {
           onSaveImageGeneration: onSaveImageGeneration,
           onSaveTranscription: onSaveTranscription,
           onSaveNetworkSafety: onSaveNetworkSafety,
+          onSaveRuntime: onSaveRuntime,
         ),
         NanobotShellView.apps => _AppsCatalogSurface(
           items: state.appItems,
@@ -1683,6 +1700,7 @@ class _SettingsSurface extends StatelessWidget {
     required this.onSaveImageGeneration,
     required this.onSaveTranscription,
     required this.onSaveNetworkSafety,
+    required this.onSaveRuntime,
   });
 
   final NanobotSettingsSnapshot? snapshot;
@@ -1722,6 +1740,12 @@ class _SettingsSurface extends StatelessWidget {
     required String webuiDefaultAccessMode,
   })
   onSaveNetworkSafety;
+  final Future<void> Function({
+    required String timezone,
+    required String botName,
+    required String botIcon,
+  })
+  onSaveRuntime;
 
   @override
   Widget build(BuildContext context) {
@@ -1755,6 +1779,13 @@ class _SettingsSurface extends StatelessWidget {
         snapshot: value,
         onBack: () => onOpenSection(NanobotSettingsSection.overview),
         onSave: onSaveNetworkSafety,
+      );
+    }
+    if (section == NanobotSettingsSection.runtime) {
+      return _RuntimeSettingsSurface(
+        snapshot: value,
+        onBack: () => onOpenSection(NanobotSettingsSection.overview),
+        onSave: onSaveRuntime,
       );
     }
     return Column(
@@ -1814,6 +1845,12 @@ class _SettingsSurface extends StatelessWidget {
         _SettingsSection(
           title: 'System',
           rows: [
+            _SettingsOverviewRow(
+              title: 'Runtime',
+              value: value.botName ?? 'nanobot',
+              caption: _settingsProviderCaption(value.botIcon, value.timezone),
+              onTap: () => onOpenSection(NanobotSettingsSection.runtime),
+            ),
             _SettingsOverviewRow(
               title: _settingsSafetyTitle(value),
               value: value.webuiAllowLocalServiceAccess ? 'On' : 'Off',
@@ -2482,6 +2519,131 @@ class _NetworkSafetySettingsSurfaceState
   }
 }
 
+class _RuntimeSettingsSurface extends StatefulWidget {
+  const _RuntimeSettingsSurface({
+    required this.snapshot,
+    required this.onBack,
+    required this.onSave,
+  });
+
+  final NanobotSettingsSnapshot snapshot;
+  final VoidCallback onBack;
+  final Future<void> Function({
+    required String timezone,
+    required String botName,
+    required String botIcon,
+  })
+  onSave;
+
+  @override
+  State<_RuntimeSettingsSurface> createState() =>
+      _RuntimeSettingsSurfaceState();
+}
+
+class _RuntimeSettingsSurfaceState extends State<_RuntimeSettingsSurface> {
+  late final TextEditingController _botNameController;
+  late final TextEditingController _botIconController;
+  late final TextEditingController _timezoneController;
+
+  @override
+  void initState() {
+    super.initState();
+    _botNameController = TextEditingController();
+    _botIconController = TextEditingController();
+    _timezoneController = TextEditingController();
+    _applySnapshot(widget.snapshot);
+  }
+
+  @override
+  void didUpdateWidget(covariant _RuntimeSettingsSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snapshot != widget.snapshot) {
+      _applySnapshot(widget.snapshot);
+    }
+  }
+
+  @override
+  void dispose() {
+    _botNameController.dispose();
+    _botIconController.dispose();
+    _timezoneController.dispose();
+    super.dispose();
+  }
+
+  void _applySnapshot(NanobotSettingsSnapshot snapshot) {
+    _botNameController.text = snapshot.botName ?? 'nanobot';
+    _botIconController.text = snapshot.botIcon ?? '';
+    _timezoneController.text = snapshot.timezone ?? 'UTC';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton.icon(
+          onPressed: widget.onBack,
+          icon: const Icon(Icons.chevron_left),
+          label: const Text('Settings'),
+        ),
+        const SizedBox(height: 8),
+        const _SurfaceTitle('Runtime settings'),
+        const SizedBox(height: 16),
+        _SettingsSection(
+          title: 'Identity',
+          rows: [
+            _SettingsTextFieldRow(
+              title: 'Bot name',
+              caption: 'Shown wherever nanobot uses a display name.',
+              controller: _botNameController,
+              fieldKey: const ValueKey('runtime-bot-name-field'),
+            ),
+            _SettingsTextFieldRow(
+              title: 'Bot icon',
+              caption: 'Short emoji or text shown with the bot name.',
+              controller: _botIconController,
+              fieldKey: const ValueKey('runtime-bot-icon-field'),
+              textAlign: TextAlign.center,
+            ),
+            _SettingsTextFieldRow(
+              title: 'Timezone',
+              caption: 'Used for schedules and time-aware replies.',
+              controller: _timezoneController,
+              fieldKey: const ValueKey('runtime-timezone-field'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.snapshot.requiresRestart
+                    ? 'Saved. Restart when ready.'
+                    : 'Save changes, then restart when ready.',
+                style: const TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => unawaited(
+                widget.onSave(
+                  timezone: _timezoneController.text,
+                  botName: _botNameController.text,
+                  botIcon: _botIconController.text,
+                ),
+              ),
+              child: const Text('Save Runtime'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _SettingsAccessModeRow extends StatelessWidget {
   const _SettingsAccessModeRow({
     required this.isNativeHostSurface,
@@ -2582,6 +2744,78 @@ class _SettingsAccessModeChoices extends StatelessWidget {
           onSelected: (_) => onChanged('full'),
         ),
       ],
+    );
+  }
+}
+
+class _SettingsTextFieldRow extends StatelessWidget {
+  const _SettingsTextFieldRow({
+    required this.title,
+    required this.caption,
+    required this.controller,
+    required this.fieldKey,
+    this.textAlign = TextAlign.start,
+  });
+
+  final String title;
+  final String caption;
+  final TextEditingController controller;
+  final Key fieldKey;
+  final TextAlign textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final label = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppThemeTokens.headingText,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                caption,
+                style: const TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          );
+          final field = SizedBox(
+            width: constraints.maxWidth < 520 ? double.infinity : 220,
+            child: TextField(
+              key: fieldKey,
+              controller: controller,
+              textAlign: textAlign,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+          );
+          if (constraints.maxWidth < 520) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [label, const SizedBox(height: 12), field],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: label),
+              const SizedBox(width: 12),
+              field,
+            ],
+          );
+        },
+      ),
     );
   }
 }

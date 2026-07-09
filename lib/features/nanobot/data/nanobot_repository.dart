@@ -139,6 +139,14 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('saveNetworkSafetySettings');
   }
 
+  Future<NanobotSettingsSnapshot> saveRuntimeSettings({
+    required String timezone,
+    required String botName,
+    required String botIcon,
+  }) {
+    throw UnimplementedError('saveRuntimeSettings');
+  }
+
   Future<NanobotVersionCheckResult> checkVersion() {
     throw UnimplementedError('checkVersion');
   }
@@ -428,6 +436,21 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
+  @override
+  Future<NanobotSettingsSnapshot> saveRuntimeSettings({
+    required String timezone,
+    required String botName,
+    required String botIcon,
+  }) async {
+    return _settingsSnapshotFromDto(
+      await api.updateRuntimeSettings(
+        timezone: timezone,
+        botName: botName,
+        botIcon: botIcon,
+      ),
+    );
+  }
+
   NanobotSettingsSnapshot _settingsSnapshotFromDto(
     NanobotSettingsDto settings,
   ) {
@@ -446,7 +469,9 @@ class NanobotRepository implements NanobotRepositoryPort {
       model: _stringFrom(settings.agent['model']),
       provider: _stringFrom(settings.agent['provider']),
       contextWindowTokens: _intValue(settings.agent['context_window_tokens']),
+      timezone: _stringFrom(settings.agent['timezone']),
       botName: _stringFrom(settings.agent['bot_name']),
+      botIcon: _stringFrom(settings.agent['bot_icon']),
       webSearchProvider: _stringFrom(webSearch['provider']),
       webSearchEnabled: webSearch['enabled'] == true,
       webSearchMaxResults: _intValue(webSearch['max_results']),

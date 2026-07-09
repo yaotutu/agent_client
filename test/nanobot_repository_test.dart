@@ -153,7 +153,9 @@ void main() {
           'model': 'MiniMax-M3',
           'provider': 'openai',
           'context_window_tokens': 262144,
+          'timezone': 'Asia/Shanghai',
           'bot_name': 'Nanobot',
+          'bot_icon': 'N',
           'project_path': '/home/user/project',
           'workspace_label': 'Project workspace',
         },
@@ -225,6 +227,8 @@ void main() {
     expect(settings.provider, 'openai');
     expect(settings.contextWindowTokens, 262144);
     expect(settings.botName, 'Nanobot');
+    expect(settings.botIcon, 'N');
+    expect(settings.timezone, 'Asia/Shanghai');
     expect(settings.webSearchProvider, 'searxng');
     expect(settings.webSearchEnabled, isTrue);
     expect(settings.webSearchMaxResults, 5);
@@ -506,6 +510,49 @@ void main() {
       expect(settings.requiresRestart, isTrue);
     },
   );
+
+  test('repository saves runtime settings through webui endpoint', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings/update?timezone=Asia%2FShanghai&bot_name=Nano+Mobile&bot_icon=N':
+          {
+            'agent': {
+              'model': 'MiniMax-M3',
+              'timezone': 'Asia/Shanghai',
+              'bot_name': 'Nano Mobile',
+              'bot_icon': 'N',
+            },
+            'requires_restart': true,
+          },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final settings = await repository.saveRuntimeSettings(
+      timezone: 'Asia/Shanghai',
+      botName: 'Nano Mobile',
+      botIcon: 'N',
+    );
+
+    expect(adapter.requests.last.key, contains('/api/settings/update'));
+    expect(settings.timezone, 'Asia/Shanghai');
+    expect(settings.botName, 'Nano Mobile');
+    expect(settings.botIcon, 'N');
+    expect(settings.requiresRestart, isTrue);
+  });
 
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({

@@ -89,6 +89,15 @@ void main() {
             },
             'requires_restart': true,
           },
+      'GET /api/settings/update?timezone=Asia%2FShanghai&bot_name=Nano+Mobile&bot_icon=N':
+          {
+            'agent': {
+              'timezone': 'Asia/Shanghai',
+              'bot_name': 'Nano Mobile',
+              'bot_icon': 'N',
+            },
+            'requires_restart': true,
+          },
     });
     final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
     dio.httpClientAdapter = adapter;
@@ -142,6 +151,14 @@ void main() {
         webuiDefaultAccessMode: 'full',
       )).advanced?['webui_default_access_mode'],
       'full',
+    );
+    expect(
+      (await client.updateRuntimeSettings(
+        timezone: 'Asia/Shanghai',
+        botName: 'Nano Mobile',
+        botIcon: 'N',
+      )).agent['bot_name'],
+      'Nano Mobile',
     );
 
     expect(adapter.calls.first.headers['X-Nanobot-Auth'], 'redhat');

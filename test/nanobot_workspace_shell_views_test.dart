@@ -257,6 +257,60 @@ void main() {
     expect(find.text('Saved. Restart when ready.'), findsOneWidget);
   });
 
+  testWidgets(
+    'settings runtime identity detail mirrors webui fields and saves',
+    (tester) async {
+      final repository = _FakeNanobotRepository();
+      addTearDown(repository.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: NanobotWorkspacePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Settings'));
+      await tester.pumpAndSettle();
+      expect(find.text('Runtime'), findsOneWidget);
+      await tester.ensureVisible(find.text('Runtime'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Runtime'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Runtime settings'), findsOneWidget);
+      expect(find.text('Identity'), findsOneWidget);
+      expect(find.text('Bot name'), findsOneWidget);
+      expect(find.text('Bot icon'), findsOneWidget);
+      expect(find.text('Timezone'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('runtime-bot-name-field')),
+        'Nano Mobile',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('runtime-bot-icon-field')),
+        'N',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('runtime-timezone-field')),
+        'Asia/Shanghai',
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Save Runtime'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save Runtime'));
+      await tester.pumpAndSettle();
+
+      expect(repository.runtimeSaveRequests, hasLength(1));
+      expect(repository.runtimeSaveRequests.single.botName, 'Nano Mobile');
+      expect(repository.runtimeSaveRequests.single.botIcon, 'N');
+      expect(repository.runtimeSaveRequests.single.timezone, 'Asia/Shanghai');
+      expect(find.text('Saved. Restart when ready.'), findsOneWidget);
+    },
+  );
+
   testWidgets('apps surface filters and searches webui catalog kinds', (
     tester,
   ) async {
@@ -1814,6 +1868,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       >[];
   final networkSafetySaveRequests =
       <({bool webuiAllowLocalServiceAccess, String webuiDefaultAccessMode})>[];
+  final runtimeSaveRequests =
+      <({String timezone, String botName, String botIcon})>[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -1964,7 +2020,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       model: 'MiniMax-M3',
       provider: 'openai',
       contextWindowTokens: 262144,
+      timezone: 'UTC',
       botName: 'Nanobot',
+      botIcon: 'N',
       webSearchEnabled: true,
       webSearchProvider: 'searxng',
       webSearchMaxResults: 5,
@@ -2134,6 +2192,27 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       isNativeHostSurface: true,
       webuiAllowLocalServiceAccess: webuiAllowLocalServiceAccess,
       webuiDefaultAccessMode: webuiDefaultAccessMode,
+      requiresRestart: true,
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> saveRuntimeSettings({
+    required String timezone,
+    required String botName,
+    required String botIcon,
+  }) async {
+    runtimeSaveRequests.add((
+      timezone: timezone,
+      botName: botName,
+      botIcon: botIcon,
+    ));
+    return NanobotSettingsSnapshot(
+      model: 'MiniMax-M3',
+      provider: 'openai',
+      timezone: timezone,
+      botName: botName,
+      botIcon: botIcon,
       requiresRestart: true,
     );
   }

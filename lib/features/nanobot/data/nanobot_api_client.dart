@@ -266,6 +266,23 @@ class NanobotApiClient {
     return NanobotSettingsDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotSettingsDto> updateRuntimeSettings({
+    required String timezone,
+    required String botName,
+    required String botIcon,
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/update',
+      queryParameters: {
+        'timezone': timezone,
+        'bot_name': botName,
+        'bot_icon': botIcon,
+      },
+      options: await _authOptions(),
+    );
+    return NanobotSettingsDto.fromJson(_asMap(response.data));
+  }
+
   Future<NanobotSkillsDto> fetchSkills() async {
     final response = await _dio.get<Object?>(
       '/api/webui/skills',

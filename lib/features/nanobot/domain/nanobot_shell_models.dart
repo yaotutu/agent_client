@@ -6,6 +6,7 @@ enum NanobotSettingsSection {
   imageGeneration,
   voiceInput,
   networkSafety,
+  runtime,
 }
 
 enum NanobotAutomationAction {
@@ -38,7 +39,9 @@ class NanobotSettingsSnapshot {
     this.model,
     this.provider,
     this.contextWindowTokens,
+    this.timezone,
     this.botName,
+    this.botIcon,
     this.webSearchProvider,
     this.webSearchEnabled = false,
     this.webSearchMaxResults,
@@ -79,7 +82,9 @@ class NanobotSettingsSnapshot {
   final String? model;
   final String? provider;
   final int? contextWindowTokens;
+  final String? timezone;
   final String? botName;
+  final String? botIcon;
   final String? webSearchProvider;
   final bool webSearchEnabled;
   final int? webSearchMaxResults;

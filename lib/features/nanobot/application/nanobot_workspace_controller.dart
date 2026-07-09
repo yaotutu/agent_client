@@ -323,6 +323,34 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     }
   }
 
+  Future<void> saveRuntimeSettings({
+    required String timezone,
+    required String botName,
+    required String botIcon,
+  }) async {
+    state = state.copyWith(isLoadingSurface: true, clearError: true);
+    try {
+      final snapshot = await ref
+          .read(nanobotRepositoryProvider)
+          .saveRuntimeSettings(
+            timezone: timezone,
+            botName: botName,
+            botIcon: botIcon,
+          );
+      state = state.copyWith(
+        settingsSnapshot: snapshot,
+        settingsSection: NanobotSettingsSection.runtime,
+        isLoadingSurface: false,
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(
+        isLoadingSurface: false,
+        errorMessage: _friendlyError(error),
+      );
+    }
+  }
+
   Future<void> checkVersion() async {
     state = state.copyWith(
       isCheckingVersion: true,
