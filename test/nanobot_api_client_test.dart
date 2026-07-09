@@ -400,6 +400,41 @@ void main() {
       ),
     );
   });
+
+  test('api client omits unchanged model settings query fields', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings/update?model_preset=default&model=deepseek-reasoner': {
+        'agent': {
+          'model_preset': 'default',
+          'model': 'deepseek-reasoner',
+          'provider': 'deepseek',
+          'context_window_tokens': 65536,
+        },
+        'requires_restart': true,
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final client = NanobotApiClient(
+      config: const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      ),
+      dio: dio,
+    );
+
+    final settings = await client.updateModelSettings(
+      modelPreset: 'default',
+      model: 'deepseek-reasoner',
+    );
+
+    expect(settings.agent['model'], 'deepseek-reasoner');
+  });
 }
 
 class _RouteAdapter implements HttpClientAdapter {

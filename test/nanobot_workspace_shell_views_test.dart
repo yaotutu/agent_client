@@ -363,7 +363,7 @@ void main() {
     expect(repository.modelSaveRequests, hasLength(1));
     expect(repository.modelSaveRequests.single.modelPreset, 'default');
     expect(repository.modelSaveRequests.single.model, 'MiniMax-M4');
-    expect(repository.modelSaveRequests.single.provider, 'openai');
+    expect(repository.modelSaveRequests.single.provider, isNull);
     expect(repository.modelSaveRequests.single.contextWindowTokens, 65536);
     expect(find.text('Saved. Restart when ready.'), findsOneWidget);
   });
@@ -417,8 +417,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.modelSaveRequests.single.model, 'deepseek-reasoner');
-    expect(repository.modelSaveRequests.single.provider, 'deepseek');
-    expect(repository.modelSaveRequests.single.contextWindowTokens, 65536);
+    expect(repository.modelSaveRequests.single.provider, isNull);
+    expect(repository.modelSaveRequests.single.contextWindowTokens, isNull);
   });
 
   testWidgets('apps surface filters and searches webui catalog kinds', (
@@ -1989,9 +1989,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       <
         ({
           String modelPreset,
-          String model,
-          String provider,
-          int contextWindowTokens,
+          String? model,
+          String? provider,
+          int? contextWindowTokens,
         })
       >[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
@@ -2364,9 +2364,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   @override
   Future<NanobotSettingsSnapshot> saveModelSettings({
     required String modelPreset,
-    required String model,
-    required String provider,
-    required int contextWindowTokens,
+    String? model,
+    String? provider,
+    int? contextWindowTokens,
   }) async {
     modelSaveRequests.add((
       modelPreset: modelPreset,
@@ -2374,11 +2374,12 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       provider: provider,
       contextWindowTokens: contextWindowTokens,
     ));
+    final current = settingsSnapshot;
     return NanobotSettingsSnapshot(
       modelPreset: modelPreset,
-      model: model,
-      provider: provider,
-      contextWindowTokens: contextWindowTokens,
+      model: model ?? current?.model,
+      provider: provider ?? current?.provider,
+      contextWindowTokens: contextWindowTokens ?? current?.contextWindowTokens,
       requiresRestart: true,
     );
   }

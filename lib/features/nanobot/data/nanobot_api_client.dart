@@ -285,18 +285,23 @@ class NanobotApiClient {
 
   Future<NanobotSettingsDto> updateModelSettings({
     required String modelPreset,
-    required String model,
-    required String provider,
-    required int contextWindowTokens,
+    String? model,
+    String? provider,
+    int? contextWindowTokens,
   }) async {
+    final queryParameters = <String, Object?>{'model_preset': modelPreset};
+    if (model != null) {
+      queryParameters['model'] = model;
+    }
+    if (provider != null) {
+      queryParameters['provider'] = provider;
+    }
+    if (contextWindowTokens != null) {
+      queryParameters['context_window_tokens'] = contextWindowTokens;
+    }
     final response = await _dio.get<Object?>(
       '/api/settings/update',
-      queryParameters: {
-        'model_preset': modelPreset,
-        'model': model,
-        'provider': provider,
-        'context_window_tokens': contextWindowTokens,
-      },
+      queryParameters: queryParameters,
       options: await _authOptions(),
     );
     return NanobotSettingsDto.fromJson(_asMap(response.data));

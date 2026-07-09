@@ -819,9 +819,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   @override
   Future<NanobotSettingsSnapshot> saveModelSettings({
     required String modelPreset,
-    required String model,
-    required String provider,
-    required int contextWindowTokens,
+    String? model,
+    String? provider,
+    int? contextWindowTokens,
   }) async {
     return const NanobotSettingsSnapshot();
   }

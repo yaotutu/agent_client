@@ -359,13 +359,22 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
   }) async {
     state = state.copyWith(isLoadingSurface: true, clearError: true);
     try {
+      final current = state.settingsSnapshot;
+      final currentModel = current?.model ?? '';
+      final currentProvider = current?.provider ?? '';
+      final currentContextWindowTokens = _normalizeModelContextWindow(
+        current?.contextWindowTokens,
+      );
       final snapshot = await ref
           .read(nanobotRepositoryProvider)
           .saveModelSettings(
             modelPreset: modelPreset,
-            model: model,
-            provider: provider,
-            contextWindowTokens: contextWindowTokens,
+            model: model == currentModel ? null : model,
+            provider: provider == currentProvider ? null : provider,
+            contextWindowTokens:
+                contextWindowTokens == currentContextWindowTokens
+                ? null
+                : contextWindowTokens,
           );
       state = state.copyWith(
         settingsSnapshot: snapshot,
@@ -1593,4 +1602,12 @@ class _ResolvedCapabilityMentions {
 
   final List<NanobotCapabilityMention> cliApps;
   final List<NanobotCapabilityMention> mcpPresets;
+}
+
+int _normalizeModelContextWindow(int? value) {
+  return switch (value) {
+    65536 => 65536,
+    262144 => 262144,
+    _ => 200000,
+  };
 }

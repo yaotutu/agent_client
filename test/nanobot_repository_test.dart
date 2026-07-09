@@ -656,6 +656,46 @@ void main() {
     },
   );
 
+  test('repository saves selected model without unchanged fields', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings/update?model_preset=default&model=deepseek-reasoner': {
+        'agent': {
+          'model_preset': 'default',
+          'model': 'deepseek-reasoner',
+          'provider': 'deepseek',
+          'context_window_tokens': 65536,
+        },
+        'requires_restart': true,
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final settings = await repository.saveModelSettings(
+      modelPreset: 'default',
+      model: 'deepseek-reasoner',
+    );
+
+    expect(adapter.requests.last.key, endsWith('model=deepseek-reasoner'));
+    expect(settings.model, 'deepseek-reasoner');
+    expect(settings.provider, 'deepseek');
+    expect(settings.contextWindowTokens, 65536);
+  });
+
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

@@ -153,9 +153,9 @@ abstract class NanobotRepositoryPort {
 
   Future<NanobotSettingsSnapshot> saveModelSettings({
     required String modelPreset,
-    required String model,
-    required String provider,
-    required int contextWindowTokens,
+    String? model,
+    String? provider,
+    int? contextWindowTokens,
   }) {
     throw UnimplementedError('saveModelSettings');
   }
@@ -491,9 +491,9 @@ class NanobotRepository implements NanobotRepositoryPort {
   @override
   Future<NanobotSettingsSnapshot> saveModelSettings({
     required String modelPreset,
-    required String model,
-    required String provider,
-    required int contextWindowTokens,
+    String? model,
+    String? provider,
+    int? contextWindowTokens,
   }) async {
     return _settingsSnapshotFromDto(
       await api.updateModelSettings(
