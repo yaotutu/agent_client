@@ -156,6 +156,7 @@ void main() {
             'installed': true,
           },
         ],
+        'last_action': {'message': 'GIMP CLI is healthy'},
       },
       'GET /api/settings/nanobot-features/disable?name=matrix': {
         'features': [
@@ -168,6 +169,8 @@ void main() {
             'installed': true,
           },
         ],
+        'requires_restart': true,
+        'last_action': {'message': 'Matrix channel disabled'},
       },
       'GET /api/settings/mcp-presets/enable?name=browserbase': {
         'presets': [
@@ -180,6 +183,8 @@ void main() {
             'status': 'configured',
           },
         ],
+        'requires_restart': true,
+        'last_action': {'message': 'Browserbase MCP enabled'},
       },
     });
     final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
@@ -205,15 +210,24 @@ void main() {
       values: const {'browserbase_api_key': 'bb_live_key'},
     );
 
-    expect(cli.single.id, 'cli:gimp');
-    expect(cli.single.status, 'CLI');
-    expect(cli.single.filterKeys, containsAll(['cli', 'ready']));
-    expect(feature.single.id, 'nanobot:matrix');
-    expect(feature.single.subtitle, 'Channel is disabled');
-    expect(feature.single.filterKeys, containsAll(['nanobot', 'unavailable']));
-    expect(mcp.single.id, 'mcp:browserbase');
-    expect(mcp.single.status, 'Configured');
-    expect(mcp.single.filterKeys, containsAll(['mcp', 'ready']));
+    expect(cli.items.single.id, 'cli:gimp');
+    expect(cli.items.single.status, 'CLI');
+    expect(cli.items.single.filterKeys, containsAll(['cli', 'ready']));
+    expect(cli.message, 'GIMP CLI is healthy');
+    expect(cli.requiresRestart, isFalse);
+    expect(feature.items.single.id, 'nanobot:matrix');
+    expect(feature.items.single.subtitle, 'Channel is disabled');
+    expect(
+      feature.items.single.filterKeys,
+      containsAll(['nanobot', 'unavailable']),
+    );
+    expect(feature.message, 'Matrix channel disabled');
+    expect(feature.requiresRestart, isTrue);
+    expect(mcp.items.single.id, 'mcp:browserbase');
+    expect(mcp.items.single.status, 'Configured');
+    expect(mcp.items.single.filterKeys, containsAll(['mcp', 'ready']));
+    expect(mcp.message, 'Browserbase MCP enabled');
+    expect(mcp.requiresRestart, isTrue);
   });
 
   test(
@@ -326,9 +340,9 @@ void main() {
       enabledTools: const [],
     );
 
-    expect(items.single.id, 'mcp:github');
-    expect(items.single.mcpToolNames, ['repo_read', 'issue_create']);
-    expect(items.single.mcpEnabledTools, isEmpty);
+    expect(items.items.single.id, 'mcp:github');
+    expect(items.items.single.mcpToolNames, ['repo_read', 'issue_create']);
+    expect(items.items.single.mcpEnabledTools, isEmpty);
   });
 
   test('repository saves custom mcp servers and imports mcp config', () async {
@@ -392,8 +406,8 @@ void main() {
       '{"mcpServers":{"filesystem":{"command":"npx"}}}',
     );
 
-    expect(custom.single.id, 'mcp:docs');
-    expect(imported.single.id, 'mcp:filesystem');
+    expect(custom.items.single.id, 'mcp:docs');
+    expect(imported.items.single.id, 'mcp:filesystem');
     expect(adapter.requests[1].key, 'GET /api/settings/mcp-presets/custom');
     expect(adapter.requests[1].mcpValues?['name'], 'docs');
     expect(adapter.requests[1].mcpValues?['command'], 'npx');

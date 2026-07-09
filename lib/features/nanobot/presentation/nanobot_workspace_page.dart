@@ -1513,6 +1513,8 @@ class _SecondarySurface extends StatelessWidget {
         ),
         NanobotShellView.apps => _AppsCatalogSurface(
           items: state.appItems,
+          actionMessage: state.appActionMessage,
+          requiresRestart: state.appRequiresRestart,
           onCliAppAction: onCliAppAction,
           onNanobotFeatureAction: onNanobotFeatureAction,
           onMcpPresetAction: onMcpPresetAction,
@@ -1921,6 +1923,8 @@ class _RawSkillMarkdown extends StatelessWidget {
 class _AppsCatalogSurface extends StatefulWidget {
   const _AppsCatalogSurface({
     required this.items,
+    required this.actionMessage,
+    required this.requiresRestart,
     required this.onCliAppAction,
     required this.onNanobotFeatureAction,
     required this.onMcpPresetAction,
@@ -1930,6 +1934,8 @@ class _AppsCatalogSurface extends StatefulWidget {
   });
 
   final List<NanobotCatalogItem> items;
+  final String? actionMessage;
+  final bool requiresRestart;
   final Future<void> Function(String action, NanobotCatalogItem item)
   onCliAppAction;
   final Future<void> Function(String action, NanobotCatalogItem item)
@@ -2031,6 +2037,24 @@ class _AppsCatalogSurfaceState extends State<_AppsCatalogSurface> {
           ],
         ),
         const SizedBox(height: 22),
+        if (widget.actionMessage != null) ...[
+          _AppsStatusNotice(
+            text: widget.actionMessage!,
+            icon: Icons.check_circle_outline,
+            color: AppThemeTokens.success,
+            backgroundColor: AppThemeTokens.successSoft,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (widget.requiresRestart) ...[
+          const _AppsStatusNotice(
+            text: 'Restart nanobot to apply updated apps and features.',
+            icon: Icons.restart_alt,
+            color: AppThemeTokens.warning,
+            backgroundColor: AppThemeTokens.warningSoft,
+          ),
+          const SizedBox(height: 12),
+        ],
         Row(
           children: [
             const Expanded(child: _SurfaceTitle('Catalog')),
@@ -2912,6 +2936,51 @@ class _AutomationDetailTile extends StatelessWidget {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppsStatusNotice extends StatelessWidget {
+  const _AppsStatusNotice({
+    required this.text,
+    required this.icon,
+    required this.color,
+    required this.backgroundColor,
+  });
+
+  final String text;
+  final IconData icon;
+  final Color color;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

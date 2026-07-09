@@ -105,21 +105,21 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('fetchAppItems');
   }
 
-  Future<List<NanobotCatalogItem>> runCliAppAction({
+  Future<NanobotAppsActionResult> runCliAppAction({
     required String action,
     required String name,
   }) {
     throw UnimplementedError('runCliAppAction');
   }
 
-  Future<List<NanobotCatalogItem>> runNanobotFeatureAction({
+  Future<NanobotAppsActionResult> runNanobotFeatureAction({
     required String action,
     required String name,
   }) {
     throw UnimplementedError('runNanobotFeatureAction');
   }
 
-  Future<List<NanobotCatalogItem>> runMcpPresetAction({
+  Future<NanobotAppsActionResult> runMcpPresetAction({
     required String action,
     required String name,
     Map<String, Object?> values = const {},
@@ -127,20 +127,20 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('runMcpPresetAction');
   }
 
-  Future<List<NanobotCatalogItem>> updateMcpServerTools({
+  Future<NanobotAppsActionResult> updateMcpServerTools({
     required String name,
     required List<String> enabledTools,
   }) {
     throw UnimplementedError('updateMcpServerTools');
   }
 
-  Future<List<NanobotCatalogItem>> saveCustomMcpServer({
+  Future<NanobotAppsActionResult> saveCustomMcpServer({
     required Map<String, Object?> values,
   }) {
     throw UnimplementedError('saveCustomMcpServer');
   }
 
-  Future<List<NanobotCatalogItem>> importMcpConfig(String config) {
+  Future<NanobotAppsActionResult> importMcpConfig(String config) {
     throw UnimplementedError('importMcpConfig');
   }
 
@@ -458,16 +458,19 @@ class NanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
-  Future<List<NanobotCatalogItem>> runCliAppAction({
+  Future<NanobotAppsActionResult> runCliAppAction({
     required String action,
     required String name,
   }) async {
     final payload = await api.runCliAppAction(action: action, name: name);
-    return [for (final row in payload.apps) _cliCatalogItem(row)];
+    return NanobotAppsActionResult(
+      items: [for (final row in payload.apps) _cliCatalogItem(row)],
+      message: _lastActionMessage(payload.lastAction),
+    );
   }
 
   @override
-  Future<List<NanobotCatalogItem>> runNanobotFeatureAction({
+  Future<NanobotAppsActionResult> runNanobotFeatureAction({
     required String action,
     required String name,
   }) async {
@@ -475,11 +478,15 @@ class NanobotRepository implements NanobotRepositoryPort {
       action: action,
       name: name,
     );
-    return [for (final row in payload.features) _featureCatalogItem(row)];
+    return NanobotAppsActionResult(
+      items: [for (final row in payload.features) _featureCatalogItem(row)],
+      message: _lastActionMessage(payload.lastAction),
+      requiresRestart: payload.requiresRestart,
+    );
   }
 
   @override
-  Future<List<NanobotCatalogItem>> runMcpPresetAction({
+  Future<NanobotAppsActionResult> runMcpPresetAction({
     required String action,
     required String name,
     Map<String, Object?> values = const {},
@@ -489,11 +496,11 @@ class NanobotRepository implements NanobotRepositoryPort {
       name: name,
       values: values,
     );
-    return [for (final row in payload.presets) _mcpCatalogItem(row)];
+    return _mcpActionResult(payload);
   }
 
   @override
-  Future<List<NanobotCatalogItem>> updateMcpServerTools({
+  Future<NanobotAppsActionResult> updateMcpServerTools({
     required String name,
     required List<String> enabledTools,
   }) async {
@@ -501,21 +508,21 @@ class NanobotRepository implements NanobotRepositoryPort {
       name: name,
       enabledTools: enabledTools,
     );
-    return [for (final row in payload.presets) _mcpCatalogItem(row)];
+    return _mcpActionResult(payload);
   }
 
   @override
-  Future<List<NanobotCatalogItem>> saveCustomMcpServer({
+  Future<NanobotAppsActionResult> saveCustomMcpServer({
     required Map<String, Object?> values,
   }) async {
     final payload = await api.saveCustomMcpServer(values);
-    return [for (final row in payload.presets) _mcpCatalogItem(row)];
+    return _mcpActionResult(payload);
   }
 
   @override
-  Future<List<NanobotCatalogItem>> importMcpConfig(String config) async {
+  Future<NanobotAppsActionResult> importMcpConfig(String config) async {
     final payload = await api.importMcpConfig(config);
-    return [for (final row in payload.presets) _mcpCatalogItem(row)];
+    return _mcpActionResult(payload);
   }
 
   @override
@@ -739,6 +746,21 @@ class NanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<void> dispose() => ws.dispose();
+
+  NanobotAppsActionResult _mcpActionResult(NanobotMcpPresetsDto payload) {
+    return NanobotAppsActionResult(
+      items: [for (final row in payload.presets) _mcpCatalogItem(row)],
+      message: _lastActionMessage(payload.lastAction),
+      requiresRestart: payload.requiresRestart,
+    );
+  }
+
+  String? _lastActionMessage(Map<String, Object?>? lastAction) {
+    if (lastAction == null) {
+      return null;
+    }
+    return _stringFrom(lastAction['message']);
+  }
 
   String _stringValue(
     Map<String, Object?> row,

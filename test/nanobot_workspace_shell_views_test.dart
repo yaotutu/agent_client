@@ -176,6 +176,8 @@ void main() {
           filterKeys: ['cli', 'ready'],
         ),
       ],
+      actionMessage: 'GIMP CLI is healthy',
+      actionRequiresRestart: true,
     );
     addTearDown(repository.dispose);
 
@@ -198,6 +200,11 @@ void main() {
 
     expect(repository.cliActionRequests, [(action: 'test', name: 'gimp')]);
     expect(find.text('CLI healthy'), findsOneWidget);
+    expect(find.text('GIMP CLI is healthy'), findsOneWidget);
+    expect(
+      find.text('Restart nanobot to apply updated apps and features.'),
+      findsOneWidget,
+    );
     expect(find.text('WebSocket'), findsOneWidget);
     expect(find.text('GitHub'), findsOneWidget);
   });
@@ -1557,6 +1564,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     List<NanobotCatalogItem>? automationItems,
     List<NanobotCatalogItem>? actionAutomationItems,
     List<NanobotCatalogItem>? actionAppItems,
+    this.actionMessage,
+    this.actionRequiresRestart = false,
     List<NanobotCatalogItem>? skillItems,
     Map<String, NanobotSkillDetail>? skillDetails,
   }) : _appItems = appItems ?? _defaultAppItems,
@@ -1572,6 +1581,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   final List<NanobotCatalogItem> _automationItems;
   final List<NanobotCatalogItem>? _actionAutomationItems;
   final List<NanobotCatalogItem>? _actionAppItems;
+  final String? actionMessage;
+  final bool actionRequiresRestart;
   final List<NanobotCatalogItem> _skillItems;
   final Map<String, NanobotSkillDetail> _skillDetails;
   final requestedSkillDetails = <String>[];
@@ -1743,54 +1754,62 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
-  Future<List<NanobotCatalogItem>> runCliAppAction({
+  Future<NanobotAppsActionResult> runCliAppAction({
     required String action,
     required String name,
   }) async {
     cliActionRequests.add((action: action, name: name));
-    return _actionAppItems ?? _appItems;
+    return _appActionResult();
   }
 
   @override
-  Future<List<NanobotCatalogItem>> runNanobotFeatureAction({
+  Future<NanobotAppsActionResult> runNanobotFeatureAction({
     required String action,
     required String name,
   }) async {
     nanobotFeatureActionRequests.add((action: action, name: name));
-    return _actionAppItems ?? _appItems;
+    return _appActionResult();
   }
 
   @override
-  Future<List<NanobotCatalogItem>> runMcpPresetAction({
+  Future<NanobotAppsActionResult> runMcpPresetAction({
     required String action,
     required String name,
     Map<String, Object?> values = const {},
   }) async {
     mcpPresetActionRequests.add((action: action, name: name, values: values));
-    return _actionAppItems ?? _appItems;
+    return _appActionResult();
   }
 
   @override
-  Future<List<NanobotCatalogItem>> updateMcpServerTools({
+  Future<NanobotAppsActionResult> updateMcpServerTools({
     required String name,
     required List<String> enabledTools,
   }) async {
     mcpToolsUpdateRequests.add((name: name, enabledTools: enabledTools));
-    return _actionAppItems ?? _appItems;
+    return _appActionResult();
   }
 
   @override
-  Future<List<NanobotCatalogItem>> saveCustomMcpServer({
+  Future<NanobotAppsActionResult> saveCustomMcpServer({
     required Map<String, Object?> values,
   }) async {
     customMcpRequests.add(values);
-    return _actionAppItems ?? _appItems;
+    return _appActionResult();
   }
 
   @override
-  Future<List<NanobotCatalogItem>> importMcpConfig(String config) async {
+  Future<NanobotAppsActionResult> importMcpConfig(String config) async {
     mcpConfigImports.add(config);
-    return _actionAppItems ?? _appItems;
+    return _appActionResult();
+  }
+
+  NanobotAppsActionResult _appActionResult() {
+    return NanobotAppsActionResult(
+      items: _actionAppItems ?? _appItems,
+      message: actionMessage,
+      requiresRestart: actionRequiresRestart,
+    );
   }
 
   @override

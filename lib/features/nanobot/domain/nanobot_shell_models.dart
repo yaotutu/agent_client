@@ -13,6 +13,18 @@ enum NanobotAutomationAction {
 
 enum NanobotCapabilityMentionKind { cli, mcp }
 
+class NanobotAppsActionResult {
+  const NanobotAppsActionResult({
+    required this.items,
+    this.message,
+    this.requiresRestart = false,
+  });
+
+  final List<NanobotCatalogItem> items;
+  final String? message;
+  final bool requiresRestart;
+}
+
 class NanobotSettingsSnapshot {
   const NanobotSettingsSnapshot({
     this.model,

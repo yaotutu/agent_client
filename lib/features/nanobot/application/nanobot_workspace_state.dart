@@ -22,6 +22,8 @@ class NanobotWorkspaceState {
     this.activeView = NanobotShellView.chat,
     this.settingsSnapshot,
     this.appItems = const [],
+    this.appActionMessage,
+    this.appRequiresRestart = false,
     this.automationItems = const [],
     this.skillItems = const [],
     this.selectedSkillItem,
@@ -58,6 +60,8 @@ class NanobotWorkspaceState {
   final NanobotShellView activeView;
   final NanobotSettingsSnapshot? settingsSnapshot;
   final List<NanobotCatalogItem> appItems;
+  final String? appActionMessage;
+  final bool appRequiresRestart;
   final List<NanobotCatalogItem> automationItems;
   final List<NanobotCatalogItem> skillItems;
   final NanobotCatalogItem? selectedSkillItem;
@@ -166,6 +170,8 @@ class NanobotWorkspaceState {
     NanobotShellView? activeView,
     NanobotSettingsSnapshot? settingsSnapshot,
     List<NanobotCatalogItem>? appItems,
+    String? appActionMessage,
+    bool? appRequiresRestart,
     List<NanobotCatalogItem>? automationItems,
     List<NanobotCatalogItem>? skillItems,
     NanobotCatalogItem? selectedSkillItem,
@@ -196,6 +202,7 @@ class NanobotWorkspaceState {
     bool clearThreadState = false,
     bool clearSettingsSnapshot = false,
     bool clearSurfaceItems = false,
+    bool clearAppActionMessage = false,
     bool clearSelectedSkill = false,
     bool clearSkillDetail = false,
     bool clearSkillDetailError = false,
@@ -224,6 +231,12 @@ class NanobotWorkspaceState {
           ? null
           : settingsSnapshot ?? this.settingsSnapshot,
       appItems: clearSurfaceItems ? const [] : appItems ?? this.appItems,
+      appActionMessage: clearSurfaceItems || clearAppActionMessage
+          ? null
+          : appActionMessage ?? this.appActionMessage,
+      appRequiresRestart: clearSurfaceItems
+          ? false
+          : appRequiresRestart ?? this.appRequiresRestart,
       automationItems: clearSurfaceItems
           ? const []
           : automationItems ?? this.automationItems,

@@ -270,48 +270,48 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
-  Future<List<NanobotCatalogItem>> runCliAppAction({
+  Future<NanobotAppsActionResult> runCliAppAction({
     required String action,
     required String name,
   }) async {
-    return const [];
+    return const NanobotAppsActionResult(items: []);
   }
 
   @override
-  Future<List<NanobotCatalogItem>> runNanobotFeatureAction({
+  Future<NanobotAppsActionResult> runNanobotFeatureAction({
     required String action,
     required String name,
   }) async {
-    return const [];
+    return const NanobotAppsActionResult(items: []);
   }
 
   @override
-  Future<List<NanobotCatalogItem>> runMcpPresetAction({
+  Future<NanobotAppsActionResult> runMcpPresetAction({
     required String action,
     required String name,
     Map<String, Object?> values = const {},
   }) async {
-    return const [];
+    return const NanobotAppsActionResult(items: []);
   }
 
   @override
-  Future<List<NanobotCatalogItem>> updateMcpServerTools({
+  Future<NanobotAppsActionResult> updateMcpServerTools({
     required String name,
     required List<String> enabledTools,
   }) async {
-    return const [];
+    return const NanobotAppsActionResult(items: []);
   }
 
   @override
-  Future<List<NanobotCatalogItem>> saveCustomMcpServer({
+  Future<NanobotAppsActionResult> saveCustomMcpServer({
     required Map<String, Object?> values,
   }) async {
-    return const [];
+    return const NanobotAppsActionResult(items: []);
   }
 
   @override
-  Future<List<NanobotCatalogItem>> importMcpConfig(String config) async {
-    return const [];
+  Future<NanobotAppsActionResult> importMcpConfig(String config) async {
+    return const NanobotAppsActionResult(items: []);
   }
 
   @override

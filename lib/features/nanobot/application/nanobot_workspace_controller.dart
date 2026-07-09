@@ -202,15 +202,12 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
   }
 
   Future<void> runCliAppAction(String action, NanobotCatalogItem item) async {
-    state = state.copyWith(clearError: true);
+    state = state.copyWith(clearError: true, clearAppActionMessage: true);
     try {
-      final items = await ref
+      final result = await ref
           .read(nanobotRepositoryProvider)
           .runCliAppAction(action: action, name: _appActionName(item));
-      state = state.copyWith(
-        appItems: _mergeAppItems(state.appItems, items),
-        clearError: true,
-      );
+      _applyAppActionResult(result);
     } on Object catch (error) {
       state = state.copyWith(errorMessage: _friendlyError(error));
     }
@@ -220,15 +217,12 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     String action,
     NanobotCatalogItem item,
   ) async {
-    state = state.copyWith(clearError: true);
+    state = state.copyWith(clearError: true, clearAppActionMessage: true);
     try {
-      final items = await ref
+      final result = await ref
           .read(nanobotRepositoryProvider)
           .runNanobotFeatureAction(action: action, name: _appActionName(item));
-      state = state.copyWith(
-        appItems: _mergeAppItems(state.appItems, items),
-        clearError: true,
-      );
+      _applyAppActionResult(result);
     } on Object catch (error) {
       state = state.copyWith(errorMessage: _friendlyError(error));
     }
@@ -239,19 +233,16 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     NanobotCatalogItem item, {
     Map<String, Object?> values = const {},
   }) async {
-    state = state.copyWith(clearError: true);
+    state = state.copyWith(clearError: true, clearAppActionMessage: true);
     try {
-      final items = await ref
+      final result = await ref
           .read(nanobotRepositoryProvider)
           .runMcpPresetAction(
             action: action,
             name: _appActionName(item),
             values: values,
           );
-      state = state.copyWith(
-        appItems: _mergeAppItems(state.appItems, items),
-        clearError: true,
-      );
+      _applyAppActionResult(result);
     } on Object catch (error) {
       state = state.copyWith(errorMessage: _friendlyError(error));
     }
@@ -261,48 +252,39 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     NanobotCatalogItem item,
     List<String> enabledTools,
   ) async {
-    state = state.copyWith(clearError: true);
+    state = state.copyWith(clearError: true, clearAppActionMessage: true);
     try {
-      final items = await ref
+      final result = await ref
           .read(nanobotRepositoryProvider)
           .updateMcpServerTools(
             name: _appActionName(item),
             enabledTools: enabledTools,
           );
-      state = state.copyWith(
-        appItems: _mergeAppItems(state.appItems, items),
-        clearError: true,
-      );
+      _applyAppActionResult(result);
     } on Object catch (error) {
       state = state.copyWith(errorMessage: _friendlyError(error));
     }
   }
 
   Future<void> saveCustomMcpServer(Map<String, Object?> values) async {
-    state = state.copyWith(clearError: true);
+    state = state.copyWith(clearError: true, clearAppActionMessage: true);
     try {
-      final items = await ref
+      final result = await ref
           .read(nanobotRepositoryProvider)
           .saveCustomMcpServer(values: values);
-      state = state.copyWith(
-        appItems: _mergeAppItems(state.appItems, items),
-        clearError: true,
-      );
+      _applyAppActionResult(result);
     } on Object catch (error) {
       state = state.copyWith(errorMessage: _friendlyError(error));
     }
   }
 
   Future<void> importMcpConfig(String config) async {
-    state = state.copyWith(clearError: true);
+    state = state.copyWith(clearError: true, clearAppActionMessage: true);
     try {
-      final items = await ref
+      final result = await ref
           .read(nanobotRepositoryProvider)
           .importMcpConfig(config);
-      state = state.copyWith(
-        appItems: _mergeAppItems(state.appItems, items),
-        clearError: true,
-      );
+      _applyAppActionResult(result);
     } on Object catch (error) {
       state = state.copyWith(errorMessage: _friendlyError(error));
     }
@@ -1350,6 +1332,15 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       return left.title.toLowerCase().compareTo(right.title.toLowerCase());
     });
     return merged;
+  }
+
+  void _applyAppActionResult(NanobotAppsActionResult result) {
+    state = state.copyWith(
+      appItems: _mergeAppItems(state.appItems, result.items),
+      appActionMessage: result.message,
+      appRequiresRestart: state.appRequiresRestart || result.requiresRestart,
+      clearError: true,
+    );
   }
 
   String _appKind(NanobotCatalogItem item) {
