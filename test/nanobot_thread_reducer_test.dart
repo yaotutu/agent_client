@@ -123,6 +123,41 @@ void main() {
     expect(state.entries.single.media.single.name, 'Diagram');
   });
 
+  test('stream end final text replaces or creates assistant entry', () {
+    final replaced = reduceAll([
+      {
+        'event': 'delta',
+        'chat_id': 'chat-1',
+        'text': '![Diagram](diagram.png)',
+        'turn_id': 't1',
+      },
+      {
+        'event': 'stream_end',
+        'chat_id': 'chat-1',
+        'text': '![Diagram](/api/media/sig/payload)',
+        'turn_id': 't1',
+      },
+    ]);
+
+    expect(replaced.entries, hasLength(1));
+    expect(replaced.entries.single.content, '![Diagram](/api/media/sig/payload)');
+    expect(replaced.entries.single.isStreaming, isTrue);
+
+    final created = reduceAll([
+      {
+        'event': 'stream_end',
+        'chat_id': 'chat-1',
+        'text': '![Diagram](/api/media/sig/payload)',
+        'turn_id': 't2',
+      },
+    ]);
+
+    expect(created.entries, hasLength(1));
+    expect(created.entries.single.content, '![Diagram](/api/media/sig/payload)');
+    expect(created.entries.single.isStreaming, isTrue);
+    expect(created.entries.single.turnId, 't2');
+  });
+
   test('goal status and turn end update run and goal snapshots', () {
     final state = reduceAll([
       {

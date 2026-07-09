@@ -237,6 +237,33 @@ class NanobotThreadReducer {
     NanobotThreadState state,
     NanobotEvent event,
   ) {
+    final finalText = event.text;
+    if (finalText != null) {
+      final entries = [...state.entries];
+      final index = _lastStreamingAssistantIndex(entries, event.turnId);
+      if (index >= 0) {
+        entries[index] = _applyTurnFields(
+          entries[index].copyWith(content: finalText, isStreaming: true),
+          event,
+          fallbackPhase: 'answer',
+        );
+      } else {
+        entries.add(
+          _applyTurnFields(
+            NanobotThreadEntry(
+              id: _entryId(state, 'assistant'),
+              role: NanobotThreadRole.assistant,
+              content: finalText,
+              createdAt: DateTime.now(),
+              isStreaming: true,
+            ),
+            event,
+            fallbackPhase: 'answer',
+          ),
+        );
+      }
+      return state.copyWith(entries: entries, isStreaming: true);
+    }
     final entries = _finalizeEntries(state.entries, event.turnId);
     return state.copyWith(entries: entries, isStreaming: false);
   }
