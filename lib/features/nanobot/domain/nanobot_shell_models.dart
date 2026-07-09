@@ -1,6 +1,6 @@
 enum NanobotShellView { chat, settings, apps, automations, skills }
 
-enum NanobotSettingsSection { overview, webSearch }
+enum NanobotSettingsSection { overview, webSearch, imageGeneration }
 
 enum NanobotAutomationAction {
   enable('enable'),
@@ -41,6 +41,10 @@ class NanobotSettingsSnapshot {
     this.imageGenerationEnabled = false,
     this.imageGenerationProvider,
     this.imageGenerationModel,
+    this.imageGenerationDefaultAspectRatio,
+    this.imageGenerationDefaultImageSize,
+    this.imageGenerationMaxImagesPerTurn,
+    this.imageGenerationSaveDir,
     this.transcriptionEnabled = false,
     this.transcriptionProvider,
     this.transcriptionModel,
@@ -72,6 +76,10 @@ class NanobotSettingsSnapshot {
   final bool imageGenerationEnabled;
   final String? imageGenerationProvider;
   final String? imageGenerationModel;
+  final String? imageGenerationDefaultAspectRatio;
+  final String? imageGenerationDefaultImageSize;
+  final int? imageGenerationMaxImagesPerTurn;
+  final String? imageGenerationSaveDir;
   final bool transcriptionEnabled;
   final String? transcriptionProvider;
   final String? transcriptionModel;

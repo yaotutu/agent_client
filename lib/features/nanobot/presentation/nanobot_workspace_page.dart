@@ -134,6 +134,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onCheckVersion: controller.checkVersion,
               onOpenSettingsSection: controller.openSettingsSection,
               onSaveWebSearch: controller.saveWebSearchSettings,
+              onSaveImageGeneration: controller.saveImageGenerationSettings,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -1207,6 +1208,7 @@ class _ChatPane extends StatelessWidget {
     required this.onCheckVersion,
     required this.onOpenSettingsSection,
     required this.onSaveWebSearch,
+    required this.onSaveImageGeneration,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -1276,6 +1278,15 @@ class _ChatPane extends StatelessWidget {
     required bool useJinaReader,
   })
   onSaveWebSearch;
+  final Future<void> Function({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String defaultAspectRatio,
+    required String defaultImageSize,
+    required int maxImagesPerTurn,
+  })
+  onSaveImageGeneration;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -1318,6 +1329,7 @@ class _ChatPane extends StatelessWidget {
                     onCheckVersion: onCheckVersion,
                     onOpenSettingsSection: onOpenSettingsSection,
                     onSaveWebSearch: onSaveWebSearch,
+                    onSaveImageGeneration: onSaveImageGeneration,
                   ),
           ),
           if (state.errorMessage != null)
@@ -1488,6 +1500,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onCheckVersion,
     required this.onOpenSettingsSection,
     required this.onSaveWebSearch,
+    required this.onSaveImageGeneration,
   });
 
   final NanobotWorkspaceState state;
@@ -1529,6 +1542,15 @@ class _SecondarySurface extends StatelessWidget {
     required bool useJinaReader,
   })
   onSaveWebSearch;
+  final Future<void> Function({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String defaultAspectRatio,
+    required String defaultImageSize,
+    required int maxImagesPerTurn,
+  })
+  onSaveImageGeneration;
 
   @override
   Widget build(BuildContext context) {
@@ -1536,6 +1558,10 @@ class _SecondarySurface extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     return SingleChildScrollView(
+      key: ValueKey(
+        '${state.activeView.name}:${state.settingsSection.name}:'
+        '${state.selectedSkillItem?.id ?? ''}',
+      ),
       padding: const EdgeInsets.all(24),
       child: switch (state.activeView) {
         NanobotShellView.settings => _SettingsSurface(
@@ -1547,6 +1573,7 @@ class _SecondarySurface extends StatelessWidget {
           onCheckVersion: onCheckVersion,
           onOpenSection: onOpenSettingsSection,
           onSaveWebSearch: onSaveWebSearch,
+          onSaveImageGeneration: onSaveImageGeneration,
         ),
         NanobotShellView.apps => _AppsCatalogSurface(
           items: state.appItems,
@@ -1615,6 +1642,7 @@ class _SettingsSurface extends StatelessWidget {
     required this.onCheckVersion,
     required this.onOpenSection,
     required this.onSaveWebSearch,
+    required this.onSaveImageGeneration,
   });
 
   final NanobotSettingsSnapshot? snapshot;
@@ -1631,6 +1659,15 @@ class _SettingsSurface extends StatelessWidget {
     required bool useJinaReader,
   })
   onSaveWebSearch;
+  final Future<void> Function({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String defaultAspectRatio,
+    required String defaultImageSize,
+    required int maxImagesPerTurn,
+  })
+  onSaveImageGeneration;
 
   @override
   Widget build(BuildContext context) {
@@ -1643,6 +1680,13 @@ class _SettingsSurface extends StatelessWidget {
         snapshot: value,
         onBack: () => onOpenSection(NanobotSettingsSection.overview),
         onSave: onSaveWebSearch,
+      );
+    }
+    if (section == NanobotSettingsSection.imageGeneration) {
+      return _ImageGenerationSettingsSurface(
+        snapshot: value,
+        onBack: () => onOpenSection(NanobotSettingsSection.overview),
+        onSave: onSaveImageGeneration,
       );
     }
     return Column(
@@ -1684,6 +1728,8 @@ class _SettingsSurface extends StatelessWidget {
                 value.imageGenerationProvider,
                 value.imageGenerationModel,
               ),
+              onTap: () =>
+                  onOpenSection(NanobotSettingsSection.imageGeneration),
             ),
             _SettingsOverviewRow(
               title: 'Voice input',
@@ -1896,6 +1942,166 @@ class _WebSearchSettingsSurfaceState extends State<_WebSearchSettingsSurface> {
   }
 }
 
+class _ImageGenerationSettingsSurface extends StatefulWidget {
+  const _ImageGenerationSettingsSurface({
+    required this.snapshot,
+    required this.onBack,
+    required this.onSave,
+  });
+
+  final NanobotSettingsSnapshot snapshot;
+  final VoidCallback onBack;
+  final Future<void> Function({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String defaultAspectRatio,
+    required String defaultImageSize,
+    required int maxImagesPerTurn,
+  })
+  onSave;
+
+  @override
+  State<_ImageGenerationSettingsSurface> createState() =>
+      _ImageGenerationSettingsSurfaceState();
+}
+
+class _ImageGenerationSettingsSurfaceState
+    extends State<_ImageGenerationSettingsSurface> {
+  late bool _enabled;
+  late int _maxImagesPerTurn;
+
+  @override
+  void initState() {
+    super.initState();
+    _applySnapshot(widget.snapshot);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ImageGenerationSettingsSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snapshot != widget.snapshot) {
+      _applySnapshot(widget.snapshot);
+    }
+  }
+
+  void _applySnapshot(NanobotSettingsSnapshot snapshot) {
+    _enabled = snapshot.imageGenerationEnabled;
+    _maxImagesPerTurn = snapshot.imageGenerationMaxImagesPerTurn ?? 1;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = widget.snapshot.imageGenerationProvider ?? '';
+    final model = widget.snapshot.imageGenerationModel ?? '';
+    final aspect = widget.snapshot.imageGenerationDefaultAspectRatio ?? '1:1';
+    final size = widget.snapshot.imageGenerationDefaultImageSize ?? '1024x1024';
+    final saveDir = widget.snapshot.imageGenerationSaveDir ?? 'Not configured';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton.icon(
+          onPressed: widget.onBack,
+          icon: const Icon(Icons.chevron_left),
+          label: const Text('Settings'),
+        ),
+        const SizedBox(height: 8),
+        const _SurfaceTitle('Image generation settings'),
+        const SizedBox(height: 16),
+        _SettingsSection(
+          title: 'Image generation',
+          rows: [
+            _SettingsSwitchRow(
+              title: 'Image generation',
+              caption:
+                  'Expose generate_image in chats when a configured image provider is available.',
+              value: _enabled,
+              switchKey: const ValueKey('image-generation-enabled-toggle'),
+              onChanged: (value) => setState(() => _enabled = value),
+            ),
+            _SettingsOverviewRow(
+              title: 'Image provider',
+              value: provider.isEmpty ? 'Select provider' : provider,
+              caption: 'Choose the registry provider used by generate_image.',
+            ),
+            _SettingsOverviewRow(
+              title: 'Provider base',
+              value: provider.isEmpty ? 'Not available' : provider,
+              caption:
+                  'Image generation reuses provider credentials from Providers.',
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _SettingsSection(
+          title: 'Defaults',
+          rows: [
+            _SettingsOverviewRow(
+              title: 'Image model',
+              value: model.isEmpty ? 'Not configured' : model,
+              caption: 'Model name sent to the selected image provider.',
+            ),
+            _SettingsOverviewRow(
+              title: 'Default aspect',
+              value: aspect,
+              caption: 'Used when the prompt does not choose an aspect ratio.',
+            ),
+            _SettingsOverviewRow(
+              title: 'Default size',
+              value: size,
+              caption: 'Size hint sent to providers that support it.',
+            ),
+            _SettingsStepperRow(
+              title: 'Max images per turn',
+              caption: 'Upper bound for one generate_image request.',
+              value: _maxImagesPerTurn,
+              decrementKey: const ValueKey('image-generation-max-decrement'),
+              incrementKey: const ValueKey('image-generation-max-increment'),
+              onChanged: (value) {
+                setState(() => _maxImagesPerTurn = value.clamp(1, 8));
+              },
+            ),
+            _SettingsOverviewRow(
+              title: 'Save directory',
+              value: saveDir,
+              caption: 'Generated image output location.',
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.snapshot.requiresRestart
+                    ? 'Saved. Restart when ready.'
+                    : 'Save changes, then restart when ready.',
+                style: const TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => unawaited(
+                widget.onSave(
+                  enabled: _enabled,
+                  provider: provider,
+                  model: model,
+                  defaultAspectRatio: aspect,
+                  defaultImageSize: size,
+                  maxImagesPerTurn: _maxImagesPerTurn,
+                ),
+              ),
+              child: const Text('Save Image generation'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _SettingsStepperRow extends StatelessWidget {
   const _SettingsStepperRow({
     required this.title,
@@ -1984,12 +2190,14 @@ class _SettingsSwitchRow extends StatelessWidget {
     required this.caption,
     required this.value,
     required this.onChanged,
+    this.switchKey,
   });
 
   final String title;
   final String caption;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final Key? switchKey;
 
   @override
   Widget build(BuildContext context) {
@@ -2019,7 +2227,7 @@ class _SettingsSwitchRow extends StatelessWidget {
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged),
+          Switch(key: switchKey, value: value, onChanged: onChanged),
         ],
       ),
     );

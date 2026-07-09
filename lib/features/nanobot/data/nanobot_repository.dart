@@ -110,6 +110,17 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('saveWebSearchSettings');
   }
 
+  Future<NanobotSettingsSnapshot> saveImageGenerationSettings({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String defaultAspectRatio,
+    required String defaultImageSize,
+    required int maxImagesPerTurn,
+  }) {
+    throw UnimplementedError('saveImageGenerationSettings');
+  }
+
   Future<NanobotVersionCheckResult> checkVersion() {
     throw UnimplementedError('checkVersion');
   }
@@ -344,6 +355,27 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
+  @override
+  Future<NanobotSettingsSnapshot> saveImageGenerationSettings({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String defaultAspectRatio,
+    required String defaultImageSize,
+    required int maxImagesPerTurn,
+  }) async {
+    return _settingsSnapshotFromDto(
+      await api.updateImageGenerationSettings(
+        enabled: enabled,
+        provider: provider,
+        model: model,
+        defaultAspectRatio: defaultAspectRatio,
+        defaultImageSize: defaultImageSize,
+        maxImagesPerTurn: maxImagesPerTurn,
+      ),
+    );
+  }
+
   NanobotSettingsSnapshot _settingsSnapshotFromDto(
     NanobotSettingsDto settings,
   ) {
@@ -367,6 +399,16 @@ class NanobotRepository implements NanobotRepositoryPort {
       imageGenerationEnabled: imageGeneration['enabled'] == true,
       imageGenerationProvider: _stringFrom(imageGeneration['provider']),
       imageGenerationModel: _stringFrom(imageGeneration['model']),
+      imageGenerationDefaultAspectRatio: _stringFrom(
+        imageGeneration['default_aspect_ratio'],
+      ),
+      imageGenerationDefaultImageSize: _stringFrom(
+        imageGeneration['default_image_size'],
+      ),
+      imageGenerationMaxImagesPerTurn: _intValue(
+        imageGeneration['max_images_per_turn'],
+      ),
+      imageGenerationSaveDir: _stringFrom(imageGeneration['save_dir']),
       transcriptionEnabled: transcription['enabled'] == true,
       transcriptionProvider: _stringFrom(transcription['provider']),
       transcriptionModel: _stringFrom(transcription['model']),

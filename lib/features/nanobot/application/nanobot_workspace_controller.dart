@@ -229,6 +229,40 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     }
   }
 
+  Future<void> saveImageGenerationSettings({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String defaultAspectRatio,
+    required String defaultImageSize,
+    required int maxImagesPerTurn,
+  }) async {
+    state = state.copyWith(isLoadingSurface: true, clearError: true);
+    try {
+      final snapshot = await ref
+          .read(nanobotRepositoryProvider)
+          .saveImageGenerationSettings(
+            enabled: enabled,
+            provider: provider,
+            model: model,
+            defaultAspectRatio: defaultAspectRatio,
+            defaultImageSize: defaultImageSize,
+            maxImagesPerTurn: maxImagesPerTurn,
+          );
+      state = state.copyWith(
+        settingsSnapshot: snapshot,
+        settingsSection: NanobotSettingsSection.imageGeneration,
+        isLoadingSurface: false,
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(
+        isLoadingSurface: false,
+        errorMessage: _friendlyError(error),
+      );
+    }
+  }
+
   Future<void> checkVersion() async {
     state = state.copyWith(
       isCheckingVersion: true,

@@ -73,10 +73,57 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('web-search-max-increment')));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save Web search'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Save Web search'));
     await tester.pumpAndSettle();
     expect(repository.webSearchSaveRequests, hasLength(1));
     expect(repository.webSearchSaveRequests.single.maxResults, 6);
+    expect(find.text('Saved. Restart when ready.'), findsOneWidget);
+
+    await tester.ensureVisible(find.byIcon(Icons.chevron_left).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.chevron_left).first);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Image generation'));
+    await tester.tap(find.text('Image generation'));
+    await tester.pumpAndSettle();
+    expect(find.text('Image generation settings'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Image generation settings')).dy,
+      greaterThanOrEqualTo(0),
+    );
+    expect(find.text('Image provider'), findsOneWidget);
+    expect(find.text('Provider base'), findsOneWidget);
+    expect(find.text('Image model'), findsOneWidget);
+    expect(find.text('Default aspect'), findsOneWidget);
+    expect(find.text('Default size'), findsOneWidget);
+    expect(find.text('Max images per turn'), findsOneWidget);
+    expect(find.text('Save directory'), findsOneWidget);
+
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(const ValueKey('image-generation-enabled-toggle')),
+          )
+          .value,
+      isTrue,
+    );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('image-generation-max-increment')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('image-generation-max-increment')),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save Image generation'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save Image generation'));
+    await tester.pumpAndSettle();
+    expect(repository.imageGenerationSaveRequests, hasLength(1));
+    expect(repository.imageGenerationSaveRequests.single.enabled, isTrue);
+    expect(repository.imageGenerationSaveRequests.single.maxImagesPerTurn, 3);
     expect(find.text('Saved. Restart when ready.'), findsOneWidget);
 
     await tester.tap(find.text('Apps'));
@@ -1639,6 +1686,17 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
           bool useJinaReader,
         })
       >[];
+  final imageGenerationSaveRequests =
+      <
+        ({
+          bool enabled,
+          String provider,
+          String model,
+          String defaultAspectRatio,
+          String defaultImageSize,
+          int maxImagesPerTurn,
+        })
+      >[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -1798,6 +1856,10 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       imageGenerationEnabled: true,
       imageGenerationProvider: 'openrouter',
       imageGenerationModel: 'image-model',
+      imageGenerationDefaultAspectRatio: '1:1',
+      imageGenerationDefaultImageSize: '1024x1024',
+      imageGenerationMaxImagesPerTurn: 2,
+      imageGenerationSaveDir: '/tmp/nanobot/images',
       transcriptionEnabled: false,
       transcriptionProvider: 'openai',
       transcriptionModel: 'whisper',
@@ -1856,6 +1918,44 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       webSearchMaxResults: maxResults,
       webSearchTimeoutSeconds: timeoutSeconds,
       webFetchUseJinaReader: useJinaReader,
+      imageGenerationEnabled: true,
+      imageGenerationProvider: 'openrouter',
+      imageGenerationModel: 'image-model',
+      imageGenerationDefaultAspectRatio: '1:1',
+      imageGenerationDefaultImageSize: '1024x1024',
+      imageGenerationMaxImagesPerTurn: 2,
+      imageGenerationSaveDir: '/tmp/nanobot/images',
+      requiresRestart: true,
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> saveImageGenerationSettings({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String defaultAspectRatio,
+    required String defaultImageSize,
+    required int maxImagesPerTurn,
+  }) async {
+    imageGenerationSaveRequests.add((
+      enabled: enabled,
+      provider: provider,
+      model: model,
+      defaultAspectRatio: defaultAspectRatio,
+      defaultImageSize: defaultImageSize,
+      maxImagesPerTurn: maxImagesPerTurn,
+    ));
+    return NanobotSettingsSnapshot(
+      model: 'MiniMax-M3',
+      provider: 'openai',
+      imageGenerationEnabled: enabled,
+      imageGenerationProvider: provider,
+      imageGenerationModel: model,
+      imageGenerationDefaultAspectRatio: defaultAspectRatio,
+      imageGenerationDefaultImageSize: defaultImageSize,
+      imageGenerationMaxImagesPerTurn: maxImagesPerTurn,
+      imageGenerationSaveDir: '/tmp/nanobot/images',
       requiresRestart: true,
     );
   }

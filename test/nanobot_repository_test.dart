@@ -335,6 +335,66 @@ void main() {
     expect(settings.requiresRestart, isTrue);
   });
 
+  test(
+    'repository saves image generation settings through webui endpoint',
+    () async {
+      final adapter = _RouteAdapter({
+        'GET /webui/bootstrap': {
+          'token': 'token-1',
+          'ws_path': '/',
+          'expires_in': 300,
+        },
+        'GET /api/settings/image-generation/update?enabled=false&provider=openrouter&model=google%2Fgemini-flash-image&default_aspect_ratio=16%3A9&default_image_size=1024x1024&max_images_per_turn=3':
+            {
+              'agent': {'model': 'MiniMax-M3'},
+              'image_generation': {
+                'enabled': false,
+                'provider': 'openrouter',
+                'model': 'google/gemini-flash-image',
+                'default_aspect_ratio': '16:9',
+                'default_image_size': '1024x1024',
+                'max_images_per_turn': 3,
+                'save_dir': '/tmp/nanobot/images',
+              },
+              'requires_restart': true,
+            },
+      });
+      final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+      dio.httpClientAdapter = adapter;
+      final config = const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      );
+      final api = NanobotApiClient(config: config, dio: dio);
+      final repository = NanobotRepository(
+        api: api,
+        ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+      );
+
+      final settings = await repository.saveImageGenerationSettings(
+        enabled: false,
+        provider: 'openrouter',
+        model: 'google/gemini-flash-image',
+        defaultAspectRatio: '16:9',
+        defaultImageSize: '1024x1024',
+        maxImagesPerTurn: 3,
+      );
+
+      expect(
+        adapter.requests.last.key,
+        contains('/api/settings/image-generation/update'),
+      );
+      expect(settings.imageGenerationEnabled, isFalse);
+      expect(settings.imageGenerationProvider, 'openrouter');
+      expect(settings.imageGenerationModel, 'google/gemini-flash-image');
+      expect(settings.imageGenerationDefaultAspectRatio, '16:9');
+      expect(settings.imageGenerationDefaultImageSize, '1024x1024');
+      expect(settings.imageGenerationMaxImagesPerTurn, 3);
+      expect(settings.imageGenerationSaveDir, '/tmp/nanobot/images');
+      expect(settings.requiresRestart, isTrue);
+    },
+  );
+
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

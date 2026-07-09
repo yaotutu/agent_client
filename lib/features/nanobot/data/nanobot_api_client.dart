@@ -205,6 +205,29 @@ class NanobotApiClient {
     return NanobotSettingsDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotSettingsDto> updateImageGenerationSettings({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String defaultAspectRatio,
+    required String defaultImageSize,
+    required int maxImagesPerTurn,
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/image-generation/update',
+      queryParameters: {
+        'enabled': enabled,
+        'provider': provider,
+        'model': model,
+        'default_aspect_ratio': defaultAspectRatio,
+        'default_image_size': defaultImageSize,
+        'max_images_per_turn': maxImagesPerTurn,
+      },
+      options: await _authOptions(),
+    );
+    return NanobotSettingsDto.fromJson(_asMap(response.data));
+  }
+
   Future<NanobotSkillsDto> fetchSkills() async {
     final response = await _dio.get<Object?>(
       '/api/webui/skills',
