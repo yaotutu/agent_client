@@ -29,14 +29,46 @@ class NanobotSettingsSnapshot {
   const NanobotSettingsSnapshot({
     this.model,
     this.provider,
+    this.contextWindowTokens,
+    this.botName,
+    this.webSearchProvider,
+    this.webSearchEnabled = false,
+    this.webSearchMaxResults,
+    this.imageGenerationEnabled = false,
+    this.imageGenerationProvider,
+    this.imageGenerationModel,
+    this.transcriptionEnabled = false,
+    this.transcriptionProvider,
+    this.transcriptionModel,
+    this.runtimeHost,
+    this.runtimeGatewayPort,
+    this.workspaceCaption,
     this.totalTokens = 0,
+    this.requests30d = 0,
+    this.activeDays30d = 0,
     this.requiresRestart = false,
     this.version,
   });
 
   final String? model;
   final String? provider;
+  final int? contextWindowTokens;
+  final String? botName;
+  final String? webSearchProvider;
+  final bool webSearchEnabled;
+  final int? webSearchMaxResults;
+  final bool imageGenerationEnabled;
+  final String? imageGenerationProvider;
+  final String? imageGenerationModel;
+  final bool transcriptionEnabled;
+  final String? transcriptionProvider;
+  final String? transcriptionModel;
+  final String? runtimeHost;
+  final int? runtimeGatewayPort;
+  final String? workspaceCaption;
   final int totalTokens;
+  final int requests30d;
+  final int activeDays30d;
   final bool requiresRestart;
   final String? version;
 }

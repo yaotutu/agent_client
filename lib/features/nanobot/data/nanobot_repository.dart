@@ -313,10 +313,34 @@ class NanobotRepository implements NanobotRepositoryPort {
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
     final settings = await api.fetchSettings();
     final usage = settings.usage;
+    final webSearch = settings.webSearch ?? settings.web ?? const {};
+    final imageGeneration = settings.imageGeneration ?? const {};
+    final transcription = settings.transcription ?? const {};
+    final runtime = settings.runtime ?? const {};
     return NanobotSettingsSnapshot(
-      model: settings.agent['model'] as String?,
-      provider: settings.agent['provider'] as String?,
+      model: _stringFrom(settings.agent['model']),
+      provider: _stringFrom(settings.agent['provider']),
+      contextWindowTokens: _intValue(settings.agent['context_window_tokens']),
+      botName: _stringFrom(settings.agent['bot_name']),
+      webSearchProvider: _stringFrom(webSearch['provider']),
+      webSearchEnabled: webSearch['enabled'] == true,
+      webSearchMaxResults: _intValue(webSearch['max_results']),
+      imageGenerationEnabled: imageGeneration['enabled'] == true,
+      imageGenerationProvider: _stringFrom(imageGeneration['provider']),
+      imageGenerationModel: _stringFrom(imageGeneration['model']),
+      transcriptionEnabled: transcription['enabled'] == true,
+      transcriptionProvider: _stringFrom(transcription['provider']),
+      transcriptionModel: _stringFrom(transcription['model']),
+      runtimeHost:
+          _stringFrom(runtime['gateway_host']) ?? _stringFrom(runtime['host']),
+      runtimeGatewayPort: _intValue(runtime['gateway_port']),
+      workspaceCaption:
+          _stringFrom(settings.agent['workspace_label']) ??
+          _stringFrom(settings.agent['project_path']) ??
+          _stringFrom(runtime['workspace_path']),
       totalTokens: usage?.totalTokens ?? 0,
+      requests30d: usage?.requests30d ?? 0,
+      activeDays30d: usage?.activeDays30d ?? 0,
       requiresRestart: settings.requiresRestart,
       version: settings.version?['current'] as String?,
     );

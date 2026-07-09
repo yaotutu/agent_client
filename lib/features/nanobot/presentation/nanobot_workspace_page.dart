@@ -1584,16 +1584,207 @@ class _SettingsSurface extends StatelessWidget {
       children: [
         const _SurfaceTitle('Settings'),
         const SizedBox(height: 16),
-        _SurfaceRow(label: 'Model', value: value.model ?? 'unknown'),
-        _SurfaceRow(label: 'Provider', value: value.provider ?? 'unknown'),
-        _SurfaceRow(label: 'Usage', value: '${value.totalTokens} tokens'),
-        if (value.version != null)
-          _SurfaceRow(label: 'Version', value: value.version!),
-        _SurfaceRow(
-          label: 'Restart',
-          value: value.requiresRestart ? 'required' : 'not required',
+        _SettingsSection(
+          title: 'AI',
+          rows: [
+            _SettingsOverviewRow(
+              title: 'Current model',
+              value: value.model ?? 'unknown',
+              caption: _settingsModelCaption(value),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _SettingsSection(
+          title: 'Capabilities',
+          rows: [
+            _SettingsOverviewRow(
+              title: 'Web search',
+              value: value.webSearchEnabled ? 'Enabled' : 'Disabled',
+              caption: _settingsProviderCaption(
+                value.webSearchProvider,
+                value.webSearchMaxResults == null
+                    ? null
+                    : '${value.webSearchMaxResults} results',
+              ),
+            ),
+            _SettingsOverviewRow(
+              title: 'Image generation',
+              value: value.imageGenerationEnabled ? 'Enabled' : 'Disabled',
+              caption: _settingsProviderCaption(
+                value.imageGenerationProvider,
+                value.imageGenerationModel,
+              ),
+            ),
+            _SettingsOverviewRow(
+              title: 'Voice input',
+              value: value.transcriptionEnabled ? 'Enabled' : 'Disabled',
+              caption: _settingsProviderCaption(
+                value.transcriptionProvider,
+                value.transcriptionModel,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _SettingsSection(
+          title: 'System',
+          rows: [
+            _SettingsOverviewRow(
+              title: 'Gateway',
+              value: _settingsGatewayValue(value),
+              caption: value.requiresRestart ? 'Restart pending' : 'Ready',
+            ),
+            _SettingsOverviewRow(
+              title: 'Workspace',
+              value: 'Default workspace',
+              caption: value.workspaceCaption ?? 'Not configured',
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _SettingsSection(
+          title: 'About',
+          rows: [
+            _SettingsOverviewRow(
+              title: 'Version',
+              value: value.version ?? 'unknown',
+              caption:
+                  '${value.totalTokens} tokens · '
+                  '${value.requests30d} requests · '
+                  '${value.activeDays30d} active days',
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  String _settingsModelCaption(NanobotSettingsSnapshot value) {
+    final parts = [
+      value.provider,
+      if (value.contextWindowTokens != null)
+        '${value.contextWindowTokens} token context',
+      value.botName,
+    ].whereType<String>().where((part) => part.isNotEmpty).toList();
+    return parts.isEmpty ? 'Not configured' : parts.join(' · ');
+  }
+
+  String _settingsProviderCaption(String? provider, String? detail) {
+    final parts = [
+      provider,
+      detail,
+    ].whereType<String>().where((part) => part.isNotEmpty).toList();
+    return parts.isEmpty ? 'Not configured' : parts.join(' · ');
+  }
+
+  String _settingsGatewayValue(NanobotSettingsSnapshot value) {
+    final host = value.runtimeHost;
+    final port = value.runtimeGatewayPort;
+    if (host == null || host.isEmpty) {
+      return port == null ? 'Gateway' : ':$port';
+    }
+    return port == null ? host : '$host:$port';
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.title, required this.rows});
+
+  final String title;
+  final List<_SettingsOverviewRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppThemeTokens.mutedText,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppThemeTokens.panel,
+            border: Border.all(color: AppThemeTokens.border),
+            borderRadius: BorderRadius.circular(AppThemeTokens.radius),
+          ),
+          child: Column(
+            children: [
+              for (var index = 0; index < rows.length; index++) ...[
+                if (index > 0)
+                  const Divider(height: 1, color: AppThemeTokens.border),
+                rows[index],
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsOverviewRow extends StatelessWidget {
+  const _SettingsOverviewRow({
+    required this.title,
+    required this.value,
+    required this.caption,
+  });
+
+  final String title;
+  final String value;
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppThemeTokens.headingText,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppThemeTokens.mutedText,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppThemeTokens.text,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -4512,46 +4703,6 @@ class _DetailHeading extends StatelessWidget {
         color: AppThemeTokens.headingText,
         fontSize: 13,
         fontWeight: FontWeight.w700,
-      ),
-    );
-  }
-}
-
-class _SurfaceRow extends StatelessWidget {
-  const _SurfaceRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppThemeTokens.workspaceAlt,
-        borderRadius: BorderRadius.circular(AppThemeTokens.radius),
-        border: Border.all(color: AppThemeTokens.border),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 130,
-            child: Text(
-              label,
-              style: const TextStyle(color: AppThemeTokens.mutedText),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: AppThemeTokens.text,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

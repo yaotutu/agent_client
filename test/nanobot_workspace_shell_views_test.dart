@@ -40,8 +40,19 @@ void main() {
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     expect(find.text('Settings'), findsWidgets);
+    expect(find.text('AI'), findsOneWidget);
+    expect(find.text('Current model'), findsOneWidget);
+    expect(find.text('Capabilities'), findsOneWidget);
+    expect(find.text('Web search'), findsOneWidget);
+    expect(find.text('Image generation'), findsOneWidget);
+    expect(find.text('Voice input'), findsOneWidget);
+    expect(find.text('System'), findsOneWidget);
+    expect(find.text('Gateway'), findsOneWidget);
+    expect(find.text('Workspace'), findsOneWidget);
+    expect(find.text('About'), findsOneWidget);
+    expect(find.text('Version'), findsOneWidget);
     expect(find.text('MiniMax-M3'), findsOneWidget);
-    expect(find.text('openai'), findsOneWidget);
+    expect(find.textContaining('openai'), findsWidgets);
 
     await tester.tap(find.text('Apps'));
     await tester.pumpAndSettle();
@@ -1743,8 +1754,25 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
     return const NanobotSettingsSnapshot(
       model: 'MiniMax-M3',
       provider: 'openai',
+      contextWindowTokens: 262144,
+      botName: 'Nanobot',
+      webSearchEnabled: true,
+      webSearchProvider: 'searxng',
+      webSearchMaxResults: 5,
+      imageGenerationEnabled: true,
+      imageGenerationProvider: 'openrouter',
+      imageGenerationModel: 'image-model',
+      transcriptionEnabled: false,
+      transcriptionProvider: 'openai',
+      transcriptionModel: 'whisper',
+      runtimeHost: '127.0.0.1',
+      runtimeGatewayPort: 8765,
+      workspaceCaption: 'Project workspace',
       totalTokens: 42,
+      requests30d: 2,
+      activeDays30d: 1,
       requiresRestart: false,
+      version: '1.2.3',
     );
   }
 

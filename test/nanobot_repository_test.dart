@@ -140,6 +140,87 @@ void main() {
     },
   );
 
+  test('repository maps settings overview snapshot like webui', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings': {
+        'agent': {
+          'model': 'MiniMax-M3',
+          'provider': 'openai',
+          'context_window_tokens': 262144,
+          'bot_name': 'Nanobot',
+          'project_path': '/home/user/project',
+          'workspace_label': 'Project workspace',
+        },
+        'web_search': {
+          'enabled': true,
+          'provider': 'searxng',
+          'max_results': 5,
+        },
+        'image_generation': {
+          'enabled': true,
+          'provider': 'openrouter',
+          'model': 'google/gemini-flash-image',
+        },
+        'transcription': {
+          'enabled': false,
+          'provider': 'openai',
+          'model': 'whisper-1',
+        },
+        'runtime': {
+          'host': '127.0.0.1',
+          'gateway_port': 8765,
+          'config_path': '/tmp/nanobot.toml',
+        },
+        'usage': {
+          'total_tokens': 1000,
+          'requests_30d': 12,
+          'active_days_30d': 3,
+        },
+        'version': {'current': '1.2.3'},
+        'requires_restart': true,
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final settings = await repository.fetchSettingsSnapshot();
+
+    expect(settings.model, 'MiniMax-M3');
+    expect(settings.provider, 'openai');
+    expect(settings.contextWindowTokens, 262144);
+    expect(settings.botName, 'Nanobot');
+    expect(settings.webSearchProvider, 'searxng');
+    expect(settings.webSearchEnabled, isTrue);
+    expect(settings.webSearchMaxResults, 5);
+    expect(settings.imageGenerationEnabled, isTrue);
+    expect(settings.imageGenerationProvider, 'openrouter');
+    expect(settings.imageGenerationModel, 'google/gemini-flash-image');
+    expect(settings.transcriptionEnabled, isFalse);
+    expect(settings.transcriptionProvider, 'openai');
+    expect(settings.transcriptionModel, 'whisper-1');
+    expect(settings.runtimeHost, '127.0.0.1');
+    expect(settings.runtimeGatewayPort, 8765);
+    expect(settings.workspaceCaption, 'Project workspace');
+    expect(settings.requests30d, 12);
+    expect(settings.activeDays30d, 3);
+    expect(settings.requiresRestart, isTrue);
+    expect(settings.version, '1.2.3');
+  });
+
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {
