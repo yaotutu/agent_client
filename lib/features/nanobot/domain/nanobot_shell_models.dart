@@ -1,6 +1,6 @@
 enum NanobotShellView { chat, settings, apps, automations, skills }
 
-enum NanobotSettingsSection { overview, webSearch, imageGeneration }
+enum NanobotSettingsSection { overview, webSearch, imageGeneration, voiceInput }
 
 enum NanobotAutomationAction {
   enable('enable'),
@@ -48,6 +48,9 @@ class NanobotSettingsSnapshot {
     this.transcriptionEnabled = false,
     this.transcriptionProvider,
     this.transcriptionModel,
+    this.transcriptionLanguage,
+    this.transcriptionMaxDurationSec,
+    this.transcriptionMaxUploadMb,
     this.runtimeHost,
     this.runtimeGatewayPort,
     this.workspaceCaption,
@@ -83,6 +86,9 @@ class NanobotSettingsSnapshot {
   final bool transcriptionEnabled;
   final String? transcriptionProvider;
   final String? transcriptionModel;
+  final String? transcriptionLanguage;
+  final int? transcriptionMaxDurationSec;
+  final int? transcriptionMaxUploadMb;
   final String? runtimeHost;
   final int? runtimeGatewayPort;
   final String? workspaceCaption;

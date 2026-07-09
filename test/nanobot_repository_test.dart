@@ -395,6 +395,64 @@ void main() {
     },
   );
 
+  test(
+    'repository saves transcription settings through webui endpoint',
+    () async {
+      final adapter = _RouteAdapter({
+        'GET /webui/bootstrap': {
+          'token': 'token-1',
+          'ws_path': '/',
+          'expires_in': 300,
+        },
+        'GET /api/settings/transcription/update?enabled=true&provider=groq&model=whisper-large-v3&language=zh&max_duration_sec=90&max_upload_mb=25':
+            {
+              'agent': {'model': 'MiniMax-M3'},
+              'transcription': {
+                'enabled': true,
+                'provider': 'groq',
+                'model': 'whisper-large-v3',
+                'language': 'zh',
+                'max_duration_sec': 90,
+                'max_upload_mb': 25,
+              },
+              'requires_restart': true,
+            },
+      });
+      final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+      dio.httpClientAdapter = adapter;
+      final config = const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      );
+      final api = NanobotApiClient(config: config, dio: dio);
+      final repository = NanobotRepository(
+        api: api,
+        ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+      );
+
+      final settings = await repository.saveTranscriptionSettings(
+        enabled: true,
+        provider: 'groq',
+        model: 'whisper-large-v3',
+        language: 'zh',
+        maxDurationSec: 90,
+        maxUploadMb: 25,
+      );
+
+      expect(
+        adapter.requests.last.key,
+        contains('/api/settings/transcription/update'),
+      );
+      expect(settings.transcriptionEnabled, isTrue);
+      expect(settings.transcriptionProvider, 'groq');
+      expect(settings.transcriptionModel, 'whisper-large-v3');
+      expect(settings.transcriptionLanguage, 'zh');
+      expect(settings.transcriptionMaxDurationSec, 90);
+      expect(settings.transcriptionMaxUploadMb, 25);
+      expect(settings.requiresRestart, isTrue);
+    },
+  );
+
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

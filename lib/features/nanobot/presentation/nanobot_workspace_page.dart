@@ -135,6 +135,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onOpenSettingsSection: controller.openSettingsSection,
               onSaveWebSearch: controller.saveWebSearchSettings,
               onSaveImageGeneration: controller.saveImageGenerationSettings,
+              onSaveTranscription: controller.saveTranscriptionSettings,
               onOpenSessions: wide
                   ? null
                   : () => Scaffold.of(context).openDrawer(),
@@ -1209,6 +1210,7 @@ class _ChatPane extends StatelessWidget {
     required this.onOpenSettingsSection,
     required this.onSaveWebSearch,
     required this.onSaveImageGeneration,
+    required this.onSaveTranscription,
     required this.onOpenSettings,
     required this.onRefresh,
     this.onOpenSessions,
@@ -1287,6 +1289,15 @@ class _ChatPane extends StatelessWidget {
     required int maxImagesPerTurn,
   })
   onSaveImageGeneration;
+  final Future<void> Function({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String language,
+    required int maxDurationSec,
+    required int maxUploadMb,
+  })
+  onSaveTranscription;
   final VoidCallback onOpenSettings;
   final VoidCallback onRefresh;
   final VoidCallback? onOpenSessions;
@@ -1330,6 +1341,7 @@ class _ChatPane extends StatelessWidget {
                     onOpenSettingsSection: onOpenSettingsSection,
                     onSaveWebSearch: onSaveWebSearch,
                     onSaveImageGeneration: onSaveImageGeneration,
+                    onSaveTranscription: onSaveTranscription,
                   ),
           ),
           if (state.errorMessage != null)
@@ -1501,6 +1513,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onOpenSettingsSection,
     required this.onSaveWebSearch,
     required this.onSaveImageGeneration,
+    required this.onSaveTranscription,
   });
 
   final NanobotWorkspaceState state;
@@ -1551,6 +1564,15 @@ class _SecondarySurface extends StatelessWidget {
     required int maxImagesPerTurn,
   })
   onSaveImageGeneration;
+  final Future<void> Function({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String language,
+    required int maxDurationSec,
+    required int maxUploadMb,
+  })
+  onSaveTranscription;
 
   @override
   Widget build(BuildContext context) {
@@ -1574,6 +1596,7 @@ class _SecondarySurface extends StatelessWidget {
           onOpenSection: onOpenSettingsSection,
           onSaveWebSearch: onSaveWebSearch,
           onSaveImageGeneration: onSaveImageGeneration,
+          onSaveTranscription: onSaveTranscription,
         ),
         NanobotShellView.apps => _AppsCatalogSurface(
           items: state.appItems,
@@ -1643,6 +1666,7 @@ class _SettingsSurface extends StatelessWidget {
     required this.onOpenSection,
     required this.onSaveWebSearch,
     required this.onSaveImageGeneration,
+    required this.onSaveTranscription,
   });
 
   final NanobotSettingsSnapshot? snapshot;
@@ -1668,6 +1692,15 @@ class _SettingsSurface extends StatelessWidget {
     required int maxImagesPerTurn,
   })
   onSaveImageGeneration;
+  final Future<void> Function({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String language,
+    required int maxDurationSec,
+    required int maxUploadMb,
+  })
+  onSaveTranscription;
 
   @override
   Widget build(BuildContext context) {
@@ -1687,6 +1720,13 @@ class _SettingsSurface extends StatelessWidget {
         snapshot: value,
         onBack: () => onOpenSection(NanobotSettingsSection.overview),
         onSave: onSaveImageGeneration,
+      );
+    }
+    if (section == NanobotSettingsSection.voiceInput) {
+      return _VoiceInputSettingsSurface(
+        snapshot: value,
+        onBack: () => onOpenSection(NanobotSettingsSection.overview),
+        onSave: onSaveTranscription,
       );
     }
     return Column(
@@ -1738,6 +1778,7 @@ class _SettingsSurface extends StatelessWidget {
                 value.transcriptionProvider,
                 value.transcriptionModel,
               ),
+              onTap: () => onOpenSection(NanobotSettingsSection.voiceInput),
             ),
           ],
         ),
@@ -2094,6 +2135,175 @@ class _ImageGenerationSettingsSurfaceState
                 ),
               ),
               child: const Text('Save Image generation'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _VoiceInputSettingsSurface extends StatefulWidget {
+  const _VoiceInputSettingsSurface({
+    required this.snapshot,
+    required this.onBack,
+    required this.onSave,
+  });
+
+  final NanobotSettingsSnapshot snapshot;
+  final VoidCallback onBack;
+  final Future<void> Function({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String language,
+    required int maxDurationSec,
+    required int maxUploadMb,
+  })
+  onSave;
+
+  @override
+  State<_VoiceInputSettingsSurface> createState() =>
+      _VoiceInputSettingsSurfaceState();
+}
+
+class _VoiceInputSettingsSurfaceState
+    extends State<_VoiceInputSettingsSurface> {
+  late bool _enabled;
+  late int _maxDurationSec;
+  late int _maxUploadMb;
+
+  @override
+  void initState() {
+    super.initState();
+    _applySnapshot(widget.snapshot);
+  }
+
+  @override
+  void didUpdateWidget(covariant _VoiceInputSettingsSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snapshot != widget.snapshot) {
+      _applySnapshot(widget.snapshot);
+    }
+  }
+
+  void _applySnapshot(NanobotSettingsSnapshot snapshot) {
+    _enabled = snapshot.transcriptionEnabled;
+    _maxDurationSec = snapshot.transcriptionMaxDurationSec ?? 60;
+    _maxUploadMb = snapshot.transcriptionMaxUploadMb ?? 20;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = widget.snapshot.transcriptionProvider ?? '';
+    final model = widget.snapshot.transcriptionModel ?? '';
+    final language = widget.snapshot.transcriptionLanguage ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton.icon(
+          onPressed: widget.onBack,
+          icon: const Icon(Icons.chevron_left),
+          label: const Text('Settings'),
+        ),
+        const SizedBox(height: 8),
+        const _SurfaceTitle('Voice input settings'),
+        const SizedBox(height: 16),
+        _SettingsSection(
+          title: 'Voice input',
+          rows: [
+            _SettingsSwitchRow(
+              title: 'Transcription',
+              caption:
+                  'Transcribe microphone input before sending it. Chat channel voice messages use the same settings.',
+              value: _enabled,
+              switchKey: const ValueKey('voice-transcription-enabled-toggle'),
+              onChanged: (value) => setState(() => _enabled = value),
+            ),
+            _SettingsOverviewRow(
+              title: 'Provider',
+              value: provider.isEmpty ? 'Select provider' : provider,
+              caption: 'Uses the matching provider credentials from Providers.',
+            ),
+            _SettingsOverviewRow(
+              title: 'Provider status',
+              value: provider.isEmpty ? 'Not configured' : 'Configured',
+              caption:
+                  'API keys stay under providers, not in transcription settings.',
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _SettingsSection(
+          title: 'Defaults',
+          rows: [
+            _SettingsOverviewRow(
+              title: 'Model',
+              value: model.isEmpty ? 'Not configured' : model,
+              caption:
+                  'Leave as the resolved default unless your provider needs a custom model id.',
+            ),
+            _SettingsOverviewRow(
+              title: 'Language',
+              value: language.isEmpty ? 'Auto' : language,
+              caption: 'Optional ISO-639 hint such as en, zh, ja, or ko.',
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _SettingsSection(
+          title: 'Limits',
+          rows: [
+            _SettingsStepperRow(
+              title: 'Max duration',
+              caption: 'Maximum microphone recording duration.',
+              value: _maxDurationSec,
+              suffix: 's',
+              decrementKey: const ValueKey('voice-max-duration-decrement'),
+              incrementKey: const ValueKey('voice-max-duration-increment'),
+              onChanged: (value) {
+                setState(() => _maxDurationSec = value.clamp(1, 600));
+              },
+            ),
+            _SettingsStepperRow(
+              title: 'Max upload',
+              caption: 'Maximum audio upload size.',
+              value: _maxUploadMb,
+              suffix: 'MB',
+              decrementKey: const ValueKey('voice-max-upload-decrement'),
+              incrementKey: const ValueKey('voice-max-upload-increment'),
+              onChanged: (value) {
+                setState(() => _maxUploadMb = value.clamp(1, 100));
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.snapshot.requiresRestart
+                    ? 'Saved. Restart when ready.'
+                    : 'Save changes, then restart when ready.',
+                style: const TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => unawaited(
+                widget.onSave(
+                  enabled: _enabled,
+                  provider: provider,
+                  model: model,
+                  language: language,
+                  maxDurationSec: _maxDurationSec,
+                  maxUploadMb: _maxUploadMb,
+                ),
+              ),
+              child: const Text('Save Voice input'),
             ),
           ],
         ),

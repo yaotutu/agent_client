@@ -228,6 +228,29 @@ class NanobotApiClient {
     return NanobotSettingsDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotSettingsDto> updateTranscriptionSettings({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String language,
+    required int maxDurationSec,
+    required int maxUploadMb,
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/transcription/update',
+      queryParameters: {
+        'enabled': enabled,
+        'provider': provider,
+        'model': model,
+        'language': language,
+        'max_duration_sec': maxDurationSec,
+        'max_upload_mb': maxUploadMb,
+      },
+      options: await _authOptions(),
+    );
+    return NanobotSettingsDto.fromJson(_asMap(response.data));
+  }
+
   Future<NanobotSkillsDto> fetchSkills() async {
     final response = await _dio.get<Object?>(
       '/api/webui/skills',

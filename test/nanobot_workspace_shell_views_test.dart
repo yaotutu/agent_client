@@ -153,6 +153,57 @@ void main() {
     expect(find.text('Start a chat'), findsOneWidget);
   });
 
+  testWidgets('settings voice input detail mirrors webui fields and saves', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Voice input'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Voice input'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Voice input settings'), findsOneWidget);
+    expect(find.text('Transcription'), findsOneWidget);
+    expect(find.text('Provider'), findsOneWidget);
+    expect(find.text('Provider status'), findsOneWidget);
+    expect(find.text('Model'), findsOneWidget);
+    expect(find.text('Language'), findsOneWidget);
+    expect(find.text('Limits'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('voice-max-duration-increment')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('voice-max-duration-increment')),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save Voice input'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save Voice input'));
+    await tester.pumpAndSettle();
+
+    expect(repository.transcriptionSaveRequests, hasLength(1));
+    expect(repository.transcriptionSaveRequests.single.provider, 'openai');
+    expect(repository.transcriptionSaveRequests.single.model, 'whisper');
+    expect(repository.transcriptionSaveRequests.single.language, 'zh');
+    expect(repository.transcriptionSaveRequests.single.maxDurationSec, 61);
+    expect(repository.transcriptionSaveRequests.single.maxUploadMb, 20);
+    expect(find.text('Saved. Restart when ready.'), findsOneWidget);
+  });
+
   testWidgets('apps surface filters and searches webui catalog kinds', (
     tester,
   ) async {
@@ -1697,6 +1748,17 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
           int maxImagesPerTurn,
         })
       >[];
+  final transcriptionSaveRequests =
+      <
+        ({
+          bool enabled,
+          String provider,
+          String model,
+          String language,
+          int maxDurationSec,
+          int maxUploadMb,
+        })
+      >[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -1863,6 +1925,9 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       transcriptionEnabled: false,
       transcriptionProvider: 'openai',
       transcriptionModel: 'whisper',
+      transcriptionLanguage: 'zh',
+      transcriptionMaxDurationSec: 60,
+      transcriptionMaxUploadMb: 20,
       runtimeHost: '127.0.0.1',
       runtimeGatewayPort: 8765,
       workspaceCaption: 'Project workspace',
@@ -1925,6 +1990,12 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       imageGenerationDefaultImageSize: '1024x1024',
       imageGenerationMaxImagesPerTurn: 2,
       imageGenerationSaveDir: '/tmp/nanobot/images',
+      transcriptionEnabled: false,
+      transcriptionProvider: 'openai',
+      transcriptionModel: 'whisper',
+      transcriptionLanguage: 'zh',
+      transcriptionMaxDurationSec: 60,
+      transcriptionMaxUploadMb: 20,
       requiresRestart: true,
     );
   }
@@ -1956,6 +2027,36 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       imageGenerationDefaultImageSize: defaultImageSize,
       imageGenerationMaxImagesPerTurn: maxImagesPerTurn,
       imageGenerationSaveDir: '/tmp/nanobot/images',
+      requiresRestart: true,
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> saveTranscriptionSettings({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String language,
+    required int maxDurationSec,
+    required int maxUploadMb,
+  }) async {
+    transcriptionSaveRequests.add((
+      enabled: enabled,
+      provider: provider,
+      model: model,
+      language: language,
+      maxDurationSec: maxDurationSec,
+      maxUploadMb: maxUploadMb,
+    ));
+    return NanobotSettingsSnapshot(
+      model: 'MiniMax-M3',
+      provider: 'openai',
+      transcriptionEnabled: enabled,
+      transcriptionProvider: provider,
+      transcriptionModel: model,
+      transcriptionLanguage: language,
+      transcriptionMaxDurationSec: maxDurationSec,
+      transcriptionMaxUploadMb: maxUploadMb,
       requiresRestart: true,
     );
   }

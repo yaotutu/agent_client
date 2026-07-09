@@ -570,6 +570,18 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotSettingsSnapshot> saveTranscriptionSettings({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String language,
+    required int maxDurationSec,
+    required int maxUploadMb,
+  }) async {
+    return const NanobotSettingsSnapshot();
+  }
+
+  @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
     return const [];
   }

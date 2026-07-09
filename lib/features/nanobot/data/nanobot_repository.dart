@@ -121,6 +121,17 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('saveImageGenerationSettings');
   }
 
+  Future<NanobotSettingsSnapshot> saveTranscriptionSettings({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String language,
+    required int maxDurationSec,
+    required int maxUploadMb,
+  }) {
+    throw UnimplementedError('saveTranscriptionSettings');
+  }
+
   Future<NanobotVersionCheckResult> checkVersion() {
     throw UnimplementedError('checkVersion');
   }
@@ -376,6 +387,27 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
+  @override
+  Future<NanobotSettingsSnapshot> saveTranscriptionSettings({
+    required bool enabled,
+    required String provider,
+    required String model,
+    required String language,
+    required int maxDurationSec,
+    required int maxUploadMb,
+  }) async {
+    return _settingsSnapshotFromDto(
+      await api.updateTranscriptionSettings(
+        enabled: enabled,
+        provider: provider,
+        model: model,
+        language: language,
+        maxDurationSec: maxDurationSec,
+        maxUploadMb: maxUploadMb,
+      ),
+    );
+  }
+
   NanobotSettingsSnapshot _settingsSnapshotFromDto(
     NanobotSettingsDto settings,
   ) {
@@ -412,6 +444,9 @@ class NanobotRepository implements NanobotRepositoryPort {
       transcriptionEnabled: transcription['enabled'] == true,
       transcriptionProvider: _stringFrom(transcription['provider']),
       transcriptionModel: _stringFrom(transcription['model']),
+      transcriptionLanguage: _stringFrom(transcription['language']),
+      transcriptionMaxDurationSec: _intValue(transcription['max_duration_sec']),
+      transcriptionMaxUploadMb: _intValue(transcription['max_upload_mb']),
       runtimeHost:
           _stringFrom(runtime['gateway_host']) ?? _stringFrom(runtime['host']),
       runtimeGatewayPort: _intValue(runtime['gateway_port']),
