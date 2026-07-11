@@ -528,6 +528,65 @@ void main() {
     expect(repository.modelSaveRequests.single.contextWindowTokens, isNull);
   });
 
+  testWidgets(
+    'settings model picker does not fetch models for unsigned OAuth providers',
+    (tester) async {
+      final repository = _FakeNanobotRepository(
+        settingsSnapshot: const NanobotSettingsSnapshot(
+          modelPreset: 'default',
+          model: 'openai-codex/gpt-5.1-codex',
+          provider: 'openai_codex',
+          contextWindowTokens: 65536,
+          providers: [
+            NanobotProviderConfig(
+              name: 'openai_codex',
+              label: 'OpenAI Codex',
+              configured: false,
+              authType: 'oauth',
+              oauthLoginSupported: true,
+            ),
+          ],
+        ),
+        providerModelCatalogs: const {
+          'openai_codex': ['openai-codex/gpt-5.1-codex'],
+        },
+      );
+      addTearDown(repository.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: NanobotWorkspacePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Settings'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Current model'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Current model'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Not configured'), findsOneWidget);
+      expect(find.text('OpenAI Codex'), findsOneWidget);
+      expect(find.text('openai-codex/gpt-5.1-codex'), findsWidgets);
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('model-picker-button')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('model-picker-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Configure this provider before loading models.'),
+        findsOneWidget,
+      );
+      expect(repository.providerModelRequests, isEmpty);
+    },
+  );
+
   testWidgets('apps surface filters and searches webui catalog kinds', (
     tester,
   ) async {

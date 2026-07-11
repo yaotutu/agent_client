@@ -2047,13 +2047,20 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
 
   Future<void> _loadProviderModels() async {
     final provider = _providerController.text.trim();
+    final providerConfig = _providerConfig(provider);
+    final providerNeedsSignIn = providerConfig?.needsOAuthSignIn ?? false;
     setState(() {
       _isModelCatalogOpen = true;
       _modelCatalogQuery = '';
-      _modelCatalogError = provider.isEmpty ? 'Enter a provider first.' : null;
-      _isLoadingModels = provider.isNotEmpty;
+      _modelCatalog = null;
+      _modelCatalogError = provider.isEmpty
+          ? 'Enter a provider first.'
+          : providerNeedsSignIn
+          ? 'Configure this provider before loading models.'
+          : null;
+      _isLoadingModels = provider.isNotEmpty && !providerNeedsSignIn;
     });
-    if (provider.isEmpty) {
+    if (provider.isEmpty || providerNeedsSignIn) {
       return;
     }
     try {
@@ -2079,9 +2086,26 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
     }
   }
 
+  NanobotProviderConfig? _providerConfig(String provider) {
+    for (final item in widget.snapshot.providers) {
+      if (item.name == provider) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final modelPreset = widget.snapshot.modelPreset ?? 'default';
+    final currentProvider = _providerController.text.trim();
+    final currentProviderConfig = _providerConfig(currentProvider);
+    final providerNeedsSignIn =
+        currentProviderConfig?.needsOAuthSignIn ?? false;
+    final currentProviderLabel =
+        currentProviderConfig?.label ??
+        (currentProvider.isEmpty ? 'Provider' : currentProvider);
+    final currentModel = _modelController.text.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2098,9 +2122,16 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
           rows: [
             _SettingsOverviewRow(
               title: 'Preset',
-              value: modelPreset,
+              value: providerNeedsSignIn ? 'Not configured' : modelPreset,
               caption: 'Used for new replies.',
             ),
+            if (providerNeedsSignIn)
+              _SettingsOverviewRow(
+                title: currentProviderLabel,
+                value: currentModel.isEmpty ? currentProvider : currentModel,
+                caption:
+                    'Sign in before saving this OAuth provider as the active model provider.',
+              ),
             _SettingsTextFieldRow(
               title: 'Provider',
               caption: 'Model provider used by nanobot.',

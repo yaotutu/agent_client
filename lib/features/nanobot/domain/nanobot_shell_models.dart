@@ -79,6 +79,7 @@ class NanobotSettingsSnapshot {
     this.activeDays30d = 0,
     this.requiresRestart = false,
     this.version,
+    this.providers = const [],
   });
 
   final String? modelPreset;
@@ -123,6 +124,37 @@ class NanobotSettingsSnapshot {
   final int activeDays30d;
   final bool requiresRestart;
   final String? version;
+  final List<NanobotProviderConfig> providers;
+}
+
+class NanobotProviderConfig {
+  const NanobotProviderConfig({
+    required this.name,
+    required this.label,
+    required this.configured,
+    this.authType,
+    this.apiKeyRequired = false,
+    this.apiKeyHint,
+    this.apiBase,
+    this.defaultApiBase,
+    this.oauthAccount,
+    this.oauthExpiresAt,
+    this.oauthLoginSupported = false,
+  });
+
+  final String name;
+  final String label;
+  final bool configured;
+  final String? authType;
+  final bool apiKeyRequired;
+  final String? apiKeyHint;
+  final String? apiBase;
+  final String? defaultApiBase;
+  final String? oauthAccount;
+  final String? oauthExpiresAt;
+  final bool oauthLoginSupported;
+
+  bool get needsOAuthSignIn => authType == 'oauth' && !configured;
 }
 
 class NanobotProviderModelCatalog {

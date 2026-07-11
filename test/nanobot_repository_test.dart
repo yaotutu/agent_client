@@ -233,6 +233,17 @@ void main() {
           'gateway_port': 8765,
           'config_path': '/tmp/nanobot.toml',
         },
+        'providers': [
+          {
+            'name': 'openai_codex',
+            'label': 'OpenAI Codex',
+            'configured': false,
+            'auth_type': 'oauth',
+            'api_key_required': false,
+            'oauth_account': null,
+            'oauth_login_supported': true,
+          },
+        ],
         'advanced': {
           'webui_allow_local_service_access': false,
           'webui_default_access_mode': 'full',
@@ -313,6 +324,12 @@ void main() {
     expect(settings.activeDays30d, 3);
     expect(settings.requiresRestart, isTrue);
     expect(settings.version, '1.2.3');
+    expect(settings.providers.single.name, 'openai_codex');
+    expect(settings.providers.single.label, 'OpenAI Codex');
+    expect(settings.providers.single.configured, isFalse);
+    expect(settings.providers.single.authType, 'oauth');
+    expect(settings.providers.single.oauthLoginSupported, isTrue);
+    expect(settings.providers.single.needsOAuthSignIn, isTrue);
   });
 
   test('repository maps version check result like webui', () async {

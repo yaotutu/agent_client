@@ -577,6 +577,23 @@ class NanobotRepository implements NanobotRepositoryPort {
       activeDays30d: usage?.activeDays30d ?? 0,
       requiresRestart: settings.requiresRestart,
       version: settings.version?['current'] as String?,
+      providers: [for (final row in settings.providers) _providerConfig(row)],
+    );
+  }
+
+  NanobotProviderConfig _providerConfig(Map<String, Object?> row) {
+    return NanobotProviderConfig(
+      name: _stringFrom(row['name']) ?? '',
+      label: _stringFrom(row['label']) ?? _stringFrom(row['name']) ?? '',
+      configured: row['configured'] == true,
+      authType: _stringFrom(row['auth_type']),
+      apiKeyRequired: row['api_key_required'] == true,
+      apiKeyHint: _stringFrom(row['api_key_hint']),
+      apiBase: _stringFrom(row['api_base']),
+      defaultApiBase: _stringFrom(row['default_api_base']),
+      oauthAccount: _stringFrom(row['oauth_account']),
+      oauthExpiresAt: _stringFrom(row['oauth_expires_at']),
+      oauthLoginSupported: row['oauth_login_supported'] == true,
     );
   }
 
