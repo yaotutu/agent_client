@@ -2385,13 +2385,47 @@ class _ModelCatalogPanel extends StatelessWidget {
                       vertical: 6,
                     ),
                   ),
-                  child: Text(model.id, overflow: TextOverflow.ellipsis),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(model.id, overflow: TextOverflow.ellipsis),
+                      ),
+                      if (model.contextWindow != null) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          _formatModelContextWindow(model.contextWindow!),
+                          style: const TextStyle(
+                            color: AppThemeTokens.mutedText,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
           ],
         ),
       ),
     );
   }
+}
+
+String _formatModelContextWindow(int tokens) {
+  if (tokens >= 1000000) {
+    final value = tokens / 1000000;
+    return '${_trimWholeDouble(value)}M';
+  }
+  if (tokens >= 1000) {
+    final value = tokens / 1000;
+    return '${_trimWholeDouble(value)}K';
+  }
+  return tokens.toString();
+}
+
+String _trimWholeDouble(double value) {
+  return value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value.toStringAsFixed(1);
 }
 
 class _SettingsContextWindowRow extends StatelessWidget {

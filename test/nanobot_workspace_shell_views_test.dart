@@ -404,6 +404,13 @@ void main() {
 
     expect(repository.providerModelRequests, ['deepseek']);
     expect(find.text('deepseek-reasoner'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('provider-model-deepseek-reasoner')),
+        matching: find.text('65.5K'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.ensureVisible(
       find.byKey(const ValueKey('provider-model-deepseek-reasoner')),
