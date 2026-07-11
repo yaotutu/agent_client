@@ -64,7 +64,7 @@ lib/features/nanobot/presentation/nanobot_workspace_page.dart
 | Blocked | Cannot be implemented or verified without a missing capability. |
 
 No item in this audit is considered complete for the final goal until it has
-true-device evidence against `http://192.168.200.149:8765/`.
+true-device evidence against `http://192.168.55.240:8765/`.
 
 ## Shell and Navigation
 
@@ -310,7 +310,7 @@ real gateway flows.
 | Flow | Required evidence | Current evidence | Status |
 | --- | --- | --- | --- |
 | Fresh install or cleared app launch | `adb shell pm clear`, `flutter run`, screenshot/UI dump | Previous minimal-client run existed before this audit | Unverified for parity |
-| Bootstrap/auth | Log showing `/webui/bootstrap` success against `192.168.200.149:8765` | Previous minimal-client run existed before this audit | Unverified for parity |
+| Bootstrap/auth | Log showing `/webui/bootstrap` success against `192.168.55.240:8765` | Previous minimal-client run existed before this audit | Unverified for parity |
 | Session list | Screenshot/UI dump showing sessions and metadata | Previous minimal-client screenshot existed before this audit | Partial |
 | New chat | Device run showing `new_chat` and attached session | Previous minimal-client run existed before this audit | Partial |
 | Existing chat attach | Device run selecting existing session and loading thread | Previous minimal-client run existed before this audit | Partial |

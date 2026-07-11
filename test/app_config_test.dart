@@ -4,6 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  test('app config defaults to the current nanobot gateway', () {
+    expect(AppConfig.defaults.apiBaseUrl, 'http://192.168.55.240:8765');
+    expect(AppConfig.defaults.apiKey, 'redhat');
+  });
+
   test('app config controller saves editable backend settings', () async {
     final store = _MemoryAppConfigStore();
     final container = ProviderContainer(

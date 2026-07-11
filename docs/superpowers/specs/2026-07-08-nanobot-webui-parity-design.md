@@ -27,7 +27,7 @@ The Flutter project is:
 The live gateway used for integration and device verification is:
 
 ```text
-http://192.168.200.149:8765/
+http://192.168.55.240:8765/
 ```
 
 Authentication uses the WebUI bootstrap secret provided by the user in the
@@ -65,7 +65,7 @@ The current Flutter app already contains a nanobot-only minimal client:
 - App entry: `lib/app/nanobot_client_app.dart`
 - Config: `lib/core/config/app_config*.dart`
 - Nanobot data/domain/application/presentation under `lib/features/nanobot/`
-- Default gateway: `http://192.168.200.149:8765`
+- Default gateway: `http://192.168.55.240:8765`
 - Minimal bootstrap, session listing, WebSocket attach/new chat/message, and
   streaming response support.
 
@@ -468,7 +468,7 @@ Complete mobile/tablet/desktop-entry behavior:
 The primary acceptance source is real Android device behavior against:
 
 ```text
-http://192.168.200.149:8765/
+http://192.168.55.240:8765/
 ```
 
 Each implementation phase must record:

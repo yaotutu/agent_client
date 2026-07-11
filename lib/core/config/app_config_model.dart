@@ -3,7 +3,7 @@ class AppConfig {
 
   static const defaultApiBaseUrl = String.fromEnvironment(
     'NANOBOT_BASE_URL',
-    defaultValue: 'http://192.168.200.149:8765',
+    defaultValue: 'http://192.168.55.240:8765',
   );
 
   static const defaultApiKey = String.fromEnvironment(
