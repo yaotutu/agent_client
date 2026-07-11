@@ -307,6 +307,19 @@ class NanobotApiClient {
     return NanobotSettingsDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotSettingsDto> createModelConfiguration({
+    required String label,
+    required String provider,
+    required String model,
+  }) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/model-configurations/create',
+      queryParameters: {'label': label, 'provider': provider, 'model': model},
+      options: await _authOptions(),
+    );
+    return NanobotSettingsDto.fromJson(_asMap(response.data));
+  }
+
   Future<NanobotSkillsDto> fetchSkills() async {
     final response = await _dio.get<Object?>(
       '/api/webui/skills',

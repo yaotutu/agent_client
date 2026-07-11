@@ -79,6 +79,7 @@ class NanobotSettingsSnapshot {
     this.activeDays30d = 0,
     this.requiresRestart = false,
     this.version,
+    this.modelPresets = const [],
     this.providers = const [],
   });
 
@@ -124,7 +125,28 @@ class NanobotSettingsSnapshot {
   final int activeDays30d;
   final bool requiresRestart;
   final String? version;
+  final List<NanobotModelPreset> modelPresets;
   final List<NanobotProviderConfig> providers;
+}
+
+class NanobotModelPreset {
+  const NanobotModelPreset({
+    required this.name,
+    required this.label,
+    this.model,
+    this.provider,
+    this.contextWindowTokens,
+    this.isDefault = false,
+    this.active = false,
+  });
+
+  final String name;
+  final String label;
+  final String? model;
+  final String? provider;
+  final int? contextWindowTokens;
+  final bool isDefault;
+  final bool active;
 }
 
 class NanobotProviderConfig {

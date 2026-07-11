@@ -160,6 +160,14 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('saveModelSettings');
   }
 
+  Future<NanobotSettingsSnapshot> createModelConfiguration({
+    required String label,
+    required String provider,
+    required String model,
+  }) {
+    throw UnimplementedError('createModelConfiguration');
+  }
+
   Future<NanobotVersionCheckResult> checkVersion() {
     throw UnimplementedError('checkVersion');
   }
@@ -505,6 +513,21 @@ class NanobotRepository implements NanobotRepositoryPort {
     );
   }
 
+  @override
+  Future<NanobotSettingsSnapshot> createModelConfiguration({
+    required String label,
+    required String provider,
+    required String model,
+  }) async {
+    return _settingsSnapshotFromDto(
+      await api.createModelConfiguration(
+        label: label,
+        provider: provider,
+        model: model,
+      ),
+    );
+  }
+
   NanobotSettingsSnapshot _settingsSnapshotFromDto(
     NanobotSettingsDto settings,
   ) {
@@ -577,7 +600,22 @@ class NanobotRepository implements NanobotRepositoryPort {
       activeDays30d: usage?.activeDays30d ?? 0,
       requiresRestart: settings.requiresRestart,
       version: settings.version?['current'] as String?,
+      modelPresets: [
+        for (final row in settings.modelPresets) _modelPreset(row),
+      ],
       providers: [for (final row in settings.providers) _providerConfig(row)],
+    );
+  }
+
+  NanobotModelPreset _modelPreset(Map<String, Object?> row) {
+    return NanobotModelPreset(
+      name: _stringFrom(row['name']) ?? '',
+      label: _stringFrom(row['label']) ?? _stringFrom(row['name']) ?? '',
+      model: _stringFrom(row['model']),
+      provider: _stringFrom(row['provider']),
+      contextWindowTokens: _intValue(row['context_window_tokens']),
+      isDefault: row['is_default'] == true || row['default'] == true,
+      active: row['active'] == true,
     );
   }
 

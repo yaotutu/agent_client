@@ -587,6 +587,85 @@ void main() {
     },
   );
 
+  testWidgets('settings model configuration dialog creates and cancels', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      settingsSnapshot: const NanobotSettingsSnapshot(
+        modelPreset: 'default',
+        model: 'deepseek-chat',
+        provider: 'deepseek',
+        contextWindowTokens: 65536,
+        providers: [
+          NanobotProviderConfig(
+            name: 'deepseek',
+            label: 'DeepSeek',
+            configured: true,
+            authType: 'api_key',
+          ),
+        ],
+      ),
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Current model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Current model'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('add-model-configuration-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('New model configuration'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('New model configuration'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey('add-model-configuration-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('model-configuration-label-field')),
+      'Fast writing',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('model-configuration-model-field')),
+      'deepseek-reasoner',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('model-configuration-provider-field')),
+      'deepseek',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(repository.modelConfigurationCreateRequests, hasLength(1));
+    expect(
+      repository.modelConfigurationCreateRequests.single.label,
+      'Fast writing',
+    );
+    expect(
+      repository.modelConfigurationCreateRequests.single.provider,
+      'deepseek',
+    );
+    expect(
+      repository.modelConfigurationCreateRequests.single.model,
+      'deepseek-reasoner',
+    );
+  });
+
   testWidgets('apps surface filters and searches webui catalog kinds', (
     tester,
   ) async {
@@ -2160,6 +2239,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
           int? contextWindowTokens,
         })
       >[];
+  final modelConfigurationCreateRequests =
+      <({String label, String provider, String model})>[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -2547,6 +2628,28 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       provider: provider ?? current?.provider,
       contextWindowTokens: contextWindowTokens ?? current?.contextWindowTokens,
       requiresRestart: true,
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> createModelConfiguration({
+    required String label,
+    required String provider,
+    required String model,
+  }) async {
+    modelConfigurationCreateRequests.add((
+      label: label,
+      provider: provider,
+      model: model,
+    ));
+    final current = settingsSnapshot;
+    return NanobotSettingsSnapshot(
+      modelPreset: label.toLowerCase().replaceAll(' ', '-'),
+      model: model,
+      provider: provider,
+      contextWindowTokens: current?.contextWindowTokens,
+      requiresRestart: true,
+      providers: current?.providers ?? const [],
     );
   }
 

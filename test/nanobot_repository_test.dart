@@ -713,6 +713,67 @@ void main() {
     expect(settings.contextWindowTokens, 65536);
   });
 
+  test(
+    'repository creates model configurations through webui endpoint',
+    () async {
+      final adapter = _RouteAdapter({
+        'GET /webui/bootstrap': {
+          'token': 'token-1',
+          'ws_path': '/',
+          'expires_in': 300,
+        },
+        'GET /api/settings/model-configurations/create?label=Fast+writing&provider=deepseek&model=deepseek-reasoner':
+            {
+              'agent': {
+                'model_preset': 'fast-writing',
+                'model': 'deepseek-reasoner',
+                'provider': 'deepseek',
+                'context_window_tokens': 65536,
+              },
+              'model_presets': [
+                {
+                  'name': 'fast-writing',
+                  'label': 'Fast writing',
+                  'model': 'deepseek-reasoner',
+                  'provider': 'deepseek',
+                  'context_window_tokens': 65536,
+                  'active': true,
+                },
+              ],
+            },
+      });
+      final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+      dio.httpClientAdapter = adapter;
+      final config = const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      );
+      final api = NanobotApiClient(config: config, dio: dio);
+      final repository = NanobotRepository(
+        api: api,
+        ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+      );
+
+      final settings = await repository.createModelConfiguration(
+        label: 'Fast writing',
+        provider: 'deepseek',
+        model: 'deepseek-reasoner',
+      );
+
+      expect(
+        adapter.requests.last.key,
+        contains('/model-configurations/create'),
+      );
+      expect(settings.modelPreset, 'fast-writing');
+      expect(settings.model, 'deepseek-reasoner');
+      expect(settings.modelPresets.single.name, 'fast-writing');
+      expect(settings.modelPresets.single.label, 'Fast writing');
+      expect(settings.modelPresets.single.provider, 'deepseek');
+      expect(settings.modelPresets.single.contextWindowTokens, 65536);
+      expect(settings.modelPresets.single.active, isTrue);
+    },
+  );
+
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

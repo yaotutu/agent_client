@@ -397,6 +397,35 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     return ref.read(nanobotRepositoryProvider).fetchProviderModels(provider);
   }
 
+  Future<void> createModelConfiguration({
+    required String label,
+    required String provider,
+    required String model,
+  }) async {
+    state = state.copyWith(isLoadingSurface: true, clearError: true);
+    try {
+      final snapshot = await ref
+          .read(nanobotRepositoryProvider)
+          .createModelConfiguration(
+            label: label,
+            provider: provider,
+            model: model,
+          );
+      state = state.copyWith(
+        settingsSnapshot: snapshot,
+        settingsSection: NanobotSettingsSection.models,
+        modelName: snapshot.model,
+        isLoadingSurface: false,
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(
+        isLoadingSurface: false,
+        errorMessage: _friendlyError(error),
+      );
+    }
+  }
+
   Future<void> checkVersion() async {
     state = state.copyWith(
       isCheckingVersion: true,

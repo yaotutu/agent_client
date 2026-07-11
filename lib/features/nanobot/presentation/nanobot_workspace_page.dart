@@ -139,6 +139,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onSaveNetworkSafety: controller.saveNetworkSafetySettings,
               onSaveRuntime: controller.saveRuntimeSettings,
               onSaveModel: controller.saveModelSettings,
+              onCreateModelConfiguration: controller.createModelConfiguration,
               onFetchProviderModels: controller.fetchProviderModels,
               onOpenSessions: wide
                   ? null
@@ -1218,6 +1219,7 @@ class _ChatPane extends StatelessWidget {
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
     required this.onSaveModel,
+    required this.onCreateModelConfiguration,
     required this.onFetchProviderModels,
     required this.onOpenSettings,
     required this.onRefresh,
@@ -1324,6 +1326,12 @@ class _ChatPane extends StatelessWidget {
     required int contextWindowTokens,
   })
   onSaveModel;
+  final Future<void> Function({
+    required String label,
+    required String provider,
+    required String model,
+  })
+  onCreateModelConfiguration;
   final Future<NanobotProviderModelCatalog> Function(String provider)
   onFetchProviderModels;
   final VoidCallback onOpenSettings;
@@ -1373,6 +1381,7 @@ class _ChatPane extends StatelessWidget {
                     onSaveNetworkSafety: onSaveNetworkSafety,
                     onSaveRuntime: onSaveRuntime,
                     onSaveModel: onSaveModel,
+                    onCreateModelConfiguration: onCreateModelConfiguration,
                     onFetchProviderModels: onFetchProviderModels,
                   ),
           ),
@@ -1549,6 +1558,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
     required this.onSaveModel,
+    required this.onCreateModelConfiguration,
     required this.onFetchProviderModels,
   });
 
@@ -1627,6 +1637,12 @@ class _SecondarySurface extends StatelessWidget {
     required int contextWindowTokens,
   })
   onSaveModel;
+  final Future<void> Function({
+    required String label,
+    required String provider,
+    required String model,
+  })
+  onCreateModelConfiguration;
   final Future<NanobotProviderModelCatalog> Function(String provider)
   onFetchProviderModels;
 
@@ -1656,6 +1672,7 @@ class _SecondarySurface extends StatelessWidget {
           onSaveNetworkSafety: onSaveNetworkSafety,
           onSaveRuntime: onSaveRuntime,
           onSaveModel: onSaveModel,
+          onCreateModelConfiguration: onCreateModelConfiguration,
           onFetchProviderModels: onFetchProviderModels,
         ),
         NanobotShellView.apps => _AppsCatalogSurface(
@@ -1730,6 +1747,7 @@ class _SettingsSurface extends StatelessWidget {
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
     required this.onSaveModel,
+    required this.onCreateModelConfiguration,
     required this.onFetchProviderModels,
   });
 
@@ -1783,6 +1801,12 @@ class _SettingsSurface extends StatelessWidget {
     required int contextWindowTokens,
   })
   onSaveModel;
+  final Future<void> Function({
+    required String label,
+    required String provider,
+    required String model,
+  })
+  onCreateModelConfiguration;
   final Future<NanobotProviderModelCatalog> Function(String provider)
   onFetchProviderModels;
 
@@ -1832,6 +1856,7 @@ class _SettingsSurface extends StatelessWidget {
         snapshot: value,
         onBack: () => onOpenSection(NanobotSettingsSection.overview),
         onSave: onSaveModel,
+        onCreateConfiguration: onCreateModelConfiguration,
         onFetchProviderModels: onFetchProviderModels,
       );
     }
@@ -1980,6 +2005,7 @@ class _ModelSettingsSurface extends StatefulWidget {
     required this.snapshot,
     required this.onBack,
     required this.onSave,
+    required this.onCreateConfiguration,
     required this.onFetchProviderModels,
   });
 
@@ -1992,6 +2018,12 @@ class _ModelSettingsSurface extends StatefulWidget {
     required int contextWindowTokens,
   })
   onSave;
+  final Future<void> Function({
+    required String label,
+    required String provider,
+    required String model,
+  })
+  onCreateConfiguration;
   final Future<NanobotProviderModelCatalog> Function(String provider)
   onFetchProviderModels;
 
@@ -2008,6 +2040,11 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   var _isLoadingModels = false;
   var _modelCatalogQuery = '';
   String? _modelCatalogError;
+  var _isCreateDialogOpen = false;
+  var _isCreatingConfiguration = false;
+  final _configurationLabelController = TextEditingController();
+  final _configurationProviderController = TextEditingController();
+  final _configurationModelController = TextEditingController();
 
   @override
   void initState() {
@@ -2029,6 +2066,9 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   void dispose() {
     _providerController.dispose();
     _modelController.dispose();
+    _configurationLabelController.dispose();
+    _configurationProviderController.dispose();
+    _configurationModelController.dispose();
     super.dispose();
   }
 
@@ -2095,6 +2135,54 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
     return null;
   }
 
+  void _openCreateConfigurationDialog() {
+    String? configuredProvider;
+    for (final provider in widget.snapshot.providers) {
+      if (provider.configured) {
+        configuredProvider = provider.name;
+        break;
+      }
+    }
+    setState(() {
+      _configurationLabelController.clear();
+      _configurationProviderController.text =
+          _providerController.text.trim().isNotEmpty
+          ? _providerController.text.trim()
+          : configuredProvider ?? '';
+      _configurationModelController.clear();
+      _isCreateDialogOpen = true;
+    });
+  }
+
+  Future<void> _createConfiguration() async {
+    final label = _configurationLabelController.text.trim();
+    final provider = _configurationProviderController.text.trim();
+    final model = _configurationModelController.text.trim();
+    if (label.isEmpty || provider.isEmpty || model.isEmpty) {
+      return;
+    }
+    setState(() => _isCreatingConfiguration = true);
+    try {
+      await widget.onCreateConfiguration(
+        label: label,
+        provider: provider,
+        model: model,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isCreateDialogOpen = false;
+        _isCreatingConfiguration = false;
+      });
+    } on Object {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isCreatingConfiguration = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final modelPreset = widget.snapshot.modelPreset ?? 'default';
@@ -2116,6 +2204,25 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
         ),
         const SizedBox(height: 8),
         const _SurfaceTitle('Model settings'),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton.icon(
+            key: const ValueKey('add-model-configuration-button'),
+            onPressed: _openCreateConfigurationDialog,
+            icon: const Icon(Icons.add),
+            label: const Text('Add configuration'),
+          ),
+        ),
+        if (_isCreateDialogOpen)
+          _ModelConfigurationDialog(
+            labelController: _configurationLabelController,
+            providerController: _configurationProviderController,
+            modelController: _configurationModelController,
+            isSaving: _isCreatingConfiguration,
+            onCancel: () => setState(() => _isCreateDialogOpen = false),
+            onSave: () => unawaited(_createConfiguration()),
+          ),
         const SizedBox(height: 16),
         _SettingsSection(
           title: 'Current configuration',
@@ -2204,6 +2311,103 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _ModelConfigurationDialog extends StatelessWidget {
+  const _ModelConfigurationDialog({
+    required this.labelController,
+    required this.providerController,
+    required this.modelController,
+    required this.isSaving,
+    required this.onCancel,
+    required this.onSave,
+  });
+
+  final TextEditingController labelController;
+  final TextEditingController providerController;
+  final TextEditingController modelController;
+  final bool isSaving;
+  final VoidCallback onCancel;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: AppThemeTokens.border),
+        borderRadius: BorderRadius.circular(8),
+        color: AppThemeTokens.panel,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'New model configuration',
+              style: TextStyle(
+                color: AppThemeTokens.headingText,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Save a provider and model as a one-click option.',
+              style: TextStyle(color: AppThemeTokens.mutedText, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const ValueKey('model-configuration-label-field'),
+              controller: labelController,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+                labelText: 'Configuration name',
+                hintText: 'Fast writing',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('model-configuration-model-field'),
+              controller: modelController,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+                labelText: 'Model',
+                hintText: 'openai/gpt-4.1',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('model-configuration-provider-field'),
+              controller: providerController,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+                labelText: 'Provider',
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: isSaving ? null : onCancel,
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: isSaving ? null : onSave,
+                  child: Text(isSaving ? 'Saving...' : 'Save'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
