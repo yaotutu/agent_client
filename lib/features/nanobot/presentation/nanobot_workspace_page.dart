@@ -140,6 +140,8 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onSaveRuntime: controller.saveRuntimeSettings,
               onSaveModel: controller.saveModelSettings,
               onCreateModelConfiguration: controller.createModelConfiguration,
+              onProviderOAuthLogin: controller.loginProviderOAuth,
+              onProviderOAuthLogout: controller.logoutProviderOAuth,
               onFetchProviderModels: controller.fetchProviderModels,
               onOpenSessions: wide
                   ? null
@@ -1220,6 +1222,8 @@ class _ChatPane extends StatelessWidget {
     required this.onSaveRuntime,
     required this.onSaveModel,
     required this.onCreateModelConfiguration,
+    required this.onProviderOAuthLogin,
+    required this.onProviderOAuthLogout,
     required this.onFetchProviderModels,
     required this.onOpenSettings,
     required this.onRefresh,
@@ -1333,6 +1337,8 @@ class _ChatPane extends StatelessWidget {
     required String model,
   })
   onCreateModelConfiguration;
+  final Future<void> Function(String provider) onProviderOAuthLogin;
+  final Future<void> Function(String provider) onProviderOAuthLogout;
   final Future<NanobotProviderModelCatalog> Function(String provider)
   onFetchProviderModels;
   final VoidCallback onOpenSettings;
@@ -1383,6 +1389,8 @@ class _ChatPane extends StatelessWidget {
                     onSaveRuntime: onSaveRuntime,
                     onSaveModel: onSaveModel,
                     onCreateModelConfiguration: onCreateModelConfiguration,
+                    onProviderOAuthLogin: onProviderOAuthLogin,
+                    onProviderOAuthLogout: onProviderOAuthLogout,
                     onFetchProviderModels: onFetchProviderModels,
                   ),
           ),
@@ -1560,6 +1568,8 @@ class _SecondarySurface extends StatelessWidget {
     required this.onSaveRuntime,
     required this.onSaveModel,
     required this.onCreateModelConfiguration,
+    required this.onProviderOAuthLogin,
+    required this.onProviderOAuthLogout,
     required this.onFetchProviderModels,
   });
 
@@ -1645,6 +1655,8 @@ class _SecondarySurface extends StatelessWidget {
     required String model,
   })
   onCreateModelConfiguration;
+  final Future<void> Function(String provider) onProviderOAuthLogin;
+  final Future<void> Function(String provider) onProviderOAuthLogout;
   final Future<NanobotProviderModelCatalog> Function(String provider)
   onFetchProviderModels;
 
@@ -1675,6 +1687,8 @@ class _SecondarySurface extends StatelessWidget {
           onSaveRuntime: onSaveRuntime,
           onSaveModel: onSaveModel,
           onCreateModelConfiguration: onCreateModelConfiguration,
+          onProviderOAuthLogin: onProviderOAuthLogin,
+          onProviderOAuthLogout: onProviderOAuthLogout,
           onFetchProviderModels: onFetchProviderModels,
         ),
         NanobotShellView.apps => _AppsCatalogSurface(
@@ -1750,6 +1764,8 @@ class _SettingsSurface extends StatelessWidget {
     required this.onSaveRuntime,
     required this.onSaveModel,
     required this.onCreateModelConfiguration,
+    required this.onProviderOAuthLogin,
+    required this.onProviderOAuthLogout,
     required this.onFetchProviderModels,
   });
 
@@ -1810,6 +1826,8 @@ class _SettingsSurface extends StatelessWidget {
     required String model,
   })
   onCreateModelConfiguration;
+  final Future<void> Function(String provider) onProviderOAuthLogin;
+  final Future<void> Function(String provider) onProviderOAuthLogout;
   final Future<NanobotProviderModelCatalog> Function(String provider)
   onFetchProviderModels;
 
@@ -1860,6 +1878,8 @@ class _SettingsSurface extends StatelessWidget {
         onBack: () => onOpenSection(NanobotSettingsSection.overview),
         onSave: onSaveModel,
         onCreateConfiguration: onCreateModelConfiguration,
+        onProviderOAuthLogin: onProviderOAuthLogin,
+        onProviderOAuthLogout: onProviderOAuthLogout,
         onFetchProviderModels: onFetchProviderModels,
       );
     }
@@ -2009,6 +2029,8 @@ class _ModelSettingsSurface extends StatefulWidget {
     required this.onBack,
     required this.onSave,
     required this.onCreateConfiguration,
+    required this.onProviderOAuthLogin,
+    required this.onProviderOAuthLogout,
     required this.onFetchProviderModels,
   });
 
@@ -2028,6 +2050,8 @@ class _ModelSettingsSurface extends StatefulWidget {
     required String model,
   })
   onCreateConfiguration;
+  final Future<void> Function(String provider) onProviderOAuthLogin;
+  final Future<void> Function(String provider) onProviderOAuthLogout;
   final Future<NanobotProviderModelCatalog> Function(String provider)
   onFetchProviderModels;
 
@@ -2046,6 +2070,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   var _isLoadingModels = false;
   var _modelCatalogQuery = '';
   String? _modelCatalogError;
+  String? _providerOAuthSaving;
   var _isCreateDialogOpen = false;
   var _isCreatingConfiguration = false;
   final _configurationLabelController = TextEditingController();
@@ -2210,6 +2235,21 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
     }
   }
 
+  Future<void> _runProviderOAuth(String provider, {required bool login}) async {
+    setState(() => _providerOAuthSaving = provider);
+    try {
+      if (login) {
+        await widget.onProviderOAuthLogin(provider);
+      } else {
+        await widget.onProviderOAuthLogout(provider);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _providerOAuthSaving = null);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final modelPreset = _selectedModelPreset;
@@ -2277,6 +2317,17 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
                 value: currentModel.isEmpty ? currentProvider : currentModel,
                 caption:
                     'Sign in before saving this OAuth provider as the active model provider.',
+              ),
+            if (currentProviderConfig?.authType == 'oauth')
+              _ProviderOAuthRow(
+                provider: currentProviderConfig!,
+                isSaving: _providerOAuthSaving == currentProviderConfig.name,
+                onLogin: () => unawaited(
+                  _runProviderOAuth(currentProviderConfig.name, login: true),
+                ),
+                onLogout: () => unawaited(
+                  _runProviderOAuth(currentProviderConfig.name, login: false),
+                ),
               ),
             _SettingsTextFieldRow(
               title: 'Provider',
@@ -2462,6 +2513,91 @@ class _ModelPresetRow extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProviderOAuthRow extends StatelessWidget {
+  const _ProviderOAuthRow({
+    required this.provider,
+    required this.isSaving,
+    required this.onLogin,
+    required this.onLogout,
+  });
+
+  final NanobotProviderConfig provider;
+  final bool isSaving;
+  final VoidCallback onLogin;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    final signedIn = provider.configured;
+    final status = signedIn ? 'Signed in' : 'Not signed in';
+    final account = provider.oauthAccount;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'OAuth authentication',
+            style: TextStyle(
+              color: AppThemeTokens.headingText,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            signedIn
+                ? 'Signed in as ${account?.isNotEmpty == true ? account : provider.label}'
+                : 'Sign in from this device; no API key is stored in config.',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppThemeTokens.mutedText,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (signedIn)
+                TextButton(
+                  key: const ValueKey('provider-oauth-logout-button'),
+                  onPressed: isSaving ? null : onLogout,
+                  child: const Text('Sign out'),
+                ),
+              OutlinedButton(
+                key: const ValueKey('provider-oauth-login-button'),
+                onPressed: isSaving || !provider.oauthLoginSupported
+                    ? null
+                    : onLogin,
+                child: Text(
+                  isSaving
+                      ? 'Signing in...'
+                      : signedIn
+                      ? 'Sign in again'
+                      : 'Sign in',
+                ),
+              ),
+              Text(
+                status,
+                style: TextStyle(
+                  color: signedIn
+                      ? AppThemeTokens.success
+                      : AppThemeTokens.mutedText,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

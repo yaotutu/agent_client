@@ -178,6 +178,14 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('updateModelConfiguration');
   }
 
+  Future<NanobotSettingsSnapshot> loginProviderOAuth(String provider) {
+    throw UnimplementedError('loginProviderOAuth');
+  }
+
+  Future<NanobotSettingsSnapshot> logoutProviderOAuth(String provider) {
+    throw UnimplementedError('logoutProviderOAuth');
+  }
+
   Future<NanobotVersionCheckResult> checkVersion() {
     throw UnimplementedError('checkVersion');
   }
@@ -555,6 +563,16 @@ class NanobotRepository implements NanobotRepositoryPort {
         contextWindowTokens: contextWindowTokens,
       ),
     );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> loginProviderOAuth(String provider) async {
+    return _settingsSnapshotFromDto(await api.loginProviderOAuth(provider));
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> logoutProviderOAuth(String provider) async {
+    return _settingsSnapshotFromDto(await api.logoutProviderOAuth(provider));
   }
 
   NanobotSettingsSnapshot _settingsSnapshotFromDto(

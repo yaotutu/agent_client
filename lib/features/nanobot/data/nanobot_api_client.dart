@@ -344,6 +344,24 @@ class NanobotApiClient {
     return NanobotSettingsDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotSettingsDto> loginProviderOAuth(String provider) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/provider/oauth-login',
+      queryParameters: {'provider': provider},
+      options: await _authOptions(),
+    );
+    return NanobotSettingsDto.fromJson(_asMap(response.data));
+  }
+
+  Future<NanobotSettingsDto> logoutProviderOAuth(String provider) async {
+    final response = await _dio.get<Object?>(
+      '/api/settings/provider/oauth-logout',
+      queryParameters: {'provider': provider},
+      options: await _authOptions(),
+    );
+    return NanobotSettingsDto.fromJson(_asMap(response.data));
+  }
+
   Future<NanobotSkillsDto> fetchSkills() async {
     final response = await _dio.get<Object?>(
       '/api/webui/skills',

@@ -447,6 +447,36 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     }
   }
 
+  Future<void> loginProviderOAuth(String provider) {
+    return _runProviderOAuth(provider, login: true);
+  }
+
+  Future<void> logoutProviderOAuth(String provider) {
+    return _runProviderOAuth(provider, login: false);
+  }
+
+  Future<void> _runProviderOAuth(String provider, {required bool login}) async {
+    state = state.copyWith(isLoadingSurface: true, clearError: true);
+    try {
+      final repository = ref.read(nanobotRepositoryProvider);
+      final snapshot = login
+          ? await repository.loginProviderOAuth(provider)
+          : await repository.logoutProviderOAuth(provider);
+      state = state.copyWith(
+        settingsSnapshot: snapshot,
+        settingsSection: NanobotSettingsSection.models,
+        modelName: snapshot.model,
+        isLoadingSurface: false,
+        clearError: true,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(
+        isLoadingSurface: false,
+        errorMessage: _friendlyError(error),
+      );
+    }
+  }
+
   Future<void> checkVersion() async {
     state = state.copyWith(
       isCheckingVersion: true,

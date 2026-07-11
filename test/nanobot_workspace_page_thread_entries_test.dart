@@ -1917,6 +1917,16 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotSettingsSnapshot> loginProviderOAuth(String provider) async {
+    return const NanobotSettingsSnapshot();
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> logoutProviderOAuth(String provider) async {
+    return const NanobotSettingsSnapshot();
+  }
+
+  @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
     return const [];
   }

@@ -587,6 +587,51 @@ void main() {
     },
   );
 
+  testWidgets('settings model oauth provider can start sign in', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      settingsSnapshot: const NanobotSettingsSnapshot(
+        modelPreset: 'default',
+        model: 'openai-codex/gpt-5.1-codex',
+        provider: 'openai_codex',
+        contextWindowTokens: 65536,
+        providers: [
+          NanobotProviderConfig(
+            name: 'openai_codex',
+            label: 'OpenAI Codex',
+            configured: false,
+            authType: 'oauth',
+            oauthLoginSupported: true,
+          ),
+        ],
+      ),
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Current model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Current model'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('OAuth authentication'), findsOneWidget);
+    expect(find.text('Not signed in'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('provider-oauth-login-button')));
+    await tester.pumpAndSettle();
+
+    expect(repository.providerOAuthLoginRequests, ['openai_codex']);
+  });
+
   testWidgets('settings model configuration dialog creates and cancels', (
     tester,
   ) async {
@@ -2354,6 +2399,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
           int? contextWindowTokens,
         })
       >[];
+  final providerOAuthLoginRequests = <String>[];
+  final providerOAuthLogoutRequests = <String>[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -2790,6 +2837,57 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       requiresRestart: true,
       modelPresets: current?.modelPresets ?? const [],
       providers: current?.providers ?? const [],
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> loginProviderOAuth(String provider) async {
+    providerOAuthLoginRequests.add(provider);
+    final current = settingsSnapshot;
+    return NanobotSettingsSnapshot(
+      modelPreset: current?.modelPreset,
+      model: current?.model,
+      provider: current?.provider,
+      contextWindowTokens: current?.contextWindowTokens,
+      providers: [
+        for (final item
+            in current?.providers ?? const <NanobotProviderConfig>[])
+          item.name == provider
+              ? NanobotProviderConfig(
+                  name: item.name,
+                  label: item.label,
+                  configured: true,
+                  authType: item.authType,
+                  oauthAccount: 'acct-test',
+                  oauthLoginSupported: item.oauthLoginSupported,
+                )
+              : item,
+      ],
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> logoutProviderOAuth(String provider) async {
+    providerOAuthLogoutRequests.add(provider);
+    final current = settingsSnapshot;
+    return NanobotSettingsSnapshot(
+      modelPreset: current?.modelPreset,
+      model: current?.model,
+      provider: current?.provider,
+      contextWindowTokens: current?.contextWindowTokens,
+      providers: [
+        for (final item
+            in current?.providers ?? const <NanobotProviderConfig>[])
+          item.name == provider
+              ? NanobotProviderConfig(
+                  name: item.name,
+                  label: item.label,
+                  configured: false,
+                  authType: item.authType,
+                  oauthLoginSupported: item.oauthLoginSupported,
+                )
+              : item,
+      ],
     );
   }
 

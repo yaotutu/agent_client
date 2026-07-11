@@ -834,6 +834,62 @@ void main() {
     },
   );
 
+  test('repository runs provider oauth login and logout actions', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings/provider/oauth-login?provider=openai_codex': {
+        'agent': {'model': 'openai-codex/gpt-5.1-codex'},
+        'providers': [
+          {
+            'name': 'openai_codex',
+            'label': 'OpenAI Codex',
+            'configured': true,
+            'auth_type': 'oauth',
+            'oauth_account': 'acct-test',
+            'oauth_login_supported': true,
+          },
+        ],
+      },
+      'GET /api/settings/provider/oauth-logout?provider=openai_codex': {
+        'agent': {'model': 'openai-codex/gpt-5.1-codex'},
+        'providers': [
+          {
+            'name': 'openai_codex',
+            'label': 'OpenAI Codex',
+            'configured': false,
+            'auth_type': 'oauth',
+            'oauth_account': null,
+            'oauth_login_supported': true,
+          },
+        ],
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final loggedIn = await repository.loginProviderOAuth('openai_codex');
+    final loggedOut = await repository.logoutProviderOAuth('openai_codex');
+
+    expect(adapter.requests[1].key, contains('/provider/oauth-login'));
+    expect(loggedIn.providers.single.configured, isTrue);
+    expect(loggedIn.providers.single.oauthAccount, 'acct-test');
+    expect(adapter.requests[2].key, contains('/provider/oauth-logout'));
+    expect(loggedOut.providers.single.configured, isFalse);
+  });
+
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {
