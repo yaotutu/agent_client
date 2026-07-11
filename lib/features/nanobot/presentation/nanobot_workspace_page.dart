@@ -2034,6 +2034,7 @@ class _ModelSettingsSurface extends StatefulWidget {
 class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   late final TextEditingController _providerController;
   late final TextEditingController _modelController;
+  late String _selectedModelPreset;
   late int _contextWindowTokens;
   NanobotProviderModelCatalog? _modelCatalog;
   var _isModelCatalogOpen = false;
@@ -2073,6 +2074,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   }
 
   void _applySnapshot(NanobotSettingsSnapshot snapshot) {
+    _selectedModelPreset = snapshot.modelPreset ?? 'default';
     _providerController.text = snapshot.provider ?? '';
     _modelController.text = snapshot.model ?? '';
     _contextWindowTokens = _normalizeModelContextWindow(
@@ -2083,6 +2085,22 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
     _isLoadingModels = false;
     _modelCatalogQuery = '';
     _modelCatalogError = null;
+  }
+
+  void _selectModelPreset(NanobotModelPreset preset) {
+    setState(() {
+      _selectedModelPreset = preset.name;
+      _providerController.text = preset.provider ?? _providerController.text;
+      _modelController.text = preset.model ?? _modelController.text;
+      _contextWindowTokens = _normalizeModelContextWindow(
+        preset.contextWindowTokens ?? _contextWindowTokens,
+      );
+      _modelCatalog = null;
+      _isModelCatalogOpen = false;
+      _isLoadingModels = false;
+      _modelCatalogQuery = '';
+      _modelCatalogError = null;
+    });
   }
 
   Future<void> _loadProviderModels() async {
@@ -2185,7 +2203,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
 
   @override
   Widget build(BuildContext context) {
-    final modelPreset = widget.snapshot.modelPreset ?? 'default';
+    final modelPreset = _selectedModelPreset;
     final currentProvider = _providerController.text.trim();
     final currentProviderConfig = _providerConfig(currentProvider);
     final providerNeedsSignIn =
@@ -2229,7 +2247,9 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
           rows: [
             _SettingsOverviewRow(
               title: 'Preset',
-              value: providerNeedsSignIn ? 'Not configured' : modelPreset,
+              value: providerNeedsSignIn
+                  ? 'Not configured'
+                  : _selectedPresetLabel(modelPreset),
               caption: 'Used for new replies.',
             ),
             if (providerNeedsSignIn)
@@ -2283,6 +2303,21 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
             ),
           ],
         ),
+        if (widget.snapshot.modelPresets.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _SettingsSection(
+            title: 'Saved configurations',
+            rows: [
+              for (final preset in widget.snapshot.modelPresets)
+                _ModelPresetRow(
+                  preset: preset,
+                  providerLabel: _providerLabel(preset.provider),
+                  selected: preset.name == modelPreset,
+                  onTap: () => _selectModelPreset(preset),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 16),
         Row(
           children: [
@@ -2311,6 +2346,94 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
           ],
         ),
       ],
+    );
+  }
+
+  String _selectedPresetLabel(String presetName) {
+    for (final preset in widget.snapshot.modelPresets) {
+      if (preset.name == presetName) {
+        return preset.label.isEmpty ? preset.name : preset.label;
+      }
+    }
+    return presetName;
+  }
+
+  String _providerLabel(String? provider) {
+    if (provider == null || provider.isEmpty) {
+      return 'Provider';
+    }
+    for (final item in widget.snapshot.providers) {
+      if (item.name == provider) {
+        return item.label.isEmpty ? item.name : item.label;
+      }
+    }
+    return provider;
+  }
+}
+
+class _ModelPresetRow extends StatelessWidget {
+  const _ModelPresetRow({
+    required this.preset,
+    required this.providerLabel,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final NanobotModelPreset preset;
+  final String providerLabel;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final model = preset.model;
+    final title = model == null || model.isEmpty ? preset.label : model;
+    final captionParts = [
+      providerLabel,
+      if (preset.label.isNotEmpty) preset.label,
+    ].where((part) => part.isNotEmpty).toList();
+    return InkWell(
+      key: ValueKey('model-preset-${preset.name}'),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppThemeTokens.headingText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    captionParts.isEmpty
+                        ? 'Model configuration'
+                        : captionParts.join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppThemeTokens.mutedText,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (selected) ...[
+              const SizedBox(width: 12),
+              const Icon(Icons.check, size: 18, color: AppThemeTokens.brand),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

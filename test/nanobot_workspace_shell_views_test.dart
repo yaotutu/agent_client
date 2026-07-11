@@ -666,6 +666,100 @@ void main() {
     );
   });
 
+  testWidgets('settings model preset rows switch saved configurations', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      settingsSnapshot: const NanobotSettingsSnapshot(
+        modelPreset: 'default',
+        model: 'deepseek-chat',
+        provider: 'deepseek',
+        contextWindowTokens: 65536,
+        modelPresets: [
+          NanobotModelPreset(
+            name: 'default',
+            label: 'Default',
+            model: 'deepseek-chat',
+            provider: 'deepseek',
+            contextWindowTokens: 65536,
+            isDefault: true,
+            active: true,
+          ),
+          NanobotModelPreset(
+            name: 'fast-writing',
+            label: 'Fast writing',
+            model: 'openai/gpt-4.1-mini',
+            provider: 'openai',
+            contextWindowTokens: 262144,
+          ),
+        ],
+        providers: [
+          NanobotProviderConfig(
+            name: 'deepseek',
+            label: 'DeepSeek',
+            configured: true,
+            authType: 'api_key',
+          ),
+          NanobotProviderConfig(
+            name: 'openai',
+            label: 'OpenAI',
+            configured: true,
+            authType: 'api_key',
+          ),
+        ],
+      ),
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Current model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Current model'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saved configurations'), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('model-preset-fast-writing')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('model-preset-fast-writing')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fast writing'), findsWidgets);
+    expect(
+      find.widgetWithText(TextField, 'openai/gpt-4.1-mini'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(TextField, 'openai'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('model-context-window-256k')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('model-context-window-256k')),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.text('Save Model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save Model'));
+    await tester.pumpAndSettle();
+
+    expect(repository.modelSaveRequests.single.modelPreset, 'fast-writing');
+    expect(repository.modelSaveRequests.single.model, 'openai/gpt-4.1-mini');
+    expect(repository.modelSaveRequests.single.provider, 'openai');
+    expect(repository.modelSaveRequests.single.contextWindowTokens, 262144);
+  });
+
   testWidgets('apps surface filters and searches webui catalog kinds', (
     tester,
   ) async {
