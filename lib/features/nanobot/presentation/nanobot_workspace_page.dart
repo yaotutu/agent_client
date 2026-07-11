@@ -2006,6 +2006,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   NanobotProviderModelCatalog? _modelCatalog;
   var _isModelCatalogOpen = false;
   var _isLoadingModels = false;
+  var _modelCatalogQuery = '';
   String? _modelCatalogError;
 
   @override
@@ -2040,6 +2041,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
     _modelCatalog = null;
     _isModelCatalogOpen = false;
     _isLoadingModels = false;
+    _modelCatalogQuery = '';
     _modelCatalogError = null;
   }
 
@@ -2047,6 +2049,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
     final provider = _providerController.text.trim();
     setState(() {
       _isModelCatalogOpen = true;
+      _modelCatalogQuery = '';
       _modelCatalogError = provider.isEmpty ? 'Enter a provider first.' : null;
       _isLoadingModels = provider.isNotEmpty;
     });
@@ -2113,7 +2116,13 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
               isLoading: _isLoadingModels,
               catalog: _modelCatalog,
               error: _modelCatalogError,
+              query: _modelCatalogQuery,
               onOpen: () => unawaited(_loadProviderModels()),
+              onQueryChanged: (value) {
+                if (_isModelCatalogOpen) {
+                  setState(() => _modelCatalogQuery = value);
+                }
+              },
               onSelect: (model) {
                 setState(() {
                   _modelController.text = model.id;
@@ -2186,7 +2195,9 @@ class _SettingsModelPickerRow extends StatelessWidget {
     required this.isLoading,
     required this.catalog,
     required this.error,
+    required this.query,
     required this.onOpen,
+    required this.onQueryChanged,
     required this.onSelect,
   });
 
@@ -2198,7 +2209,9 @@ class _SettingsModelPickerRow extends StatelessWidget {
   final bool isLoading;
   final NanobotProviderModelCatalog? catalog;
   final String? error;
+  final String query;
   final VoidCallback onOpen;
+  final ValueChanged<String> onQueryChanged;
   final ValueChanged<NanobotProviderModel> onSelect;
 
   @override
@@ -2238,6 +2251,7 @@ class _SettingsModelPickerRow extends StatelessWidget {
                       child: TextField(
                         key: fieldKey,
                         controller: controller,
+                        onChanged: onQueryChanged,
                         decoration: const InputDecoration(
                           isDense: true,
                           border: OutlineInputBorder(),
@@ -2260,6 +2274,7 @@ class _SettingsModelPickerRow extends StatelessWidget {
                     isLoading: isLoading,
                     catalog: catalog,
                     error: error,
+                    query: query,
                     onSelect: onSelect,
                   ),
                 ],
@@ -2291,17 +2306,28 @@ class _ModelCatalogPanel extends StatelessWidget {
     required this.isLoading,
     required this.catalog,
     required this.error,
+    required this.query,
     required this.onSelect,
   });
 
   final bool isLoading;
   final NanobotProviderModelCatalog? catalog;
   final String? error;
+  final String query;
   final ValueChanged<NanobotProviderModel> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final models = catalog?.models ?? const [];
+    final normalizedQuery = query.trim().toLowerCase();
+    final sourceModels = catalog?.models ?? const [];
+    final models = normalizedQuery.isEmpty
+        ? sourceModels
+        : [
+            for (final model in sourceModels)
+              if (model.id.toLowerCase().contains(normalizedQuery) ||
+                  (model.ownedBy ?? '').toLowerCase().contains(normalizedQuery))
+                model,
+          ];
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(color: AppThemeTokens.border),
@@ -2335,11 +2361,13 @@ class _ModelCatalogPanel extends StatelessWidget {
                 ),
               )
             else if (models.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(8),
+              Padding(
+                padding: const EdgeInsets.all(8),
                 child: Text(
-                  'Search provider catalog to choose a model.',
-                  style: TextStyle(
+                  sourceModels.isEmpty
+                      ? 'Search provider catalog to choose a model.'
+                      : 'No matching models.',
+                  style: const TextStyle(
                     color: AppThemeTokens.mutedText,
                     fontSize: 12,
                   ),

@@ -421,6 +421,50 @@ void main() {
     expect(repository.modelSaveRequests.single.contextWindowTokens, isNull);
   });
 
+  testWidgets('settings model picker filters provider catalog by query', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      settingsSnapshot: const NanobotSettingsSnapshot(
+        modelPreset: 'default',
+        model: 'deepseek-chat',
+        provider: 'deepseek',
+        contextWindowTokens: 65536,
+      ),
+      providerModelCatalogs: const {
+        'deepseek': ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner'],
+      },
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Current model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Current model'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('model-picker-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('model-id-field')),
+      'reasoner',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('deepseek-reasoner'), findsOneWidget);
+    expect(find.text('deepseek-chat'), findsNothing);
+    expect(find.text('deepseek-coder'), findsNothing);
+  });
+
   testWidgets('apps surface filters and searches webui catalog kinds', (
     tester,
   ) async {
