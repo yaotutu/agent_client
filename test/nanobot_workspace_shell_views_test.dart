@@ -740,6 +740,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.widgetWithText(TextField, 'openai'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Fast writing'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('model-preset-label-field')),
+      'Fast drafting',
+    );
 
     await tester.ensureVisible(
       find.byKey(const ValueKey('model-context-window-256k')),
@@ -754,10 +759,14 @@ void main() {
     await tester.tap(find.text('Save Model'));
     await tester.pumpAndSettle();
 
-    expect(repository.modelSaveRequests.single.modelPreset, 'fast-writing');
-    expect(repository.modelSaveRequests.single.model, 'openai/gpt-4.1-mini');
-    expect(repository.modelSaveRequests.single.provider, 'openai');
-    expect(repository.modelSaveRequests.single.contextWindowTokens, 262144);
+    expect(repository.modelSaveRequests, isEmpty);
+    expect(repository.modelConfigurationUpdateRequests, hasLength(1));
+    final request = repository.modelConfigurationUpdateRequests.single;
+    expect(request.name, 'fast-writing');
+    expect(request.label, 'Fast drafting');
+    expect(request.model, 'openai/gpt-4.1-mini');
+    expect(request.provider, 'openai');
+    expect(request.contextWindowTokens, isNull);
   });
 
   testWidgets('apps surface filters and searches webui catalog kinds', (
@@ -2335,6 +2344,16 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       >[];
   final modelConfigurationCreateRequests =
       <({String label, String provider, String model})>[];
+  final modelConfigurationUpdateRequests =
+      <
+        ({
+          String name,
+          String label,
+          String provider,
+          String model,
+          int? contextWindowTokens,
+        })
+      >[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -2743,6 +2762,33 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       provider: provider,
       contextWindowTokens: current?.contextWindowTokens,
       requiresRestart: true,
+      providers: current?.providers ?? const [],
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> updateModelConfiguration({
+    required String name,
+    required String label,
+    required String provider,
+    required String model,
+    int? contextWindowTokens,
+  }) async {
+    modelConfigurationUpdateRequests.add((
+      name: name,
+      label: label,
+      provider: provider,
+      model: model,
+      contextWindowTokens: contextWindowTokens,
+    ));
+    final current = settingsSnapshot;
+    return NanobotSettingsSnapshot(
+      modelPreset: name,
+      model: model,
+      provider: provider,
+      contextWindowTokens: contextWindowTokens ?? current?.contextWindowTokens,
+      requiresRestart: true,
+      modelPresets: current?.modelPresets ?? const [],
       providers: current?.providers ?? const [],
     );
   }

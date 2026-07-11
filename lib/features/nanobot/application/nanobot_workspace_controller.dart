@@ -356,26 +356,47 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     required String model,
     required String provider,
     required int contextWindowTokens,
+    String? presetLabel,
   }) async {
     state = state.copyWith(isLoadingSurface: true, clearError: true);
     try {
       final current = state.settingsSnapshot;
+      NanobotModelPreset? selectedPreset;
+      for (final preset
+          in current?.modelPresets ?? const <NanobotModelPreset>[]) {
+        if (preset.name == modelPreset) {
+          selectedPreset = preset;
+          break;
+        }
+      }
       final currentModel = current?.model ?? '';
       final currentProvider = current?.provider ?? '';
       final currentContextWindowTokens = _normalizeModelContextWindow(
         current?.contextWindowTokens,
       );
-      final snapshot = await ref
-          .read(nanobotRepositoryProvider)
-          .saveModelSettings(
-            modelPreset: modelPreset,
-            model: model == currentModel ? null : model,
-            provider: provider == currentProvider ? null : provider,
-            contextWindowTokens:
-                contextWindowTokens == currentContextWindowTokens
-                ? null
-                : contextWindowTokens,
-          );
+      final repository = ref.read(nanobotRepositoryProvider);
+      final snapshot = selectedPreset == null || selectedPreset.isDefault
+          ? await repository.saveModelSettings(
+              modelPreset: modelPreset,
+              model: model == currentModel ? null : model,
+              provider: provider == currentProvider ? null : provider,
+              contextWindowTokens:
+                  contextWindowTokens == currentContextWindowTokens
+                  ? null
+                  : contextWindowTokens,
+            )
+          : await repository.updateModelConfiguration(
+              name: selectedPreset.name,
+              label: presetLabel?.trim().isNotEmpty == true
+                  ? presetLabel!.trim()
+                  : selectedPreset.label,
+              model: model,
+              provider: provider,
+              contextWindowTokens:
+                  contextWindowTokens == selectedPreset.contextWindowTokens
+                  ? null
+                  : contextWindowTokens,
+            );
       state = state.copyWith(
         settingsSnapshot: snapshot,
         settingsSection: NanobotSettingsSection.models,

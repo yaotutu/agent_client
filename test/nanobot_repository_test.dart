@@ -774,6 +774,66 @@ void main() {
     },
   );
 
+  test(
+    'repository updates model configurations through webui endpoint',
+    () async {
+      final adapter = _RouteAdapter({
+        'GET /webui/bootstrap': {
+          'token': 'token-1',
+          'ws_path': '/',
+          'expires_in': 300,
+        },
+        'GET /api/settings/model-configurations/update?name=fast-writing&label=Fast+writing&provider=openai&model=openai%2Fgpt-4.1-mini&context_window_tokens=262144':
+            {
+              'agent': {
+                'model_preset': 'fast-writing',
+                'model': 'openai/gpt-4.1-mini',
+                'provider': 'openai',
+                'context_window_tokens': 262144,
+              },
+              'model_presets': [
+                {
+                  'name': 'fast-writing',
+                  'label': 'Fast writing',
+                  'model': 'openai/gpt-4.1-mini',
+                  'provider': 'openai',
+                  'context_window_tokens': 262144,
+                  'active': true,
+                },
+              ],
+            },
+      });
+      final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+      dio.httpClientAdapter = adapter;
+      final config = const NanobotConfig(
+        baseUrl: 'https://nanobot.test',
+        secret: 'redhat',
+      );
+      final api = NanobotApiClient(config: config, dio: dio);
+      final repository = NanobotRepository(
+        api: api,
+        ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+      );
+
+      final settings = await repository.updateModelConfiguration(
+        name: 'fast-writing',
+        label: 'Fast writing',
+        provider: 'openai',
+        model: 'openai/gpt-4.1-mini',
+        contextWindowTokens: 262144,
+      );
+
+      expect(
+        adapter.requests.last.key,
+        contains('/model-configurations/update'),
+      );
+      expect(settings.modelPreset, 'fast-writing');
+      expect(settings.model, 'openai/gpt-4.1-mini');
+      expect(settings.modelPresets.single.label, 'Fast writing');
+      expect(settings.modelPresets.single.contextWindowTokens, 262144);
+    },
+  );
+
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

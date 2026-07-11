@@ -1324,6 +1324,7 @@ class _ChatPane extends StatelessWidget {
     required String model,
     required String provider,
     required int contextWindowTokens,
+    String? presetLabel,
   })
   onSaveModel;
   final Future<void> Function({
@@ -1635,6 +1636,7 @@ class _SecondarySurface extends StatelessWidget {
     required String model,
     required String provider,
     required int contextWindowTokens,
+    String? presetLabel,
   })
   onSaveModel;
   final Future<void> Function({
@@ -1799,6 +1801,7 @@ class _SettingsSurface extends StatelessWidget {
     required String model,
     required String provider,
     required int contextWindowTokens,
+    String? presetLabel,
   })
   onSaveModel;
   final Future<void> Function({
@@ -2016,6 +2019,7 @@ class _ModelSettingsSurface extends StatefulWidget {
     required String model,
     required String provider,
     required int contextWindowTokens,
+    String? presetLabel,
   })
   onSave;
   final Future<void> Function({
@@ -2034,6 +2038,7 @@ class _ModelSettingsSurface extends StatefulWidget {
 class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   late final TextEditingController _providerController;
   late final TextEditingController _modelController;
+  late final TextEditingController _presetLabelController;
   late String _selectedModelPreset;
   late int _contextWindowTokens;
   NanobotProviderModelCatalog? _modelCatalog;
@@ -2052,6 +2057,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
     super.initState();
     _providerController = TextEditingController();
     _modelController = TextEditingController();
+    _presetLabelController = TextEditingController();
     _applySnapshot(widget.snapshot);
   }
 
@@ -2067,6 +2073,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   void dispose() {
     _providerController.dispose();
     _modelController.dispose();
+    _presetLabelController.dispose();
     _configurationLabelController.dispose();
     _configurationProviderController.dispose();
     _configurationModelController.dispose();
@@ -2075,6 +2082,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
 
   void _applySnapshot(NanobotSettingsSnapshot snapshot) {
     _selectedModelPreset = snapshot.modelPreset ?? 'default';
+    _presetLabelController.text = _selectedPresetLabel(_selectedModelPreset);
     _providerController.text = snapshot.provider ?? '';
     _modelController.text = snapshot.model ?? '';
     _contextWindowTokens = _normalizeModelContextWindow(
@@ -2090,6 +2098,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   void _selectModelPreset(NanobotModelPreset preset) {
     setState(() {
       _selectedModelPreset = preset.name;
+      _presetLabelController.text = preset.label;
       _providerController.text = preset.provider ?? _providerController.text;
       _modelController.text = preset.model ?? _modelController.text;
       _contextWindowTokens = _normalizeModelContextWindow(
@@ -2204,6 +2213,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
   @override
   Widget build(BuildContext context) {
     final modelPreset = _selectedModelPreset;
+    final selectedPreset = _selectedPreset(modelPreset);
     final currentProvider = _providerController.text.trim();
     final currentProviderConfig = _providerConfig(currentProvider);
     final providerNeedsSignIn =
@@ -2249,9 +2259,18 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
               title: 'Preset',
               value: providerNeedsSignIn
                   ? 'Not configured'
-                  : _selectedPresetLabel(modelPreset),
+                  : _presetLabelController.text.trim().isEmpty
+                  ? _selectedPresetLabel(modelPreset)
+                  : _presetLabelController.text.trim(),
               caption: 'Used for new replies.',
             ),
+            if (selectedPreset != null && !selectedPreset.isDefault)
+              _SettingsTextFieldRow(
+                title: 'Configuration name',
+                caption: 'Rename this saved model configuration.',
+                controller: _presetLabelController,
+                fieldKey: const ValueKey('model-preset-label-field'),
+              ),
             if (providerNeedsSignIn)
               _SettingsOverviewRow(
                 title: currentProviderLabel,
@@ -2339,6 +2358,7 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
                   model: _modelController.text,
                   provider: _providerController.text,
                   contextWindowTokens: _contextWindowTokens,
+                  presetLabel: _presetLabelController.text,
                 ),
               ),
               child: const Text('Save Model'),
@@ -2356,6 +2376,15 @@ class _ModelSettingsSurfaceState extends State<_ModelSettingsSurface> {
       }
     }
     return presetName;
+  }
+
+  NanobotModelPreset? _selectedPreset(String presetName) {
+    for (final preset in widget.snapshot.modelPresets) {
+      if (preset.name == presetName) {
+        return preset;
+      }
+    }
+    return null;
   }
 
   String _providerLabel(String? provider) {

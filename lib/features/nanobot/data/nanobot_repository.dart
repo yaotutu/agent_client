@@ -168,6 +168,16 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('createModelConfiguration');
   }
 
+  Future<NanobotSettingsSnapshot> updateModelConfiguration({
+    required String name,
+    required String label,
+    required String provider,
+    required String model,
+    int? contextWindowTokens,
+  }) {
+    throw UnimplementedError('updateModelConfiguration');
+  }
+
   Future<NanobotVersionCheckResult> checkVersion() {
     throw UnimplementedError('checkVersion');
   }
@@ -524,6 +534,25 @@ class NanobotRepository implements NanobotRepositoryPort {
         label: label,
         provider: provider,
         model: model,
+      ),
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> updateModelConfiguration({
+    required String name,
+    required String label,
+    required String provider,
+    required String model,
+    int? contextWindowTokens,
+  }) async {
+    return _settingsSnapshotFromDto(
+      await api.updateModelConfiguration(
+        name: name,
+        label: label,
+        provider: provider,
+        model: model,
+        contextWindowTokens: contextWindowTokens,
       ),
     );
   }

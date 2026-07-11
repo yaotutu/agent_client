@@ -320,6 +320,30 @@ class NanobotApiClient {
     return NanobotSettingsDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotSettingsDto> updateModelConfiguration({
+    required String name,
+    required String label,
+    required String provider,
+    required String model,
+    int? contextWindowTokens,
+  }) async {
+    final queryParameters = <String, Object?>{
+      'name': name,
+      'label': label,
+      'provider': provider,
+      'model': model,
+    };
+    if (contextWindowTokens != null) {
+      queryParameters['context_window_tokens'] = contextWindowTokens;
+    }
+    final response = await _dio.get<Object?>(
+      '/api/settings/model-configurations/update',
+      queryParameters: queryParameters,
+      options: await _authOptions(),
+    );
+    return NanobotSettingsDto.fromJson(_asMap(response.data));
+  }
+
   Future<NanobotSkillsDto> fetchSkills() async {
     final response = await _dio.get<Object?>(
       '/api/webui/skills',
