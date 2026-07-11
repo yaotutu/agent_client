@@ -472,6 +472,62 @@ void main() {
     expect(find.text('deepseek-coder'), findsNothing);
   });
 
+  testWidgets('settings model picker accepts custom model ids', (tester) async {
+    final repository = _FakeNanobotRepository(
+      settingsSnapshot: const NanobotSettingsSnapshot(
+        modelPreset: 'default',
+        model: 'deepseek-chat',
+        provider: 'deepseek',
+        contextWindowTokens: 65536,
+      ),
+      providerModelCatalogs: const {
+        'deepseek': ['deepseek-chat', 'deepseek-reasoner'],
+      },
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Current model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Current model'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('model-picker-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('model-id-field')),
+      'deepseek-custom',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No matching models.'), findsOneWidget);
+    expect(find.text('Use "deepseek-custom"'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('provider-model-custom')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Use "deepseek-custom"'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save Model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save Model'));
+    await tester.pumpAndSettle();
+
+    expect(repository.modelSaveRequests.single.model, 'deepseek-custom');
+    expect(repository.modelSaveRequests.single.provider, isNull);
+    expect(repository.modelSaveRequests.single.contextWindowTokens, isNull);
+  });
+
   testWidgets('apps surface filters and searches webui catalog kinds', (
     tester,
   ) async {

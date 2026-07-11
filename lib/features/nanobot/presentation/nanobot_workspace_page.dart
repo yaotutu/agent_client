@@ -2328,6 +2328,12 @@ class _ModelCatalogPanel extends StatelessWidget {
                   (model.ownedBy ?? '').toLowerCase().contains(normalizedQuery))
                 model,
           ];
+    final exactQueryMatch = sourceModels.any(
+      (model) => model.id.toLowerCase() == normalizedQuery,
+    );
+    final customCandidate = query.trim();
+    final canUseCustom =
+        customCandidate.isNotEmpty && !exactQueryMatch && !isLoading;
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(color: AppThemeTokens.border),
@@ -2360,7 +2366,7 @@ class _ModelCatalogPanel extends StatelessWidget {
                   ),
                 ),
               )
-            else if (models.isEmpty)
+            else if (models.isEmpty && !canUseCustom)
               Padding(
                 padding: const EdgeInsets.all(8),
                 child: Text(
@@ -2373,7 +2379,18 @@ class _ModelCatalogPanel extends StatelessWidget {
                   ),
                 ),
               )
-            else
+            else ...[
+              if (models.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Text(
+                    'No matching models.',
+                    style: TextStyle(
+                      color: AppThemeTokens.mutedText,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               for (final model in models)
                 TextButton(
                   key: ValueKey('provider-model-${model.id}'),
@@ -2403,6 +2420,27 @@ class _ModelCatalogPanel extends StatelessWidget {
                     ],
                   ),
                 ),
+              if (canUseCustom) ...[
+                if (models.isNotEmpty)
+                  const Divider(height: 12, color: AppThemeTokens.border),
+                TextButton(
+                  key: const ValueKey('provider-model-custom'),
+                  onPressed: () =>
+                      onSelect(NanobotProviderModel(id: customCandidate)),
+                  style: TextButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                  ),
+                  child: Text(
+                    'Use "$customCandidate"',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ],
           ],
         ),
       ),
