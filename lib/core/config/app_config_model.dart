@@ -1,6 +1,11 @@
 class AppConfig {
   const AppConfig({required this.apiBaseUrl, required this.apiKey});
 
+  static const _legacyDefaultApiBaseUrls = {
+    'http://192.168.200.149:8765',
+    'http://192.168.55.130:8765',
+  };
+
   static const defaultApiBaseUrl = String.fromEnvironment(
     'NANOBOT_BASE_URL',
     defaultValue: 'http://192.168.55.240:8765',
@@ -33,10 +38,14 @@ class AppConfig {
   factory AppConfig.fromJson(Map<String, Object?> json) {
     final apiBaseUrl = json['apiBaseUrl'];
     final apiKey = json['apiKey'];
+    final normalizedApiBaseUrl =
+        apiBaseUrl is String && apiBaseUrl.trim().isNotEmpty
+        ? normalizeBaseUrl(apiBaseUrl)
+        : defaultApiBaseUrl;
     return AppConfig(
-      apiBaseUrl: apiBaseUrl is String && apiBaseUrl.trim().isNotEmpty
-          ? normalizeBaseUrl(apiBaseUrl)
-          : defaultApiBaseUrl,
+      apiBaseUrl: _legacyDefaultApiBaseUrls.contains(normalizedApiBaseUrl)
+          ? defaultApiBaseUrl
+          : normalizedApiBaseUrl,
       apiKey: apiKey is String ? apiKey.trim() : defaultApiKey,
     );
   }

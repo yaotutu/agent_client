@@ -9,6 +9,23 @@ void main() {
     expect(AppConfig.defaults.apiKey, 'redhat');
   });
 
+  test('app config migrates old nanobot default gateways', () {
+    expect(
+      AppConfig.fromJson({
+        'apiBaseUrl': 'http://192.168.200.149:8765',
+        'apiKey': 'redhat',
+      }).apiBaseUrl,
+      'http://192.168.55.240:8765',
+    );
+    expect(
+      AppConfig.fromJson({
+        'apiBaseUrl': ' http://192.168.55.130:8765/ ',
+        'apiKey': 'redhat',
+      }).apiBaseUrl,
+      'http://192.168.55.240:8765',
+    );
+  });
+
   test('app config controller saves editable backend settings', () async {
     final store = _MemoryAppConfigStore();
     final container = ProviderContainer(
