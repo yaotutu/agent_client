@@ -651,6 +651,16 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotSettingsSnapshot> saveProviderSettings({
+    required String provider,
+    String? apiKey,
+    String? apiBase,
+    String? apiType,
+  }) async {
+    return const NanobotSettingsSnapshot();
+  }
+
+  @override
   Future<List<NanobotCatalogItem>> fetchAppItems() async {
     return const [];
   }

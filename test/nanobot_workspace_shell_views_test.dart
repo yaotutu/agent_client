@@ -632,6 +632,68 @@ void main() {
     expect(repository.providerOAuthLoginRequests, ['openai_codex']);
   });
 
+  testWidgets('settings providers page saves api key provider settings', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      settingsSnapshot: const NanobotSettingsSnapshot(
+        model: 'deepseek-chat',
+        provider: 'deepseek',
+        providers: [
+          NanobotProviderConfig(
+            name: 'openrouter',
+            label: 'OpenRouter',
+            configured: false,
+            authType: 'api_key',
+            apiKeyRequired: true,
+            defaultApiBase: 'https://openrouter.ai/api/v1',
+            apiType: 'auto',
+          ),
+        ],
+      ),
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Providers'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Providers'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Configured providers'), findsOneWidget);
+    expect(find.text('OpenRouter'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('provider-api-key-openrouter')),
+      'sk-or-test',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('provider-api-base-openrouter')),
+      'https://openrouter.ai/api/v1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('provider-api-type-openrouter')),
+      'auto',
+    );
+    await tester.tap(find.byKey(const ValueKey('provider-save-openrouter')));
+    await tester.pumpAndSettle();
+
+    expect(repository.providerSaveRequests, hasLength(1));
+    final request = repository.providerSaveRequests.single;
+    expect(request.provider, 'openrouter');
+    expect(request.apiKey, 'sk-or-test');
+    expect(request.apiBase, 'https://openrouter.ai/api/v1');
+    expect(request.apiType, 'auto');
+  });
+
   testWidgets('settings model configuration dialog creates and cancels', (
     tester,
   ) async {
@@ -2401,6 +2463,8 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       >[];
   final providerOAuthLoginRequests = <String>[];
   final providerOAuthLogoutRequests = <String>[];
+  final providerSaveRequests =
+      <({String provider, String? apiKey, String? apiBase, String? apiType})>[];
   final updateRequests = <({String id, Map<String, Object?> values})>[];
   final _sessions = [
     NanobotSessionSummary(
@@ -2885,6 +2949,45 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
                   configured: false,
                   authType: item.authType,
                   oauthLoginSupported: item.oauthLoginSupported,
+                )
+              : item,
+      ],
+    );
+  }
+
+  @override
+  Future<NanobotSettingsSnapshot> saveProviderSettings({
+    required String provider,
+    String? apiKey,
+    String? apiBase,
+    String? apiType,
+  }) async {
+    providerSaveRequests.add((
+      provider: provider,
+      apiKey: apiKey,
+      apiBase: apiBase,
+      apiType: apiType,
+    ));
+    final current = settingsSnapshot;
+    return NanobotSettingsSnapshot(
+      modelPreset: current?.modelPreset,
+      model: current?.model,
+      provider: current?.provider,
+      contextWindowTokens: current?.contextWindowTokens,
+      providers: [
+        for (final item
+            in current?.providers ?? const <NanobotProviderConfig>[])
+          item.name == provider
+              ? NanobotProviderConfig(
+                  name: item.name,
+                  label: item.label,
+                  configured: true,
+                  authType: item.authType,
+                  apiKeyRequired: item.apiKeyRequired,
+                  apiKeyHint: 'sk-...',
+                  apiBase: apiBase,
+                  defaultApiBase: item.defaultApiBase,
+                  apiType: apiType,
                 )
               : item,
       ],

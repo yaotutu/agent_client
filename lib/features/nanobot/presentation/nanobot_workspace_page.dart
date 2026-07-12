@@ -138,6 +138,7 @@ class _NanobotWorkspacePageState extends ConsumerState<NanobotWorkspacePage> {
               onSaveTranscription: controller.saveTranscriptionSettings,
               onSaveNetworkSafety: controller.saveNetworkSafetySettings,
               onSaveRuntime: controller.saveRuntimeSettings,
+              onSaveProvider: controller.saveProviderSettings,
               onSaveModel: controller.saveModelSettings,
               onCreateModelConfiguration: controller.createModelConfiguration,
               onProviderOAuthLogin: controller.loginProviderOAuth,
@@ -1220,6 +1221,7 @@ class _ChatPane extends StatelessWidget {
     required this.onSaveTranscription,
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
+    required this.onSaveProvider,
     required this.onSaveModel,
     required this.onCreateModelConfiguration,
     required this.onProviderOAuthLogin,
@@ -1324,6 +1326,13 @@ class _ChatPane extends StatelessWidget {
   })
   onSaveRuntime;
   final Future<void> Function({
+    required String provider,
+    String? apiKey,
+    String? apiBase,
+    String? apiType,
+  })
+  onSaveProvider;
+  final Future<void> Function({
     required String modelPreset,
     required String model,
     required String provider,
@@ -1387,6 +1396,7 @@ class _ChatPane extends StatelessWidget {
                     onSaveTranscription: onSaveTranscription,
                     onSaveNetworkSafety: onSaveNetworkSafety,
                     onSaveRuntime: onSaveRuntime,
+                    onSaveProvider: onSaveProvider,
                     onSaveModel: onSaveModel,
                     onCreateModelConfiguration: onCreateModelConfiguration,
                     onProviderOAuthLogin: onProviderOAuthLogin,
@@ -1566,6 +1576,7 @@ class _SecondarySurface extends StatelessWidget {
     required this.onSaveTranscription,
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
+    required this.onSaveProvider,
     required this.onSaveModel,
     required this.onCreateModelConfiguration,
     required this.onProviderOAuthLogin,
@@ -1642,6 +1653,13 @@ class _SecondarySurface extends StatelessWidget {
   })
   onSaveRuntime;
   final Future<void> Function({
+    required String provider,
+    String? apiKey,
+    String? apiBase,
+    String? apiType,
+  })
+  onSaveProvider;
+  final Future<void> Function({
     required String modelPreset,
     required String model,
     required String provider,
@@ -1685,6 +1703,7 @@ class _SecondarySurface extends StatelessWidget {
           onSaveTranscription: onSaveTranscription,
           onSaveNetworkSafety: onSaveNetworkSafety,
           onSaveRuntime: onSaveRuntime,
+          onSaveProvider: onSaveProvider,
           onSaveModel: onSaveModel,
           onCreateModelConfiguration: onCreateModelConfiguration,
           onProviderOAuthLogin: onProviderOAuthLogin,
@@ -1762,6 +1781,7 @@ class _SettingsSurface extends StatelessWidget {
     required this.onSaveTranscription,
     required this.onSaveNetworkSafety,
     required this.onSaveRuntime,
+    required this.onSaveProvider,
     required this.onSaveModel,
     required this.onCreateModelConfiguration,
     required this.onProviderOAuthLogin,
@@ -1812,6 +1832,13 @@ class _SettingsSurface extends StatelessWidget {
     required String botIcon,
   })
   onSaveRuntime;
+  final Future<void> Function({
+    required String provider,
+    String? apiKey,
+    String? apiBase,
+    String? apiType,
+  })
+  onSaveProvider;
   final Future<void> Function({
     required String modelPreset,
     required String model,
@@ -1872,6 +1899,13 @@ class _SettingsSurface extends StatelessWidget {
         onSave: onSaveRuntime,
       );
     }
+    if (section == NanobotSettingsSection.providers) {
+      return _ProviderSettingsSurface(
+        snapshot: value,
+        onBack: () => onOpenSection(NanobotSettingsSection.overview),
+        onSave: onSaveProvider,
+      );
+    }
     if (section == NanobotSettingsSection.models) {
       return _ModelSettingsSurface(
         snapshot: value,
@@ -1898,6 +1932,12 @@ class _SettingsSurface extends StatelessWidget {
               value: value.model ?? 'unknown',
               caption: _settingsModelCaption(value),
               onTap: () => onOpenSection(NanobotSettingsSection.models),
+            ),
+            _SettingsOverviewRow(
+              title: 'Providers',
+              value: _settingsProvidersValue(value),
+              caption: 'Model and capability credentials.',
+              onTap: () => onOpenSection(NanobotSettingsSection.providers),
             ),
           ],
         ),
@@ -1997,6 +2037,16 @@ class _SettingsSurface extends StatelessWidget {
     return parts.isEmpty ? 'Not configured' : parts.join(' · ');
   }
 
+  String _settingsProvidersValue(NanobotSettingsSnapshot value) {
+    final configured = value.providers
+        .where((provider) => provider.configured)
+        .length;
+    if (value.providers.isEmpty) {
+      return 'None';
+    }
+    return '$configured/${value.providers.length} configured';
+  }
+
   String _settingsProviderCaption(String? provider, String? detail) {
     final parts = [
       provider,
@@ -2020,6 +2070,277 @@ class _SettingsSurface extends StatelessWidget {
 
   String _settingsSafetyTitle(NanobotSettingsSnapshot value) {
     return value.isNativeHostSurface ? 'App safety' : 'Web safety';
+  }
+}
+
+class _ProviderSettingsSurface extends StatefulWidget {
+  const _ProviderSettingsSurface({
+    required this.snapshot,
+    required this.onBack,
+    required this.onSave,
+  });
+
+  final NanobotSettingsSnapshot snapshot;
+  final VoidCallback onBack;
+  final Future<void> Function({
+    required String provider,
+    String? apiKey,
+    String? apiBase,
+    String? apiType,
+  })
+  onSave;
+
+  @override
+  State<_ProviderSettingsSurface> createState() =>
+      _ProviderSettingsSurfaceState();
+}
+
+class _ProviderSettingsSurfaceState extends State<_ProviderSettingsSurface> {
+  final _apiKeyControllers = <String, TextEditingController>{};
+  final _apiBaseControllers = <String, TextEditingController>{};
+  final _apiTypeControllers = <String, TextEditingController>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _syncControllers(widget.snapshot);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProviderSettingsSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snapshot != widget.snapshot) {
+      _syncControllers(widget.snapshot);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in [
+      ..._apiKeyControllers.values,
+      ..._apiBaseControllers.values,
+      ..._apiTypeControllers.values,
+    ]) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _syncControllers(NanobotSettingsSnapshot snapshot) {
+    for (final provider in snapshot.providers) {
+      _apiKeyControllers.putIfAbsent(provider.name, TextEditingController.new);
+      _apiBaseControllers.putIfAbsent(
+        provider.name,
+        () => TextEditingController(
+          text: provider.apiBase ?? provider.defaultApiBase ?? '',
+        ),
+      );
+      _apiTypeControllers.putIfAbsent(
+        provider.name,
+        () => TextEditingController(text: provider.apiType ?? 'auto'),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final providers = widget.snapshot.providers;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton.icon(
+          onPressed: widget.onBack,
+          icon: const Icon(Icons.chevron_left),
+          label: const Text('Settings'),
+        ),
+        const SizedBox(height: 8),
+        const _SurfaceTitle('Providers'),
+        const SizedBox(height: 16),
+        if (providers.isEmpty)
+          const _EmptySurface(text: 'No providers found')
+        else
+          _SettingsSection(
+            title: 'Configured providers',
+            rows: [
+              for (final provider in providers)
+                _ProviderSettingsRow(
+                  provider: provider,
+                  apiKeyController: _apiKeyControllers[provider.name]!,
+                  apiBaseController: _apiBaseControllers[provider.name]!,
+                  apiTypeController: _apiTypeControllers[provider.name]!,
+                  onSave: () => unawaited(
+                    widget.onSave(
+                      provider: provider.name,
+                      apiKey: _apiKeyControllers[provider.name]!.text,
+                      apiBase: _apiBaseControllers[provider.name]!.text,
+                      apiType: _apiTypeControllers[provider.name]!.text,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class _ProviderSettingsRow extends StatelessWidget {
+  const _ProviderSettingsRow({
+    required this.provider,
+    required this.apiKeyController,
+    required this.apiBaseController,
+    required this.apiTypeController,
+    required this.onSave,
+  });
+
+  final NanobotProviderConfig provider;
+  final TextEditingController apiKeyController;
+  final TextEditingController apiBaseController;
+  final TextEditingController apiTypeController;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOauth = provider.authType == 'oauth';
+    final status = isOauth
+        ? provider.configured
+              ? 'Signed in'
+              : 'Not signed in'
+        : provider.configured
+        ? 'Configured'
+        : 'Not configured';
+    return Padding(
+      key: ValueKey('provider-settings-${provider.name}'),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      provider.label,
+                      style: const TextStyle(
+                        color: AppThemeTokens.headingText,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      provider.apiBase ??
+                          provider.defaultApiBase ??
+                          provider.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppThemeTokens.mutedText,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                status,
+                style: TextStyle(
+                  color: provider.configured
+                      ? AppThemeTokens.success
+                      : AppThemeTokens.mutedText,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (isOauth)
+            Text(
+              provider.oauthAccount?.isNotEmpty == true
+                  ? 'Signed in as ${provider.oauthAccount}'
+                  : 'Use OAuth authentication from model settings.',
+              style: const TextStyle(
+                color: AppThemeTokens.mutedText,
+                fontSize: 12,
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 560;
+                final fields = [
+                  TextField(
+                    key: ValueKey('provider-api-key-${provider.name}'),
+                    controller: apiKeyController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                      labelText: 'API key',
+                      hintText: provider.apiKeyHint ?? 'sk-...',
+                    ),
+                  ),
+                  TextField(
+                    key: ValueKey('provider-api-base-${provider.name}'),
+                    controller: apiBaseController,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                      labelText: 'API base',
+                      hintText: provider.defaultApiBase,
+                    ),
+                  ),
+                  TextField(
+                    key: ValueKey('provider-api-type-${provider.name}'),
+                    controller: apiTypeController,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      labelText: 'API type',
+                    ),
+                  ),
+                ];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (narrow) ...[
+                      for (final field in fields) ...[
+                        field,
+                        const SizedBox(height: 10),
+                      ],
+                    ] else
+                      Row(
+                        children: [
+                          for (
+                            var index = 0;
+                            index < fields.length;
+                            index++
+                          ) ...[
+                            Expanded(child: fields[index]),
+                            if (index < fields.length - 1)
+                              const SizedBox(width: 10),
+                          ],
+                        ],
+                      ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton(
+                        key: ValueKey('provider-save-${provider.name}'),
+                        onPressed: onSave,
+                        child: const Text('Save provider'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
   }
 }
 

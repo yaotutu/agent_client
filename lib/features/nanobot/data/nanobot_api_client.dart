@@ -362,6 +362,30 @@ class NanobotApiClient {
     return NanobotSettingsDto.fromJson(_asMap(response.data));
   }
 
+  Future<NanobotSettingsDto> updateProviderSettings({
+    required String provider,
+    String? apiKey,
+    String? apiBase,
+    String? apiType,
+  }) async {
+    final queryParameters = <String, Object?>{'provider': provider};
+    if (apiKey != null) {
+      queryParameters['api_key'] = apiKey;
+    }
+    if (apiBase != null) {
+      queryParameters['api_base'] = apiBase;
+    }
+    if (apiType != null) {
+      queryParameters['api_type'] = apiType;
+    }
+    final response = await _dio.get<Object?>(
+      '/api/settings/provider/update',
+      queryParameters: queryParameters,
+      options: await _authOptions(),
+    );
+    return NanobotSettingsDto.fromJson(_asMap(response.data));
+  }
+
   Future<NanobotSkillsDto> fetchSkills() async {
     final response = await _dio.get<Object?>(
       '/api/webui/skills',

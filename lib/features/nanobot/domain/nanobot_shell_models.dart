@@ -3,6 +3,7 @@ enum NanobotShellView { chat, settings, apps, automations, skills }
 enum NanobotSettingsSection {
   overview,
   models,
+  providers,
   webSearch,
   imageGeneration,
   voiceInput,
@@ -159,6 +160,7 @@ class NanobotProviderConfig {
     this.apiKeyHint,
     this.apiBase,
     this.defaultApiBase,
+    this.apiType,
     this.oauthAccount,
     this.oauthExpiresAt,
     this.oauthLoginSupported = false,
@@ -172,6 +174,7 @@ class NanobotProviderConfig {
   final String? apiKeyHint;
   final String? apiBase;
   final String? defaultApiBase;
+  final String? apiType;
   final String? oauthAccount;
   final String? oauthExpiresAt;
   final bool oauthLoginSupported;

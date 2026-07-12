@@ -186,6 +186,15 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('logoutProviderOAuth');
   }
 
+  Future<NanobotSettingsSnapshot> saveProviderSettings({
+    required String provider,
+    String? apiKey,
+    String? apiBase,
+    String? apiType,
+  }) {
+    throw UnimplementedError('saveProviderSettings');
+  }
+
   Future<NanobotVersionCheckResult> checkVersion() {
     throw UnimplementedError('checkVersion');
   }
@@ -575,6 +584,23 @@ class NanobotRepository implements NanobotRepositoryPort {
     return _settingsSnapshotFromDto(await api.logoutProviderOAuth(provider));
   }
 
+  @override
+  Future<NanobotSettingsSnapshot> saveProviderSettings({
+    required String provider,
+    String? apiKey,
+    String? apiBase,
+    String? apiType,
+  }) async {
+    return _settingsSnapshotFromDto(
+      await api.updateProviderSettings(
+        provider: provider,
+        apiKey: apiKey,
+        apiBase: apiBase,
+        apiType: apiType,
+      ),
+    );
+  }
+
   NanobotSettingsSnapshot _settingsSnapshotFromDto(
     NanobotSettingsDto settings,
   ) {
@@ -676,6 +702,7 @@ class NanobotRepository implements NanobotRepositoryPort {
       apiKeyHint: _stringFrom(row['api_key_hint']),
       apiBase: _stringFrom(row['api_base']),
       defaultApiBase: _stringFrom(row['default_api_base']),
+      apiType: _stringFrom(row['api_type']),
       oauthAccount: _stringFrom(row['oauth_account']),
       oauthExpiresAt: _stringFrom(row['oauth_expires_at']),
       oauthLoginSupported: row['oauth_login_supported'] == true,

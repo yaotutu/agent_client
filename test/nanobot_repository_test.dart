@@ -890,6 +890,56 @@ void main() {
     expect(loggedOut.providers.single.configured, isFalse);
   });
 
+  test('repository updates provider settings through webui endpoint', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings/provider/update?provider=openrouter&api_key=sk-or-test&api_base=https%3A%2F%2Fopenrouter.ai%2Fapi%2Fv1&api_type=auto':
+          {
+            'providers': [
+              {
+                'name': 'openrouter',
+                'label': 'OpenRouter',
+                'configured': true,
+                'auth_type': 'api_key',
+                'api_key_required': true,
+                'api_key_hint': 'sk-...',
+                'api_base': 'https://openrouter.ai/api/v1',
+                'default_api_base': 'https://openrouter.ai/api/v1',
+                'api_type': 'auto',
+              },
+            ],
+          },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final settings = await repository.saveProviderSettings(
+      provider: 'openrouter',
+      apiKey: 'sk-or-test',
+      apiBase: 'https://openrouter.ai/api/v1',
+      apiType: 'auto',
+    );
+
+    expect(adapter.requests.last.key, contains('/provider/update'));
+    expect(settings.providers.single.name, 'openrouter');
+    expect(settings.providers.single.configured, isTrue);
+    expect(settings.providers.single.apiBase, 'https://openrouter.ai/api/v1');
+    expect(settings.providers.single.apiType, 'auto');
+  });
+
   test('repository maps apps action results by catalog kind', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {
