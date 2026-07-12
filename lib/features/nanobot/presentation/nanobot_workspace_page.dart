@@ -1904,6 +1904,8 @@ class _SettingsSurface extends StatelessWidget {
         snapshot: value,
         onBack: () => onOpenSection(NanobotSettingsSection.overview),
         onSave: onSaveProvider,
+        onProviderOAuthLogin: onProviderOAuthLogin,
+        onProviderOAuthLogout: onProviderOAuthLogout,
       );
     }
     if (section == NanobotSettingsSection.models) {
@@ -2078,6 +2080,8 @@ class _ProviderSettingsSurface extends StatefulWidget {
     required this.snapshot,
     required this.onBack,
     required this.onSave,
+    required this.onProviderOAuthLogin,
+    required this.onProviderOAuthLogout,
   });
 
   final NanobotSettingsSnapshot snapshot;
@@ -2089,6 +2093,8 @@ class _ProviderSettingsSurface extends StatefulWidget {
     String? apiType,
   })
   onSave;
+  final Future<void> Function(String provider) onProviderOAuthLogin;
+  final Future<void> Function(String provider) onProviderOAuthLogout;
 
   @override
   State<_ProviderSettingsSurface> createState() =>
@@ -2096,13 +2102,27 @@ class _ProviderSettingsSurface extends StatefulWidget {
 }
 
 class _ProviderSettingsSurfaceState extends State<_ProviderSettingsSurface> {
+  static const _localUnconfiguredProviderOrder = [
+    'vllm',
+    'ollama',
+    'lm_studio',
+    'atomic_chat',
+    'ovms',
+  ];
+
+  final _queryController = TextEditingController();
   final _apiKeyControllers = <String, TextEditingController>{};
   final _apiBaseControllers = <String, TextEditingController>{};
   final _apiTypeControllers = <String, TextEditingController>{};
+  final _visibleProviderKeys = <String>{};
+  final _editingProviderKeys = <String>{};
+  String? _expandedProvider;
+  String? _savingProvider;
 
   @override
   void initState() {
     super.initState();
+    _queryController.addListener(_handleDraftChanged);
     _syncControllers(widget.snapshot);
   }
 
@@ -2116,6 +2136,7 @@ class _ProviderSettingsSurfaceState extends State<_ProviderSettingsSurface> {
 
   @override
   void dispose() {
+    _queryController.dispose();
     for (final controller in [
       ..._apiKeyControllers.values,
       ..._apiBaseControllers.values,
@@ -2128,23 +2149,193 @@ class _ProviderSettingsSurfaceState extends State<_ProviderSettingsSurface> {
 
   void _syncControllers(NanobotSettingsSnapshot snapshot) {
     for (final provider in snapshot.providers) {
-      _apiKeyControllers.putIfAbsent(provider.name, TextEditingController.new);
+      _apiKeyControllers.putIfAbsent(
+        provider.name,
+        () => TextEditingController()..addListener(_handleDraftChanged),
+      );
       _apiBaseControllers.putIfAbsent(
         provider.name,
         () => TextEditingController(
           text: provider.apiBase ?? provider.defaultApiBase ?? '',
-        ),
+        )..addListener(_handleDraftChanged),
       );
       _apiTypeControllers.putIfAbsent(
         provider.name,
-        () => TextEditingController(text: provider.apiType ?? 'auto'),
+        () =>
+            TextEditingController(text: provider.apiType ?? 'auto')
+              ..addListener(_handleDraftChanged),
       );
+    }
+  }
+
+  void _handleDraftChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  List<NanobotProviderConfig> _filterProviders(
+    List<NanobotProviderConfig> providers,
+  ) {
+    final normalized = _queryController.text.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return providers;
+    }
+    return providers
+        .where((provider) {
+          final haystack = [
+            provider.name,
+            provider.label,
+            provider.apiBase,
+            provider.defaultApiBase,
+          ].whereType<String>().join(' ').toLowerCase();
+          return haystack.contains(normalized);
+        })
+        .toList(growable: false);
+  }
+
+  List<NanobotProviderConfig> _orderUnconfigured(
+    List<NanobotProviderConfig> providers,
+  ) {
+    final indexed = providers.indexed.toList();
+    indexed.sort((left, right) {
+      final rank =
+          _providerVisibilityRank(left.$2) - _providerVisibilityRank(right.$2);
+      if (rank != 0) {
+        return rank;
+      }
+      return left.$1.compareTo(right.$1);
+    });
+    return [for (final entry in indexed) entry.$2];
+  }
+
+  int _providerVisibilityRank(NanobotProviderConfig provider) {
+    final localRank = _localUnconfiguredProviderOrder.indexOf(provider.name);
+    if (localRank >= 0) {
+      return localRank;
+    }
+    if (!provider.apiKeyRequired) {
+      return 100;
+    }
+    return 10;
+  }
+
+  void _toggleProvider(String providerName) {
+    setState(() {
+      if (_expandedProvider == providerName) {
+        _expandedProvider = null;
+      } else {
+        if (_expandedProvider != null) {
+          _resetProviderDraft(_expandedProvider!);
+        }
+        _expandedProvider = providerName;
+      }
+    });
+  }
+
+  void _toggleProviderKey(String providerName) {
+    setState(() {
+      if (_visibleProviderKeys.contains(providerName)) {
+        _visibleProviderKeys.remove(providerName);
+      } else {
+        _visibleProviderKeys.add(providerName);
+      }
+    });
+  }
+
+  void _toggleProviderKeyEditing(String providerName) {
+    setState(() {
+      if (_editingProviderKeys.contains(providerName)) {
+        _editingProviderKeys.remove(providerName);
+      } else {
+        _apiKeyControllers[providerName]?.text = '';
+        _visibleProviderKeys.remove(providerName);
+        _editingProviderKeys.add(providerName);
+      }
+    });
+  }
+
+  void _resetProviderDraft(String providerName) {
+    final matching = widget.snapshot.providers.where(
+      (provider) => provider.name == providerName,
+    );
+    if (matching.isEmpty) {
+      return;
+    }
+    final provider = matching.first;
+    _apiKeyControllers[providerName]?.text = '';
+    _apiBaseControllers[providerName]?.text =
+        provider.apiBase ?? provider.defaultApiBase ?? '';
+    _apiTypeControllers[providerName]?.text = provider.apiType ?? 'auto';
+    _visibleProviderKeys.remove(providerName);
+    _editingProviderKeys.remove(providerName);
+  }
+
+  Future<void> _saveProvider(NanobotProviderConfig provider) async {
+    if (_savingProvider != null || provider.authType == 'oauth') {
+      return;
+    }
+    setState(() => _savingProvider = provider.name);
+    try {
+      await widget.onSave(
+        provider: provider.name,
+        apiKey: _apiKeyControllers[provider.name]!.text,
+        apiBase: _apiBaseControllers[provider.name]!.text,
+        apiType: _apiTypeControllers[provider.name]!.text,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _visibleProviderKeys.remove(provider.name);
+        _editingProviderKeys.remove(provider.name);
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _savingProvider = null);
+      }
+    }
+  }
+
+  Future<void> _runProviderOAuth(
+    NanobotProviderConfig provider, {
+    required bool login,
+  }) async {
+    if (_savingProvider != null) {
+      return;
+    }
+    setState(() => _savingProvider = provider.name);
+    try {
+      if (login) {
+        await widget.onProviderOAuthLogin(provider.name);
+      } else {
+        await widget.onProviderOAuthLogout(provider.name);
+      }
+      if (mounted) {
+        setState(() => _expandedProvider = provider.name);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingProvider = null);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final providers = widget.snapshot.providers;
+    final configured = _filterProviders(
+      providers
+          .where((provider) => provider.configured)
+          .toList(growable: false),
+    );
+    final unconfigured = _filterProviders(
+      _orderUnconfigured(
+        providers
+            .where((provider) => !provider.configured)
+            .toList(growable: false),
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2155,30 +2346,96 @@ class _ProviderSettingsSurfaceState extends State<_ProviderSettingsSurface> {
         ),
         const SizedBox(height: 8),
         const _SurfaceTitle('Providers'),
+        const SizedBox(height: 8),
+        const Text(
+          'Bring your own keys for model and capability providers.',
+          style: TextStyle(color: AppThemeTokens.mutedText, fontSize: 13),
+        ),
         const SizedBox(height: 16),
         if (providers.isEmpty)
           const _EmptySurface(text: 'No providers found')
-        else
-          _SettingsSection(
-            title: 'Configured providers',
-            rows: [
-              for (final provider in providers)
-                _ProviderSettingsRow(
-                  provider: provider,
-                  apiKeyController: _apiKeyControllers[provider.name]!,
-                  apiBaseController: _apiBaseControllers[provider.name]!,
-                  apiTypeController: _apiTypeControllers[provider.name]!,
-                  onSave: () => unawaited(
-                    widget.onSave(
-                      provider: provider.name,
-                      apiKey: _apiKeyControllers[provider.name]!.text,
-                      apiBase: _apiBaseControllers[provider.name]!.text,
-                      apiType: _apiTypeControllers[provider.name]!.text,
-                    ),
-                  ),
-                ),
-            ],
+        else ...[
+          TextField(
+            key: const ValueKey('provider-search-field'),
+            controller: _queryController,
+            decoration: const InputDecoration(
+              isDense: true,
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.search),
+              labelText: 'Search providers',
+            ),
           ),
+          const SizedBox(height: 16),
+          _SettingsSection(
+            title: 'Configured providers (${configured.length})',
+            rows: configured.isEmpty
+                ? const [_EmptySettingsRow('No configured providers')]
+                : [
+                    for (final provider in configured)
+                      _ProviderSettingsRow(
+                        provider: provider,
+                        expanded: _expandedProvider == provider.name,
+                        saving: _savingProvider == provider.name,
+                        keyVisible: _visibleProviderKeys.contains(
+                          provider.name,
+                        ),
+                        editingKey:
+                            !provider.configured ||
+                            _editingProviderKeys.contains(provider.name),
+                        apiKeyController: _apiKeyControllers[provider.name]!,
+                        apiBaseController: _apiBaseControllers[provider.name]!,
+                        apiTypeController: _apiTypeControllers[provider.name]!,
+                        onToggle: () => _toggleProvider(provider.name),
+                        onToggleKey: () => _toggleProviderKey(provider.name),
+                        onToggleKeyEditing: () =>
+                            _toggleProviderKeyEditing(provider.name),
+                        onReset: () =>
+                            setState(() => _resetProviderDraft(provider.name)),
+                        onSave: () => unawaited(_saveProvider(provider)),
+                        onOAuthLogin: () =>
+                            unawaited(_runProviderOAuth(provider, login: true)),
+                        onOAuthLogout: () => unawaited(
+                          _runProviderOAuth(provider, login: false),
+                        ),
+                      ),
+                  ],
+          ),
+          const SizedBox(height: 16),
+          _SettingsSection(
+            title: 'Not configured (${unconfigured.length})',
+            rows: unconfigured.isEmpty
+                ? const [_EmptySettingsRow('No providers match this search')]
+                : [
+                    for (final provider in unconfigured)
+                      _ProviderSettingsRow(
+                        provider: provider,
+                        expanded: _expandedProvider == provider.name,
+                        saving: _savingProvider == provider.name,
+                        keyVisible: _visibleProviderKeys.contains(
+                          provider.name,
+                        ),
+                        editingKey:
+                            !provider.configured ||
+                            _editingProviderKeys.contains(provider.name),
+                        apiKeyController: _apiKeyControllers[provider.name]!,
+                        apiBaseController: _apiBaseControllers[provider.name]!,
+                        apiTypeController: _apiTypeControllers[provider.name]!,
+                        onToggle: () => _toggleProvider(provider.name),
+                        onToggleKey: () => _toggleProviderKey(provider.name),
+                        onToggleKeyEditing: () =>
+                            _toggleProviderKeyEditing(provider.name),
+                        onReset: () =>
+                            setState(() => _resetProviderDraft(provider.name)),
+                        onSave: () => unawaited(_saveProvider(provider)),
+                        onOAuthLogin: () =>
+                            unawaited(_runProviderOAuth(provider, login: true)),
+                        onOAuthLogout: () => unawaited(
+                          _runProviderOAuth(provider, login: false),
+                        ),
+                      ),
+                  ],
+          ),
+        ],
       ],
     );
   }
@@ -2187,17 +2444,37 @@ class _ProviderSettingsSurfaceState extends State<_ProviderSettingsSurface> {
 class _ProviderSettingsRow extends StatelessWidget {
   const _ProviderSettingsRow({
     required this.provider,
+    required this.expanded,
+    required this.saving,
+    required this.keyVisible,
+    required this.editingKey,
     required this.apiKeyController,
     required this.apiBaseController,
     required this.apiTypeController,
+    required this.onToggle,
+    required this.onToggleKey,
+    required this.onToggleKeyEditing,
+    required this.onReset,
     required this.onSave,
+    required this.onOAuthLogin,
+    required this.onOAuthLogout,
   });
 
   final NanobotProviderConfig provider;
+  final bool expanded;
+  final bool saving;
+  final bool keyVisible;
+  final bool editingKey;
   final TextEditingController apiKeyController;
   final TextEditingController apiBaseController;
   final TextEditingController apiTypeController;
+  final VoidCallback onToggle;
+  final VoidCallback onToggleKey;
+  final VoidCallback onToggleKeyEditing;
+  final VoidCallback onReset;
   final VoidCallback onSave;
+  final VoidCallback onOAuthLogin;
+  final VoidCallback onOAuthLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -2211,134 +2488,297 @@ class _ProviderSettingsRow extends StatelessWidget {
         : 'Not configured';
     return Padding(
       key: ValueKey('provider-settings-${provider.name}'),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      provider.label,
-                      style: const TextStyle(
-                        color: AppThemeTokens.headingText,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      provider.apiBase ??
-                          provider.defaultApiBase ??
-                          provider.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppThemeTokens.mutedText,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                status,
-                style: TextStyle(
-                  color: provider.configured
-                      ? AppThemeTokens.success
-                      : AppThemeTokens.mutedText,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (isOauth)
-            Text(
-              provider.oauthAccount?.isNotEmpty == true
-                  ? 'Signed in as ${provider.oauthAccount}'
-                  : 'Use OAuth authentication from model settings.',
-              style: const TextStyle(
-                color: AppThemeTokens.mutedText,
-                fontSize: 12,
-              ),
-            )
-          else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final narrow = constraints.maxWidth < 560;
-                final fields = [
-                  TextField(
-                    key: ValueKey('provider-api-key-${provider.name}'),
-                    controller: apiKeyController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                      labelText: 'API key',
-                      hintText: provider.apiKeyHint ?? 'sk-...',
-                    ),
-                  ),
-                  TextField(
-                    key: ValueKey('provider-api-base-${provider.name}'),
-                    controller: apiBaseController,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                      labelText: 'API base',
-                      hintText: provider.defaultApiBase,
-                    ),
-                  ),
-                  TextField(
-                    key: ValueKey('provider-api-type-${provider.name}'),
-                    controller: apiTypeController,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                      labelText: 'API type',
-                    ),
-                  ),
-                ];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (narrow) ...[
-                      for (final field in fields) ...[
-                        field,
-                        const SizedBox(height: 10),
+          InkWell(
+            onTap: onToggle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          provider.label,
+                          style: const TextStyle(
+                            color: AppThemeTokens.headingText,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          provider.apiBase ??
+                              provider.defaultApiBase ??
+                              provider.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppThemeTokens.mutedText,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
-                    ] else
-                      Row(
-                        children: [
-                          for (
-                            var index = 0;
-                            index < fields.length;
-                            index++
-                          ) ...[
-                            Expanded(child: fields[index]),
-                            if (index < fields.length - 1)
-                              const SizedBox(width: 10),
-                          ],
-                        ],
-                      ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton(
-                        key: ValueKey('provider-save-${provider.name}'),
-                        onPressed: onSave,
-                        child: const Text('Save provider'),
-                      ),
                     ),
-                  ],
-                );
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    status,
+                    style: TextStyle(
+                      color: provider.configured
+                          ? AppThemeTokens.success
+                          : AppThemeTokens.mutedText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: AppThemeTokens.mutedText,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (expanded) ...[
+            const Divider(height: 1, color: AppThemeTokens.border),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: isOauth
+                  ? _ProviderOAuthRow(
+                      provider: provider,
+                      isSaving: saving,
+                      onLogin: onOAuthLogin,
+                      onLogout: onOAuthLogout,
+                    )
+                  : _ProviderApiKeyForm(
+                      provider: provider,
+                      saving: saving,
+                      keyVisible: keyVisible,
+                      editingKey: editingKey,
+                      apiKeyController: apiKeyController,
+                      apiBaseController: apiBaseController,
+                      apiTypeController: apiTypeController,
+                      onToggleKey: onToggleKey,
+                      onToggleKeyEditing: onToggleKeyEditing,
+                      onReset: onReset,
+                      onSave: onSave,
+                    ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProviderApiKeyForm extends StatelessWidget {
+  const _ProviderApiKeyForm({
+    required this.provider,
+    required this.saving,
+    required this.keyVisible,
+    required this.editingKey,
+    required this.apiKeyController,
+    required this.apiBaseController,
+    required this.apiTypeController,
+    required this.onToggleKey,
+    required this.onToggleKeyEditing,
+    required this.onReset,
+    required this.onSave,
+  });
+
+  final NanobotProviderConfig provider;
+  final bool saving;
+  final bool keyVisible;
+  final bool editingKey;
+  final TextEditingController apiKeyController;
+  final TextEditingController apiBaseController;
+  final TextEditingController apiTypeController;
+  final VoidCallback onToggleKey;
+  final VoidCallback onToggleKeyEditing;
+  final VoidCallback onReset;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final apiKey = apiKeyController.text.trim();
+    final apiBase = apiBaseController.text.trim();
+    final missingRequiredApiKey =
+        provider.apiKeyRequired && !provider.configured && apiKey.isEmpty;
+    final missingOptionalCredential =
+        !provider.apiKeyRequired &&
+        !provider.configured &&
+        apiKey.isEmpty &&
+        apiBase.isEmpty;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 560;
+        final fields = [
+          _ProviderApiKeyField(
+            provider: provider,
+            controller: apiKeyController,
+            keyVisible: keyVisible,
+            editingKey: editingKey,
+            onToggleKey: onToggleKey,
+            onToggleKeyEditing: onToggleKeyEditing,
+          ),
+          TextField(
+            key: ValueKey('provider-api-base-${provider.name}'),
+            controller: apiBaseController,
+            decoration: InputDecoration(
+              isDense: true,
+              border: const OutlineInputBorder(),
+              labelText: 'API base',
+              hintText: provider.defaultApiBase,
+            ),
+          ),
+          if (provider.name == 'openai')
+            DropdownButtonFormField<String>(
+              key: ValueKey('provider-api-type-${provider.name}'),
+              initialValue:
+                  _openAiApiTypeValues.contains(apiTypeController.text)
+                  ? apiTypeController.text
+                  : 'auto',
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+                labelText: 'API type',
+              ),
+              items: const [
+                DropdownMenuItem(value: 'auto', child: Text('Auto')),
+                DropdownMenuItem(
+                  value: 'chat_completions',
+                  child: Text('Chat Completions'),
+                ),
+                DropdownMenuItem(value: 'responses', child: Text('Responses')),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  apiTypeController.text = value;
+                }
               },
             ),
-        ],
+        ];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (narrow) ...[
+              for (final field in fields) ...[
+                field,
+                const SizedBox(height: 10),
+              ],
+            ] else
+              Row(
+                children: [
+                  for (var index = 0; index < fields.length; index++) ...[
+                    Expanded(child: fields[index]),
+                    if (index < fields.length - 1) const SizedBox(width: 10),
+                  ],
+                ],
+              ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(onPressed: onReset, child: const Text('Cancel')),
+                const SizedBox(width: 8),
+                FilledButton(
+                  key: ValueKey('provider-save-${provider.name}'),
+                  onPressed:
+                      saving ||
+                          missingRequiredApiKey ||
+                          missingOptionalCredential
+                      ? null
+                      : onSave,
+                  child: Text(saving ? 'Saving...' : 'Save provider'),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+const _openAiApiTypeValues = {'auto', 'chat_completions', 'responses'};
+
+class _ProviderApiKeyField extends StatelessWidget {
+  const _ProviderApiKeyField({
+    required this.provider,
+    required this.controller,
+    required this.keyVisible,
+    required this.editingKey,
+    required this.onToggleKey,
+    required this.onToggleKeyEditing,
+  });
+
+  final NanobotProviderConfig provider;
+  final TextEditingController controller;
+  final bool keyVisible;
+  final bool editingKey;
+  final VoidCallback onToggleKey;
+  final VoidCallback onToggleKeyEditing;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!editingKey) {
+      return TextField(
+        key: ValueKey('provider-api-key-${provider.name}'),
+        controller: TextEditingController(
+          text: provider.apiKeyHint ?? 'Configured key saved',
+        ),
+        readOnly: true,
+        decoration: InputDecoration(
+          isDense: true,
+          border: const OutlineInputBorder(),
+          labelText: 'API key',
+          suffixIcon: IconButton(
+            tooltip: 'Edit API key',
+            onPressed: onToggleKeyEditing,
+            icon: const Icon(Icons.edit, size: 18),
+          ),
+        ),
+      );
+    }
+    return TextField(
+      key: ValueKey('provider-api-key-${provider.name}'),
+      controller: controller,
+      obscureText: !keyVisible,
+      decoration: InputDecoration(
+        isDense: true,
+        border: const OutlineInputBorder(),
+        labelText: 'API key',
+        hintText: provider.configured
+            ? 'Leave blank to keep the configured key'
+            : provider.apiKeyHint ?? 'sk-...',
+        suffixIcon: IconButton(
+          tooltip: keyVisible ? 'Hide API key' : 'Show API key',
+          onPressed: onToggleKey,
+          icon: Icon(keyVisible ? Icons.visibility_off : Icons.visibility),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptySettingsRow extends StatelessWidget {
+  const _EmptySettingsRow(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+      child: Text(
+        text,
+        style: const TextStyle(color: AppThemeTokens.mutedText, fontSize: 13),
       ),
     );
   }

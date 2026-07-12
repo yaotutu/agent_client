@@ -641,6 +641,16 @@ void main() {
         provider: 'deepseek',
         providers: [
           NanobotProviderConfig(
+            name: 'openai',
+            label: 'OpenAI',
+            configured: true,
+            authType: 'api_key',
+            apiKeyHint: 'sk-...',
+            apiBase: 'https://api.openai.com/v1',
+            defaultApiBase: 'https://api.openai.com/v1',
+            apiType: 'responses',
+          ),
+          NanobotProviderConfig(
             name: 'openrouter',
             label: 'OpenRouter',
             configured: false,
@@ -669,8 +679,22 @@ void main() {
     await tester.tap(find.text('Providers'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Configured providers'), findsOneWidget);
+    expect(find.text('Configured providers (1)'), findsOneWidget);
+    expect(find.text('Not configured (1)'), findsOneWidget);
+    expect(find.byKey(const ValueKey('provider-search-field')), findsOneWidget);
     expect(find.text('OpenRouter'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('provider-api-key-openrouter')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('OpenRouter'));
+    await tester.pumpAndSettle();
+    final saveButton = tester.widget<FilledButton>(
+      find.byKey(const ValueKey('provider-save-openrouter')),
+    );
+    expect(saveButton.onPressed, isNull);
+
     await tester.enterText(
       find.byKey(const ValueKey('provider-api-key-openrouter')),
       'sk-or-test',
@@ -679,10 +703,10 @@ void main() {
       find.byKey(const ValueKey('provider-api-base-openrouter')),
       'https://openrouter.ai/api/v1',
     );
-    await tester.enterText(
-      find.byKey(const ValueKey('provider-api-type-openrouter')),
-      'auto',
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('provider-save-openrouter')),
     );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('provider-save-openrouter')));
     await tester.pumpAndSettle();
 
@@ -692,6 +716,56 @@ void main() {
     expect(request.apiKey, 'sk-or-test');
     expect(request.apiBase, 'https://openrouter.ai/api/v1');
     expect(request.apiType, 'auto');
+  });
+
+  testWidgets('settings providers page runs oauth provider actions', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository(
+      settingsSnapshot: const NanobotSettingsSnapshot(
+        model: 'gpt-5',
+        provider: 'openai_codex',
+        providers: [
+          NanobotProviderConfig(
+            name: 'openai_codex',
+            label: 'OpenAI Codex',
+            configured: true,
+            authType: 'oauth',
+            oauthAccount: 'codex@example.test',
+            oauthLoginSupported: true,
+          ),
+        ],
+      ),
+    );
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Providers'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Providers'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('OpenAI Codex'));
+    await tester.pumpAndSettle();
+    expect(find.text('OAuth authentication'), findsOneWidget);
+    expect(find.text('Signed in as codex@example.test'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('provider-oauth-logout-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.providerOAuthLogoutRequests, ['openai_codex']);
+    expect(repository.providerOAuthLoginRequests, isEmpty);
   });
 
   testWidgets('settings model configuration dialog creates and cancels', (
