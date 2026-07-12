@@ -31,9 +31,29 @@ class AppConfigController extends Notifier<AppConfig> {
     required String apiBaseUrl,
     required String apiKey,
   }) async {
-    final config = AppConfig(
+    final config = state.copyWith(
       apiBaseUrl: AppConfig.normalizeBaseUrl(apiBaseUrl),
       apiKey: apiKey.trim(),
+    );
+    await ref.read(appConfigStoreProvider).save(config);
+    state = config;
+  }
+
+  Future<void> saveAppearance({
+    required String theme,
+    required String language,
+    required String density,
+    required String activityMode,
+    required bool codeWrap,
+    required bool brandLogos,
+  }) async {
+    final config = state.copyWith(
+      appearanceTheme: theme,
+      appearanceLanguage: language,
+      appearanceDensity: density,
+      appearanceActivityMode: activityMode,
+      appearanceCodeWrap: codeWrap,
+      appearanceBrandLogos: brandLogos,
     );
     await ref.read(appConfigStoreProvider).save(config);
     state = config;

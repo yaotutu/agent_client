@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:agent_client/core/config/app_config.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_image_attachment_picker.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_voice_input_recorder.dart';
 import 'package:agent_client/app/theme/app_theme_tokens.dart';
@@ -1767,7 +1768,7 @@ class _SecondarySurface extends StatelessWidget {
   }
 }
 
-class _SettingsSurface extends StatelessWidget {
+class _SettingsSurface extends ConsumerWidget {
   const _SettingsSurface({
     required this.snapshot,
     required this.section,
@@ -1859,14 +1860,25 @@ class _SettingsSurface extends StatelessWidget {
   onFetchProviderModels;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final value = snapshot;
     if (value == null) {
       return const _EmptySurface(text: 'No settings loaded');
     }
     if (section == NanobotSettingsSection.appearance) {
       return _AppearanceSettingsSurface(
+        config: ref.watch(appConfigProvider),
         onBack: () => onOpenSection(NanobotSettingsSection.overview),
+        onSave: (config) => ref
+            .read(appConfigControllerProvider.notifier)
+            .saveAppearance(
+              theme: config.appearanceTheme,
+              language: config.appearanceLanguage,
+              density: config.appearanceDensity,
+              activityMode: config.appearanceActivityMode,
+              codeWrap: config.appearanceCodeWrap,
+              brandLogos: config.appearanceBrandLogos,
+            ),
       );
     }
     if (section == NanobotSettingsSection.webSearch) {
@@ -2087,9 +2099,15 @@ class _SettingsSurface extends StatelessWidget {
 }
 
 class _AppearanceSettingsSurface extends StatefulWidget {
-  const _AppearanceSettingsSurface({required this.onBack});
+  const _AppearanceSettingsSurface({
+    required this.config,
+    required this.onBack,
+    required this.onSave,
+  });
 
+  final AppConfig config;
   final VoidCallback onBack;
+  final Future<void> Function(AppConfig config) onSave;
 
   @override
   State<_AppearanceSettingsSurface> createState() =>
@@ -2098,12 +2116,54 @@ class _AppearanceSettingsSurface extends StatefulWidget {
 
 class _AppearanceSettingsSurfaceState
     extends State<_AppearanceSettingsSurface> {
-  String _theme = 'dark';
-  String _language = 'system';
-  String _density = 'comfortable';
-  String _activityMode = 'auto';
-  bool _codeWrap = true;
-  bool _brandLogos = false;
+  late String _theme;
+  late String _language;
+  late String _density;
+  late String _activityMode;
+  late bool _codeWrap;
+  late bool _brandLogos;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncFromConfig(widget.config);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AppearanceSettingsSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.config != widget.config) {
+      _syncFromConfig(widget.config);
+    }
+  }
+
+  void _syncFromConfig(AppConfig config) {
+    _theme = config.appearanceTheme;
+    _language = config.appearanceLanguage;
+    _density = config.appearanceDensity;
+    _activityMode = config.appearanceActivityMode;
+    _codeWrap = config.appearanceCodeWrap;
+    _brandLogos = config.appearanceBrandLogos;
+  }
+
+  void _save({
+    String? theme,
+    String? language,
+    String? density,
+    String? activityMode,
+    bool? codeWrap,
+    bool? brandLogos,
+  }) {
+    final config = widget.config.copyWith(
+      appearanceTheme: theme ?? _theme,
+      appearanceLanguage: language ?? _language,
+      appearanceDensity: density ?? _density,
+      appearanceActivityMode: activityMode ?? _activityMode,
+      appearanceCodeWrap: codeWrap ?? _codeWrap,
+      appearanceBrandLogos: brandLogos ?? _brandLogos,
+    );
+    unawaited(widget.onSave(config));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2129,7 +2189,10 @@ class _AppearanceSettingsSurfaceState
                 _SettingsChoiceOption('dark', 'Dark'),
               ],
               value: _theme,
-              onChanged: (value) => setState(() => _theme = value),
+              onChanged: (value) {
+                setState(() => _theme = value);
+                _save(theme: value);
+              },
             ),
             _SettingsChoiceRow(
               title: 'Language',
@@ -2139,7 +2202,10 @@ class _AppearanceSettingsSurfaceState
                 _SettingsChoiceOption('en', 'English'),
               ],
               value: _language,
-              onChanged: (value) => setState(() => _language = value),
+              onChanged: (value) {
+                setState(() => _language = value);
+                _save(language: value);
+              },
             ),
           ],
         ),
@@ -2155,7 +2221,10 @@ class _AppearanceSettingsSurfaceState
                 _SettingsChoiceOption('compact', 'Compact'),
               ],
               value: _density,
-              onChanged: (value) => setState(() => _density = value),
+              onChanged: (value) {
+                setState(() => _density = value);
+                _save(density: value);
+              },
             ),
             _SettingsChoiceRow(
               title: 'Activity detail',
@@ -2165,21 +2234,30 @@ class _AppearanceSettingsSurfaceState
                 _SettingsChoiceOption('expanded', 'Expanded'),
               ],
               value: _activityMode,
-              onChanged: (value) => setState(() => _activityMode = value),
+              onChanged: (value) {
+                setState(() => _activityMode = value);
+                _save(activityMode: value);
+              },
             ),
             _SettingsSwitchRow(
               title: 'Code wrapping',
               caption: 'Keep long code lines readable on smaller screens.',
               value: _codeWrap,
               switchKey: const ValueKey('appearance-code-wrap-switch'),
-              onChanged: (value) => setState(() => _codeWrap = value),
+              onChanged: (value) {
+                setState(() => _codeWrap = value);
+                _save(codeWrap: value);
+              },
             ),
             _SettingsSwitchRow(
               title: 'Brand logos',
               caption: 'Show third-party provider and CLI logos in Settings.',
               value: _brandLogos,
               switchKey: const ValueKey('appearance-brand-logos-switch'),
-              onChanged: (value) => setState(() => _brandLogos = value),
+              onChanged: (value) {
+                setState(() => _brandLogos = value);
+                _save(brandLogos: value);
+              },
             ),
           ],
         ),

@@ -50,6 +50,54 @@ void main() {
     );
   });
 
+  test('app config preserves webui local appearance preferences', () async {
+    final config = AppConfig.fromJson({
+      'apiBaseUrl': 'http://192.168.55.240:8765',
+      'apiKey': 'redhat',
+      'appearanceTheme': 'light',
+      'appearanceLanguage': 'en',
+      'appearanceDensity': 'compact',
+      'appearanceActivityMode': 'expanded',
+      'appearanceCodeWrap': false,
+      'appearanceBrandLogos': true,
+    });
+
+    expect(config.appearanceTheme, 'light');
+    expect(config.appearanceLanguage, 'en');
+    expect(config.appearanceDensity, 'compact');
+    expect(config.appearanceActivityMode, 'expanded');
+    expect(config.appearanceCodeWrap, isFalse);
+    expect(config.appearanceBrandLogos, isTrue);
+    expect(config.toJson(), containsPair('appearanceDensity', 'compact'));
+  });
+
+  test('app config controller saves appearance preferences', () async {
+    final store = _MemoryAppConfigStore();
+    final container = ProviderContainer(
+      overrides: [
+        appConfigStoreProvider.overrideWithValue(store),
+        initialAppConfigProvider.overrideWithValue(AppConfig.defaults),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(appConfigControllerProvider.notifier)
+        .saveAppearance(
+          theme: 'light',
+          language: 'en',
+          density: 'compact',
+          activityMode: 'expanded',
+          codeWrap: false,
+          brandLogos: true,
+        );
+
+    expect(container.read(appConfigProvider).appearanceTheme, 'light');
+    expect(store.saved?.appearanceDensity, 'compact');
+    expect(store.saved?.appearanceBrandLogos, isTrue);
+    expect(store.saved?.apiBaseUrl, AppConfig.defaultApiBaseUrl);
+  });
+
   test(
     'file app config store ignores unsupported local directory on load',
     () async {

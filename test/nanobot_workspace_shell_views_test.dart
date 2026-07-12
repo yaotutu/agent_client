@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:agent_client/core/config/app_config.dart';
 import 'package:agent_client/features/nanobot/application/nanobot_workspace_controller.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_providers.dart';
 import 'package:agent_client/features/nanobot/data/nanobot_repository.dart';
@@ -21,11 +22,22 @@ void main() {
     tester,
   ) async {
     final repository = _FakeNanobotRepository();
+    final configStore = _MemoryAppConfigStore();
     addTearDown(repository.dispose);
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          nanobotRepositoryProvider.overrideWithValue(repository),
+          appConfigStoreProvider.overrideWithValue(configStore),
+          initialAppConfigProvider.overrideWithValue(
+            AppConfig.defaults.copyWith(
+              appearanceTheme: 'dark',
+              appearanceDensity: 'comfortable',
+              appearanceCodeWrap: true,
+            ),
+          ),
+        ],
         child: const MaterialApp(home: NanobotWorkspacePage()),
       ),
     );
@@ -157,11 +169,22 @@ void main() {
     tester,
   ) async {
     final repository = _FakeNanobotRepository();
+    final configStore = _MemoryAppConfigStore();
     addTearDown(repository.dispose);
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          nanobotRepositoryProvider.overrideWithValue(repository),
+          appConfigStoreProvider.overrideWithValue(configStore),
+          initialAppConfigProvider.overrideWithValue(
+            AppConfig.defaults.copyWith(
+              appearanceTheme: 'dark',
+              appearanceDensity: 'comfortable',
+              appearanceCodeWrap: true,
+            ),
+          ),
+        ],
         child: const MaterialApp(home: NanobotWorkspacePage()),
       ),
     );
@@ -192,6 +215,7 @@ void main() {
           .selected,
       isTrue,
     );
+    expect(configStore.saved?.appearanceTheme, 'light');
 
     final densityCompact = find.byKey(
       const ValueKey('settings-choice-Density-compact'),
@@ -208,6 +232,7 @@ void main() {
           .selected,
       isTrue,
     );
+    expect(configStore.saved?.appearanceDensity, 'compact');
 
     final codeWrapSwitch = find.byKey(
       const ValueKey('appearance-code-wrap-switch'),
@@ -217,6 +242,7 @@ void main() {
     await tester.tap(codeWrapSwitch);
     await tester.pumpAndSettle();
     expect(tester.widget<Switch>(codeWrapSwitch).value, isFalse);
+    expect(configStore.saved?.appearanceCodeWrap, isFalse);
   });
 
   testWidgets('settings voice input detail mirrors webui fields and saves', (
@@ -3273,4 +3299,16 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
       status: 'available',
     ),
   ];
+}
+
+class _MemoryAppConfigStore implements AppConfigStore {
+  AppConfig? saved;
+
+  @override
+  Future<AppConfig?> load() async => saved;
+
+  @override
+  Future<void> save(AppConfig config) async {
+    saved = config;
+  }
 }
