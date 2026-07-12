@@ -2,6 +2,7 @@ enum NanobotShellView { chat, settings, apps, automations, skills }
 
 enum NanobotSettingsSection {
   overview,
+  appearance,
   models,
   providers,
   webSearch,

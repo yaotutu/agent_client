@@ -1864,6 +1864,11 @@ class _SettingsSurface extends StatelessWidget {
     if (value == null) {
       return const _EmptySurface(text: 'No settings loaded');
     }
+    if (section == NanobotSettingsSection.appearance) {
+      return _AppearanceSettingsSurface(
+        onBack: () => onOpenSection(NanobotSettingsSection.overview),
+      );
+    }
     if (section == NanobotSettingsSection.webSearch) {
       return _WebSearchSettingsSurface(
         snapshot: value,
@@ -1929,6 +1934,12 @@ class _SettingsSurface extends StatelessWidget {
         _SettingsSection(
           title: 'AI',
           rows: [
+            _SettingsOverviewRow(
+              title: 'Appearance',
+              value: 'Local',
+              caption: 'Theme, language, density, and local display choices.',
+              onTap: () => onOpenSection(NanobotSettingsSection.appearance),
+            ),
             _SettingsOverviewRow(
               title: 'Current model',
               value: value.model ?? 'unknown',
@@ -2072,6 +2083,188 @@ class _SettingsSurface extends StatelessWidget {
 
   String _settingsSafetyTitle(NanobotSettingsSnapshot value) {
     return value.isNativeHostSurface ? 'App safety' : 'Web safety';
+  }
+}
+
+class _AppearanceSettingsSurface extends StatefulWidget {
+  const _AppearanceSettingsSurface({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  State<_AppearanceSettingsSurface> createState() =>
+      _AppearanceSettingsSurfaceState();
+}
+
+class _AppearanceSettingsSurfaceState
+    extends State<_AppearanceSettingsSurface> {
+  String _theme = 'dark';
+  String _language = 'system';
+  String _density = 'comfortable';
+  String _activityMode = 'auto';
+  bool _codeWrap = true;
+  bool _brandLogos = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton.icon(
+          onPressed: widget.onBack,
+          icon: const Icon(Icons.chevron_left),
+          label: const Text('Settings'),
+        ),
+        const SizedBox(height: 8),
+        const _SurfaceTitle('Appearance'),
+        const SizedBox(height: 16),
+        _SettingsSection(
+          title: 'Interface',
+          rows: [
+            _SettingsChoiceRow(
+              title: 'Theme',
+              caption: 'Stored locally on this device.',
+              options: const [
+                _SettingsChoiceOption('light', 'Light'),
+                _SettingsChoiceOption('dark', 'Dark'),
+              ],
+              value: _theme,
+              onChanged: (value) => setState(() => _theme = value),
+            ),
+            _SettingsChoiceRow(
+              title: 'Language',
+              caption: 'Use the app language preference for settings copy.',
+              options: const [
+                _SettingsChoiceOption('system', 'System'),
+                _SettingsChoiceOption('en', 'English'),
+              ],
+              value: _language,
+              onChanged: (value) => setState(() => _language = value),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _SettingsSection(
+          title: 'Local preferences',
+          rows: [
+            _SettingsChoiceRow(
+              title: 'Density',
+              caption: 'Stored only on this device.',
+              options: const [
+                _SettingsChoiceOption('comfortable', 'Comfortable'),
+                _SettingsChoiceOption('compact', 'Compact'),
+              ],
+              value: _density,
+              onChanged: (value) => setState(() => _density = value),
+            ),
+            _SettingsChoiceRow(
+              title: 'Activity detail',
+              caption: 'Choose how much agent activity chrome to show.',
+              options: const [
+                _SettingsChoiceOption('auto', 'Auto'),
+                _SettingsChoiceOption('expanded', 'Expanded'),
+              ],
+              value: _activityMode,
+              onChanged: (value) => setState(() => _activityMode = value),
+            ),
+            _SettingsSwitchRow(
+              title: 'Code wrapping',
+              caption: 'Keep long code lines readable on smaller screens.',
+              value: _codeWrap,
+              switchKey: const ValueKey('appearance-code-wrap-switch'),
+              onChanged: (value) => setState(() => _codeWrap = value),
+            ),
+            _SettingsSwitchRow(
+              title: 'Brand logos',
+              caption: 'Show third-party provider and CLI logos in Settings.',
+              value: _brandLogos,
+              switchKey: const ValueKey('appearance-brand-logos-switch'),
+              onChanged: (value) => setState(() => _brandLogos = value),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsChoiceOption {
+  const _SettingsChoiceOption(this.value, this.label);
+
+  final String value;
+  final String label;
+}
+
+class _SettingsChoiceRow extends StatelessWidget {
+  const _SettingsChoiceRow({
+    required this.title,
+    required this.caption,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String caption;
+  final List<_SettingsChoiceOption> options;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final label = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppThemeTokens.headingText,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                caption,
+                style: const TextStyle(
+                  color: AppThemeTokens.mutedText,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          );
+          final choices = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final option in options)
+                ChoiceChip(
+                  key: ValueKey('settings-choice-$title-${option.value}'),
+                  label: Text(option.label),
+                  selected: value == option.value,
+                  onSelected: (_) => onChanged(option.value),
+                ),
+            ],
+          );
+          if (constraints.maxWidth < 520) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [label, const SizedBox(height: 12), choices],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: label),
+              const SizedBox(width: 12),
+              choices,
+            ],
+          );
+        },
+      ),
+    );
   }
 }
 

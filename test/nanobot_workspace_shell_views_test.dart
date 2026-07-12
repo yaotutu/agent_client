@@ -153,6 +153,72 @@ void main() {
     expect(find.text('Start a chat'), findsOneWidget);
   });
 
+  testWidgets('settings appearance detail mirrors webui local preferences', (
+    tester,
+  ) async {
+    final repository = _FakeNanobotRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: NanobotWorkspacePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Appearance'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Appearance'), findsWidgets);
+    expect(find.text('Interface'), findsOneWidget);
+    expect(find.text('Theme'), findsOneWidget);
+    expect(find.text('Language'), findsOneWidget);
+    expect(find.text('Local preferences'), findsOneWidget);
+    expect(find.text('Density'), findsOneWidget);
+    expect(find.text('Activity detail'), findsOneWidget);
+    expect(find.text('Code wrapping'), findsOneWidget);
+    expect(find.text('Brand logos'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('settings-choice-Theme-light')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<ChoiceChip>(
+            find.byKey(const ValueKey('settings-choice-Theme-light')),
+          )
+          .selected,
+      isTrue,
+    );
+
+    final densityCompact = find.byKey(
+      const ValueKey('settings-choice-Density-compact'),
+    );
+    await tester.ensureVisible(densityCompact);
+    await tester.pumpAndSettle();
+    await tester.tap(densityCompact);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<ChoiceChip>(
+            find.byKey(const ValueKey('settings-choice-Density-compact')),
+          )
+          .selected,
+      isTrue,
+    );
+
+    final codeWrapSwitch = find.byKey(
+      const ValueKey('appearance-code-wrap-switch'),
+    );
+    await tester.ensureVisible(codeWrapSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(codeWrapSwitch);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Switch>(codeWrapSwitch).value, isFalse);
+  });
+
   testWidgets('settings voice input detail mirrors webui fields and saves', (
     tester,
   ) async {
