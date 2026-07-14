@@ -328,6 +328,30 @@ void main() {
     expect(repository.transcribeDataUrl, 'data:audio/webm;base64,abc');
     expect(repository.transcribeDurationMs, 1234);
   });
+
+  test('workspace controller refreshes settings usage on overview', () async {
+    final repository = _FakeNanobotRepository();
+    final container = ProviderContainer(
+      overrides: [nanobotRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    addTearDown(repository.dispose);
+
+    final controller = container.read(
+      nanobotWorkspaceControllerProvider.notifier,
+    );
+    container.read(nanobotWorkspaceControllerProvider);
+    await pumpEventQueue();
+
+    await controller.openSettings();
+    await pumpEventQueue(times: 3);
+
+    final state = container.read(nanobotWorkspaceControllerProvider);
+    expect(repository.settingsUsageRequests, greaterThanOrEqualTo(1));
+    expect(state.settingsSnapshot?.usageDays.single.date, '2026-07-09');
+    expect(state.settingsSnapshot?.totalTokens, 900);
+    expect(state.settingsSnapshot?.requests30d, 5);
+  });
 }
 
 class _FakeNanobotRepository implements NanobotRepositoryPort {
@@ -357,6 +381,7 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   String? transcribeRequestId;
   String? transcribeDataUrl;
   int? transcribeDurationMs;
+  int settingsUsageRequests = 0;
   final attachedChatIds = <String>[];
   List<NanobotSendMedia> sentMedia = const [];
   List<NanobotCapabilityMention> sentCliApps = const [];
@@ -539,7 +564,26 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
 
   @override
   Future<NanobotSettingsSnapshot> fetchSettingsSnapshot() async {
-    return const NanobotSettingsSnapshot();
+    return const NanobotSettingsSnapshot(
+      usageDays: [
+        NanobotUsageDay(date: '2026-07-08', totalTokens: 100, requests: 1),
+      ],
+      totalTokens: 100,
+      requests30d: 1,
+    );
+  }
+
+  @override
+  Future<NanobotSettingsUsage> fetchSettingsUsage() async {
+    settingsUsageRequests += 1;
+    return const NanobotSettingsUsage(
+      days: [
+        NanobotUsageDay(date: '2026-07-09', totalTokens: 900, requests: 5),
+      ],
+      totalTokens: 900,
+      requests30d: 5,
+      activeDays30d: 1,
+    );
   }
 
   @override

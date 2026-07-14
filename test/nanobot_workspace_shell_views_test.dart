@@ -53,7 +53,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Settings'), findsWidgets);
     expect(find.text('Token Usage'), findsOneWidget);
-    expect(find.byKey(const ValueKey('usage-day-2026-07-08')), findsOneWidget);
+    expect(find.byKey(const ValueKey('usage-day-2026-07-09')), findsOneWidget);
     expect(find.text('AI'), findsOneWidget);
     expect(find.text('Current model'), findsOneWidget);
     expect(find.text('Capabilities'), findsOneWidget);
@@ -2829,6 +2829,18 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
           requiresRestart: false,
           version: '1.2.3',
         );
+  }
+
+  @override
+  Future<NanobotSettingsUsage> fetchSettingsUsage() async {
+    return const NanobotSettingsUsage(
+      days: [
+        NanobotUsageDay(date: '2026-07-09', totalTokens: 900, requests: 5),
+      ],
+      totalTokens: 900,
+      requests30d: 5,
+      activeDays30d: 1,
+    );
   }
 
   @override

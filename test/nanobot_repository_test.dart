@@ -367,6 +367,58 @@ void main() {
     expect(result.pypiUrl, 'https://pypi.org/project/nanobot');
   });
 
+  test('repository fetches lightweight settings usage endpoint', () async {
+    final adapter = _RouteAdapter({
+      'GET /webui/bootstrap': {
+        'token': 'token-1',
+        'ws_path': '/',
+        'expires_in': 300,
+      },
+      'GET /api/settings/usage': {
+        'days': [
+          {
+            'date': '2026-07-09',
+            'total_tokens': 900,
+            'estimated_tokens': 20,
+            'requests': 5,
+            'sources': {
+              'api': {'total_tokens': 400},
+            },
+          },
+        ],
+        'total_tokens': 1200,
+        'total_tokens_30d': 900,
+        'total_tokens_365d': 1200,
+        'peak_day_tokens': 900,
+        'current_streak_days': 3,
+        'longest_streak_days': 6,
+        'requests_30d': 5,
+        'active_days_30d': 1,
+      },
+    });
+    final dio = Dio(BaseOptions(baseUrl: 'https://nanobot.test'));
+    dio.httpClientAdapter = adapter;
+    final config = const NanobotConfig(
+      baseUrl: 'https://nanobot.test',
+      secret: 'redhat',
+    );
+    final api = NanobotApiClient(config: config, dio: dio);
+    final repository = NanobotRepository(
+      api: api,
+      ws: NanobotWsClient(config: config, bootstrap: api.bootstrap),
+    );
+
+    final usage = await repository.fetchSettingsUsage();
+
+    expect(adapter.requests.last.key, 'GET /api/settings/usage');
+    expect(usage.days.single.date, '2026-07-09');
+    expect(usage.days.single.totalTokens, 900);
+    expect(usage.days.single.sources['api'], 400);
+    expect(usage.totalTokens, 1200);
+    expect(usage.requests30d, 5);
+    expect(usage.activeDays30d, 1);
+  });
+
   test('repository saves web search settings through webui endpoint', () async {
     final adapter = _RouteAdapter({
       'GET /webui/bootstrap': {

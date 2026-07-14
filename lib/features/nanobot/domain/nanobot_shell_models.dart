@@ -129,6 +129,79 @@ class NanobotSettingsSnapshot {
   final String? version;
   final List<NanobotModelPreset> modelPresets;
   final List<NanobotProviderConfig> providers;
+
+  NanobotSettingsSnapshot withUsage(NanobotSettingsUsage usage) {
+    return NanobotSettingsSnapshot(
+      modelPreset: modelPreset,
+      model: model,
+      provider: provider,
+      contextWindowTokens: contextWindowTokens,
+      timezone: timezone,
+      botName: botName,
+      botIcon: botIcon,
+      webSearchProvider: webSearchProvider,
+      webSearchEnabled: webSearchEnabled,
+      webSearchMaxResults: webSearchMaxResults,
+      webSearchTimeoutSeconds: webSearchTimeoutSeconds,
+      webFetchUseJinaReader: webFetchUseJinaReader,
+      imageGenerationEnabled: imageGenerationEnabled,
+      imageGenerationProvider: imageGenerationProvider,
+      imageGenerationModel: imageGenerationModel,
+      imageGenerationDefaultAspectRatio: imageGenerationDefaultAspectRatio,
+      imageGenerationDefaultImageSize: imageGenerationDefaultImageSize,
+      imageGenerationMaxImagesPerTurn: imageGenerationMaxImagesPerTurn,
+      imageGenerationSaveDir: imageGenerationSaveDir,
+      transcriptionEnabled: transcriptionEnabled,
+      transcriptionProvider: transcriptionProvider,
+      transcriptionModel: transcriptionModel,
+      transcriptionLanguage: transcriptionLanguage,
+      transcriptionMaxDurationSec: transcriptionMaxDurationSec,
+      transcriptionMaxUploadMb: transcriptionMaxUploadMb,
+      isNativeHostSurface: isNativeHostSurface,
+      webuiAllowLocalServiceAccess: webuiAllowLocalServiceAccess,
+      webuiDefaultAccessMode: webuiDefaultAccessMode,
+      runtimeHost: runtimeHost,
+      runtimeGatewayPort: runtimeGatewayPort,
+      workspaceCaption: workspaceCaption,
+      usageDays: usage.days,
+      totalTokens: usage.totalTokens,
+      totalTokens30d: usage.totalTokens30d,
+      totalTokens365d: usage.totalTokens365d,
+      peakDayTokens: usage.peakDayTokens,
+      currentStreakDays: usage.currentStreakDays,
+      longestStreakDays: usage.longestStreakDays,
+      requests30d: usage.requests30d,
+      activeDays30d: usage.activeDays30d,
+      requiresRestart: requiresRestart,
+      version: version,
+      modelPresets: modelPresets,
+      providers: providers,
+    );
+  }
+}
+
+class NanobotSettingsUsage {
+  const NanobotSettingsUsage({
+    this.days = const [],
+    this.totalTokens = 0,
+    this.totalTokens30d = 0,
+    this.totalTokens365d = 0,
+    this.peakDayTokens = 0,
+    this.currentStreakDays = 0,
+    this.longestStreakDays = 0,
+    this.requests30d = 0,
+    this.activeDays30d = 0,
+  });
+
+  final List<NanobotUsageDay> days;
+  final int totalTokens;
+  final int totalTokens30d;
+  final int totalTokens365d;
+  final int peakDayTokens;
+  final int currentStreakDays;
+  final int longestStreakDays;
+  final int requests30d;
+  final int activeDays30d;
 }
 
 class NanobotModelPreset {

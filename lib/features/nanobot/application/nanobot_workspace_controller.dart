@@ -21,6 +21,7 @@ final nanobotWorkspaceControllerProvider =
 class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
   StreamSubscription<NanobotEvent>? _eventSubscription;
   StreamSubscription<Object?>? _statusSubscription;
+  Timer? _settingsUsageTimer;
   var _loadGeneration = 0;
   var _filePreviewGeneration = 0;
   var _skillDetailGeneration = 0;
@@ -38,6 +39,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     ref.onDispose(() {
       _eventSubscription?.cancel();
       _statusSubscription?.cancel();
+      _settingsUsageTimer?.cancel();
     });
     Future.microtask(initialize);
     return const NanobotWorkspaceState(isBootstrapping: true);
@@ -163,6 +165,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
   }
 
   void openChat() {
+    _stopSettingsUsagePolling();
     state = state.copyWith(activeView: NanobotShellView.chat);
   }
 
@@ -183,6 +186,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
         isLoadingSurface: false,
         clearError: true,
       );
+      _startSettingsUsagePolling();
     } on Object catch (error) {
       state = state.copyWith(
         isLoadingSurface: false,
@@ -197,6 +201,47 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
       settingsSection: section,
       clearError: true,
     );
+    if (section == NanobotSettingsSection.overview) {
+      _startSettingsUsagePolling();
+    } else {
+      _stopSettingsUsagePolling();
+    }
+  }
+
+  void _startSettingsUsagePolling() {
+    _settingsUsageTimer?.cancel();
+    unawaited(_refreshSettingsUsage());
+    _settingsUsageTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(_refreshSettingsUsage()),
+    );
+  }
+
+  void _stopSettingsUsagePolling() {
+    _settingsUsageTimer?.cancel();
+    _settingsUsageTimer = null;
+  }
+
+  Future<void> _refreshSettingsUsage() async {
+    if (state.activeView != NanobotShellView.settings ||
+        state.settingsSection != NanobotSettingsSection.overview ||
+        state.settingsSnapshot == null) {
+      return;
+    }
+    try {
+      final usage = await ref
+          .read(nanobotRepositoryProvider)
+          .fetchSettingsUsage();
+      final current = state.settingsSnapshot;
+      if (current == null ||
+          state.activeView != NanobotShellView.settings ||
+          state.settingsSection != NanobotSettingsSection.overview) {
+        return;
+      }
+      state = state.copyWith(settingsSnapshot: current.withUsage(usage));
+    } on Object {
+      // WebUI treats usage refresh as a non-blocking overview enhancement.
+    }
   }
 
   Future<void> saveWebSearchSettings({
@@ -947,6 +992,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
     Future<List<NanobotCatalogItem>> Function() load,
     NanobotWorkspaceState Function(List<NanobotCatalogItem> items) apply,
   ) async {
+    _stopSettingsUsagePolling();
     state = state.copyWith(
       activeView: view,
       isLoadingSurface: true,
@@ -964,6 +1010,7 @@ class NanobotWorkspaceController extends Notifier<NanobotWorkspaceState> {
   }
 
   Future<void> selectSession(NanobotSessionSummary session) async {
+    _stopSettingsUsagePolling();
     final generation = ++_loadGeneration;
     state = state.copyWith(
       selectedSessionKey: session.key,

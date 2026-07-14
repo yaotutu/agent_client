@@ -101,6 +101,10 @@ abstract class NanobotRepositoryPort {
     throw UnimplementedError('fetchSettingsSnapshot');
   }
 
+  Future<NanobotSettingsUsage> fetchSettingsUsage() {
+    throw UnimplementedError('fetchSettingsUsage');
+  }
+
   Future<NanobotProviderModelCatalog> fetchProviderModels(String provider) {
     throw UnimplementedError('fetchProviderModels');
   }
@@ -413,6 +417,11 @@ class NanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotSettingsUsage> fetchSettingsUsage() async {
+    return _settingsUsageFromDto(await api.fetchSettingsUsage());
+  }
+
+  @override
   Future<NanobotProviderModelCatalog> fetchProviderModels(
     String provider,
   ) async {
@@ -604,7 +613,7 @@ class NanobotRepository implements NanobotRepositoryPort {
   NanobotSettingsSnapshot _settingsSnapshotFromDto(
     NanobotSettingsDto settings,
   ) {
-    final usage = settings.usage;
+    final usage = _settingsUsageFromDto(settings.usage);
     final webSearch = settings.webSearch ?? const {};
     final web = settings.web ?? const {};
     final webFetch = _mapValue(web['fetch']) ?? const {};
@@ -662,7 +671,27 @@ class NanobotRepository implements NanobotRepositoryPort {
           _stringFrom(settings.agent['workspace_label']) ??
           _stringFrom(settings.agent['project_path']) ??
           _stringFrom(runtime['workspace_path']),
-      usageDays: [for (final day in usage?.days ?? const []) _usageDay(day)],
+      usageDays: usage.days,
+      totalTokens: usage.totalTokens,
+      totalTokens30d: usage.totalTokens30d,
+      totalTokens365d: usage.totalTokens365d,
+      peakDayTokens: usage.peakDayTokens,
+      currentStreakDays: usage.currentStreakDays,
+      longestStreakDays: usage.longestStreakDays,
+      requests30d: usage.requests30d,
+      activeDays30d: usage.activeDays30d,
+      requiresRestart: settings.requiresRestart,
+      version: settings.version?['current'] as String?,
+      modelPresets: [
+        for (final row in settings.modelPresets) _modelPreset(row),
+      ],
+      providers: [for (final row in settings.providers) _providerConfig(row)],
+    );
+  }
+
+  NanobotSettingsUsage _settingsUsageFromDto(NanobotSettingsUsageDto? usage) {
+    return NanobotSettingsUsage(
+      days: [for (final day in usage?.days ?? const []) _usageDay(day)],
       totalTokens: usage?.totalTokens ?? 0,
       totalTokens30d: usage?.totalTokens30d ?? 0,
       totalTokens365d: usage?.totalTokens365d ?? 0,
@@ -671,12 +700,6 @@ class NanobotRepository implements NanobotRepositoryPort {
       longestStreakDays: usage?.longestStreakDays ?? 0,
       requests30d: usage?.requests30d ?? 0,
       activeDays30d: usage?.activeDays30d ?? 0,
-      requiresRestart: settings.requiresRestart,
-      version: settings.version?['current'] as String?,
-      modelPresets: [
-        for (final row in settings.modelPresets) _modelPreset(row),
-      ],
-      providers: [for (final row in settings.providers) _providerConfig(row)],
     );
   }
 

@@ -265,6 +265,11 @@ class _FakeNanobotRepository implements NanobotRepositoryPort {
   }
 
   @override
+  Future<NanobotSettingsUsage> fetchSettingsUsage() async {
+    return const NanobotSettingsUsage();
+  }
+
+  @override
   Future<NanobotProviderModelCatalog> fetchProviderModels(
     String provider,
   ) async {
