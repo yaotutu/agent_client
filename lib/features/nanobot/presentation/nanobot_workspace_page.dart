@@ -7059,15 +7059,22 @@ class _McpCustomServerPanelState extends State<_McpCustomServerPanel> {
                       label: 'Command',
                       hintText: 'npx',
                     ),
-              FilledButton.icon(
+              FilledButton(
                 onPressed: _canSave && !_isSaving ? _saveCustom : null,
-                icon: _isSaving
-                    ? const SizedBox.square(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_isSaving)
+                      const SizedBox.square(
                         dimension: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.check),
-                label: const Text('Save MCP'),
+                    else
+                      const Icon(Icons.check),
+                    const SizedBox(width: 8),
+                    const Text('Save MCP'),
+                  ],
+                ),
               ),
             ];
             if (narrow) {
@@ -7168,15 +7175,22 @@ class _McpCustomServerPanelState extends State<_McpCustomServerPanel> {
           label: 'Import mcp.json',
           hintText: '{"mcpServers":{"docs":{"command":"npx"}}}',
         );
-        final button = FilledButton.icon(
+        final button = FilledButton(
           onPressed: _canImport && !_isImporting ? _importConfig : null,
-          icon: _isImporting
-              ? const SizedBox.square(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_isImporting)
+                const SizedBox.square(
                   dimension: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.storage_outlined),
-          label: const Text('Import'),
+              else
+                const Icon(Icons.storage_outlined),
+              const SizedBox(width: 8),
+              const Text('Import'),
+            ],
+          ),
         );
         if (constraints.maxWidth < 720) {
           return Column(
@@ -11751,7 +11765,7 @@ class _QueuedPromptStack extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 padding: EdgeInsets.zero,
                 itemCount: prompts.length,
-                onReorderItem: onReorder,
+                onReorder: onReorder,
                 itemBuilder: (context, index) {
                   final prompt = prompts[index];
                   return Padding(
